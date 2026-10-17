@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Datasets and large data files
+[Dd]ataset/
+[Dd]ata/
+*.csv
+*.xlsx
+.DS_Store
