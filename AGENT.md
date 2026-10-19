@@ -82,8 +82,7 @@ Semester_5_AML_DL/
 ├── requirements.txt                              # Root dependencies (without pinned versions)
 ├── scripts/
 │   ├── setup_environment.sh                      # Environment setup script (.venv, pip, requirements, ipykernel)
-│   ├── run_eda_pipeline.py                       # Python master runner (auto-bootstraps .venv, runs 6 NBs, parquet audit)
-│   └── run_eda_pipeline.sh                       # Shell wrapper (runs setup then Python runner)
+│   └── run_eda_pipeline.py                       # Python master runner (auto-bootstraps .venv, runs 6 NBs, parquet audit)
 ├── data/
 │   ├── Dataset/
 │   │   ├── Parquet/

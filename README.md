@@ -21,13 +21,10 @@ This project predicts surface water quality from physical and chemical measureme
 You can set up the environment and run the entire EDA pipeline with a single command:
 
 ```bash
-# Option A: Universal Python Runner (Auto-creates .venv, installs dependencies, runs all 6 notebooks):
+# Option A: One-line Universal Python Runner (runs environment setup first, then runs all 6 EDA notebooks):
 python3 scripts/run_eda_pipeline.py
 
-# Option B: Bash script wrapper:
-./scripts/run_eda_pipeline.sh
-
-# Option C: Manual two-step setup and execution:
+# Option B: Run environment setup script explicitly, then run pipeline:
 ./scripts/setup_environment.sh
 .venv/bin/python scripts/run_eda_pipeline.py
 ```
@@ -106,8 +103,7 @@ Semester_5_AML_DL/
 ├── requirements.txt                              # Root dependencies (without pinned versions)
 ├── scripts/
 │   ├── setup_environment.sh                      # Dedicated .venv setup & requirements installer
-│   ├── run_eda_pipeline.py                       # Python master runner (auto-boots .venv, runs 6 notebooks)
-│   └── run_eda_pipeline.sh                       # One-liner bash runner (runs setup + pipeline.py)
+│   └── run_eda_pipeline.py                       # Python master runner (auto-boots .venv, runs 6 notebooks)
 ├── data/
 │   ├── Dataset/
 │   │   ├── Parquet/                              # Tracked in Git (Snappy compressed, fast I/O)
