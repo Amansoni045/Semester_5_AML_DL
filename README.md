@@ -5,3 +5,5 @@
 - **Directory Structure**:
   - `Dataset/Parquet/`: Compressed Apache Parquet format (`.parquet`, Snappy compression) tracked in Git for fast I/O and low storage footprint (~82% reduction from raw CSV).
   - `Dataset/CSV/`: Raw CSV files stored locally and excluded from Git via `.gitignore`.
+  - `Summaries/`: Summary statistics for combined and country-wise datasets (available in both `.xlsx` and `.parquet` formats).
+  - `Data Collection Sources/`: Data collection source details (in both `.xlsx` and `.parquet` formats).
