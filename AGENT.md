@@ -1,75 +1,90 @@
-# AGENT CONTEXT & OPERATIONAL GUIDE
+# AGENT MASTER CONTEXT & OPERATIONAL GUIDE
 
-> **Project**: Project 18 — Water Quality Prediction via Gradient Boosting & Deep Neural Networks  
+> **Project**: Project 18 — Water Quality Prediction via Gradient Boosting and Deep Neural Networks  
 > **Course**: Semester 5 Applied Machine Learning & Deep Learning (AML / DL)  
-> **My Role in Team**: **Role 2 — Dataset Collection & Exploratory Data Analysis (EDA)**  
+> **Scope**: Master AI Instructions across the entire end-to-end project (All 6 Roles)  
 > **Last Updated**: 2026-10-19  
 
 ---
 
-## 1. Project Overview & Objective
+## 1. Project Overview & The Hybrid Machine Learning / Deep Learning Logic
 
-The goal of this project is to predict surface water quality from physical and chemical measurements.  
-The team is building a hybrid modeling pipeline:
-1. **AML Baseline**: Tree models (Random Forest, XGBoost) on tabular water quality features.
-2. **Deep Learning Model**: A regularized Multi-Layer Perceptron (MLP) to capture smooth and nonlinear chemical interactions.
-3. **Comparison**: Fair evaluation using site-separated or time-separated splits reporting MAE, RMSE, $R^2$ (regression) and Macro F1 (classification).
+This project aims to predict documented surface water quality indices and categorical classes from physical and chemical measurements across freshwater and marine environments.
+
+### The AML / DL Hybrid Logic
+1. **AML Baseline (Tree Models)**:
+   - Algorithms: **Random Forest** and **XGBoost**.
+   - Input Features: `pH`, `Dissolved Oxygen`, `Temperature`, `Biochemical Oxygen Demand`, `Ammonia`, `Orthophosphate`, `Nitrogen`, `Nitrate`.
+   - Strengths: Strong performance on tabular data and robust to non-linear step-functions.
+2. **Deep Learning Model (Neural Network)**:
+   - Architecture: Small, regularized **Multi-Layer Perceptron (MLP)**.
+   - Purpose: Capture smooth combinations and calibrated uncertainty when multiple chemical sensors interact non-linearly.
+   - Dual-Head Setup: A regression head for the continuous index (`CCME_Values`) and a classification head for the categorical grade (`CCME_WQI`).
+3. **Fair Evaluation Protocol**:
+   - Use site-separated or time-separated splits (avoid naive random splitting).
+   - Regression Metrics: Mean Absolute Error (**MAE**), Root Mean Squared Error (**RMSE**), and Coefficient of Determination (**$R^2$**).
+   - Classification Metrics: **Macro F1**, Class-wise Accuracy, Confusion Matrix, and Brier Score / Calibration.
 
 ---
 
-## 2. My Specific Role: Dataset Collection & EDA (Role 2)
+## 2. Project Team Division (All 6 Roles)
 
-As **Role 2**, my responsibility is to:
-- Collect, validate, and maintain high-quality surface water quality datasets.
-- Perform comprehensive **Exploratory Data Analysis (EDA)** across structured Jupyter Notebooks.
-- Inspect distributions, handle missing values, detect sensor outliers, and uncover feature correlations.
-- Prepare and export clean, structured datasets in `.parquet` format into `data/GeneratedOutput/` for downstream teammates (Preprocessing, Feature Engineering, AML, DL).
-- Keep simple, plain-English documentation updated in `docs/` so anyone reviewing the project understands exactly what was done and why.
+This project is divided among team members across 6 collaborative areas:
+
+| Role # | Functional Area | Primary Responsibilities | Current Status |
+|---|---|---|---|
+| **Role 1** | **Literature Review & Research** | Research water quality prediction literature (Breiman 2001, Goodfellow 2016), compare methods, identify research gaps. | In Progress |
+| **Role 2** | **Dataset Collection & EDA** | Find multi-country datasets, handle missing values, clean sensor sentinels, perform full EDA across 6 notebooks, export summaries. | **Completed** |
+| **Role 3** | **Data Preprocessing & Feature Engineering** | Clean/impute data, scale inputs for MLP, engineer features, create **70 / 15 / 15 Train/Val/Test** splits. | **Up Next** |
+| **Role 4** | **Machine Learning Models** | Implement and tune Random Forest and XGBoost baselines; feature importance with SHAP. | Queued |
+| **Role 5** | **Deep Learning, Theory & Evaluation** | Train regularized MLP neural net, implement regression/classification heads, evaluate calibration & error metrics. | Queued |
+| **Role 6** | **Integration, GitHub & Documentation** | Maintain repository integrity, consolidate final report, presentation, and viva preparation. | Ongoing |
 
 ---
 
-## 3. What We Are Predicting (Targets $y$)
+## 3. Target Variables & What We Are Predicting
 
 We use the Canadian Council of Ministers of the Environment Water Quality Index (**CCME WQI**):
 
-| Target Column | Type | Values / Categories | Evaluation Metrics |
+| Target Column | Nature | Values / Range | Purpose / Loss Function |
 |---|---|---|---|
-| `CCME_Values` | **Continuous (Regression)** | Range: `0.0` to `100.0` | MAE, RMSE, $R^2$ |
-| `CCME_WQI` | **Categorical (Classification)** | `Excellent` ($95-100$), `Good` ($80-94$), `Fair` ($65-79$), `Marginal` ($45-64$), `Poor` ($0-44$) | Macro F1, Accuracy, Confusion Matrix, Calibration |
+| `CCME_Values` | **Continuous (Regression)** | `0.0` to `100.0` | Predict precise water quality score; Loss: MSE / Huber Loss. |
+| `CCME_WQI` | **Categorical (Classification)** | `Excellent` ($95-100$), `Good` ($80-94$), `Fair` ($65-79$), `Marginal` ($45-64$), `Poor` ($0-44$) | Multi-class classification; Loss: Class-weighted Cross-Entropy or Focal Loss (addresses 50.1% Excellent vs 3.0% Poor imbalance). |
 
 ---
 
 ## 4. Input Features ($X$) & Metadata
 
-### Physical & Chemical Parameters ($X$)
-1. `pH (ph units)`: Acidity/alkalinity standard (Standard: 8.5)
-2. `Dissolved Oxygen (mg/l)`: Oxygen available for aquatic life (Standard: 14.0)
-3. `Temperature (cel)`: Water temperature (Standard: 25.0)
-4. `Biochemical Oxygen Demand (mg/l)`: Organic matter breakdown demand (Standard: 6.0)
-5. `Ammonia (mg/l)`: Toxic breakdown product (Standard: 0.5)
-6. `Orthophosphate (mg/l)`: Soluble reactive phosphorus (Standard: 0.05)
-7. `Nitrogen (mg/l)`: Total nitrogen nutrient load (Standard: 20.0)
-8. `Nitrate (mg/l)`: Oxidized nitrogen compound (Standard: 45.0)
+### Chemical & Physical Predictors ($X$)
+1. `pH (ph units)`: Standard limit: 8.5 (Physically bounded between 3.0 and 12.0)
+2. `Dissolved Oxygen (mg/l)`: Standard limit: 14.0 (Henry's Law saturation checked)
+3. `Temperature (cel)`: Standard limit: 25.0°C
+4. `Biochemical Oxygen Demand (mg/l)`: Standard limit: 6.0 (Organic pollution load)
+5. `Ammonia (mg/l)`: Standard limit: 0.5 (Toxic breakdown product)
+6. `Orthophosphate (mg/l)`: Standard limit: 0.05 (Key driver of eutrophication, $r = -0.66$)
+7. `Nitrogen (mg/l)`: Standard limit: 20.0 (Total nutrient load)
+8. `Nitrate (mg/l)`: Standard limit: 45.0 (Oxidized nitrogen runoff)
 
-### Spatio-Temporal Metadata
-- `Country`: Australia, Canada, China, England, India, Ireland, USA
-- `Area`: Monitoring station, river basin, or catchment identifier
-- `Waterbody Type`: River, Stream, Lake, Marine, Estuary, Transitional
-- `Date`: Sampling date formatted as `DD-MM-YYYY`
+### Metadata Attributes
+- `Country`: England (2.13M), USA (1.88M), Ireland (235k), China (46k), Canada (4.0k), India (3.6k), Australia (87).
+- `Area`: 64,665 unique monitoring stations / river catchments.
+- `Waterbody Type`: River (43.2%), Stream (34.1%), Effluent (14.0%), Lake (3.6%), Estuary, Marine, etc.
+- `Date`: Sampling date formatted as `DD-MM-YYYY` (1940 to 2023).
 
 ---
 
-## 5. File & Directory Layout
+## 5. Global Repository Layout
 
 ```
 Semester_5_AML_DL/
-├── AGENT.md                                      # Master AI context & instructions (this file)
-├── README.md                                     # Public project README
+├── AGENT.md                                      # Master AI instructions for the entire project
+├── README.md                                     # Main public README linking all resources
+├── requirements.txt                              # Root dependencies (without pinned versions)
 ├── data/
 │   ├── Dataset/
 │   │   ├── Parquet/
 │   │   │   ├── Combined Data/
-│   │   │   │   └── Combined_dataset.parquet      # Master dataset (4,297,895 rows, Snappy)
+│   │   │   │   └── Combined_dataset.parquet      # 4,297,895 records × 14 columns (Snappy)
 │   │   │   └── Country-Wise Data/
 │   │   │       ├── Australia_dataset.parquet     # 87 rows
 │   │   │       ├── Canada_dataset.parquet        # 3,995 rows
@@ -78,74 +93,54 @@ Semester_5_AML_DL/
 │   │   │       ├── India_dataset.parquet         # 3,633 rows
 │   │   │       ├── Ireland_dataset.parquet       # 235,019 rows
 │   │   │       └── USA_dataset.parquet           # 1,879,966 rows
-│   │   └── CSV/                                  # Raw CSVs (ignored by .gitignore)
+│   │   └── CSV/                                  # Local raw CSVs (ignored by .gitignore)
 │   ├── Data Collection Sources/
-│   │   ├── DataCollectionSources.parquet         # Source provenance table (153 sources)
-│   │   └── DataCollectionSources.xlsx            # Source Excel reference (ignored by .gitignore)
-│   └── GeneratedOutput/                          # ALL output data from notebooks goes here (.parquet)
-├── nootbooks/                                    # EDA and modeling Jupyter Notebooks
-└── docs/                                         # Easy English project & EDA documentation
+│   │   ├── DataCollectionSources.parquet         # 153 official provenance records (Snappy)
+│   │   └── DataCollectionSources.xlsx            # Raw Excel reference (ignored by .gitignore)
+│   └── GeneratedOutput/
+│       └── 01.EDA/                               # All 6 analytical Parquet outputs from EDA
+├── nootbooks/
+│   └── 01.EDA/                                   # All 6 fully executed EDA Jupyter notebooks
+└── docs/
+    ├── EDA_REPORT.md                             # Single comprehensive EDA scientific report
+    └── environment_setup.md                      # Virtual environment (.venv) setup guide
 ```
 
 ---
 
 ## 6. Golden Rules for AI Operations
 
-1. **Parquet Only**:
-   - Always load from and save to `.parquet` format.
-   - **Always use `compression='snappy'`** when saving `.parquet` files so they open smoothly in VS Code's **Parquetly** extension without codec errors.
-   - Never output `.csv` or `.xlsx` files into Git.
-2. **Data Output Location**:
-   - Any data generated, cleaned, or filtered by notebooks MUST be saved into `data/GeneratedOutput/<filename>.parquet`.
-3. **Notebook Organization**:
-   - Place all Jupyter notebooks inside `nootbooks/`.
-   - Name them with sequential numbers and descriptive titles (e.g., `01_dataset_overview_and_summary.ipynb`, `02_missing_values_and_imputation_analysis.ipynb`, etc.).
-   - Each notebook must be self-contained: loads data from `data/`, executes analysis, and exports resulting data to `data/GeneratedOutput/`.
-4. **Documentation in Easy English**:
-   - Write documentation in `docs/` using simple, clear, conversational English.
-   - Maintain a running log of what was analyzed, key insights found, and recommendations for the modeling team.
-5. **Always Update `AGENT.md`**:
-   - Whenever a new task is completed, a new notebook is created, or new data is produced, immediately update the **Task Log & Current Progress** section in this file.
+1. **Parquet with Snappy Only**:
+   - Always read and write `.parquet` files using **`compression='snappy'`**.
+   - Ensures universal compatibility with the VS Code **Parquetly** extension, DuckDB, Polars, and PyArrow.
+   - Never commit `.csv` or `.xlsx` files into Git.
+2. **Data Leakage Safeguards**:
+   - Do not allow models to predict `CCME_Values` from the exact constituent inputs without acknowledging mathematical leakage.
+   - Impute missing data **strictly within the training split** (never compute global medians across test sets).
+   - Scale inputs specifically for the MLP using parameters derived only from `train`.
+3. **Data Splitting Architecture (Handoff from Role 2 to Role 3)**:
+   - Target Split: **70% Train, 15% Validation, 15% Test**.
+   - Must be stratified across `Country`, `Waterbody Type`, and `CCME_WQI` to maintain identical class ratios and prevent station-level memorization.
+4. **Notebooks & Output Conventions**:
+   - Keep notebooks in numbered stage folders under `nootbooks/` (e.g. `nootbooks/01.EDA/`, `nootbooks/02.Preprocessing/`, etc.).
+   - Save corresponding generated data under `data/GeneratedOutput/<stage>/`.
+5. **Continuous Documentation Updates**:
+   - Whenever any phase or role completes a task, update `AGENT.md` and document results in `docs/`.
 
 ---
 
-## 7. The 6-Stage Pure EDA Architecture (Role 2 Scope) — COMPLETED
+## 7. Master Task Log & Progress Tracker
 
-Since our responsibility is strictly **Role 2: Dataset Collection & EDA**, our notebooks focus 100% on exploratory analysis, data profiling, anomaly detection, and geochemical relationships. Data splitting and preprocessing pipelines belong to **Role 3: Data Preprocessing & Feature Engineering**.
-
-The 6 pure EDA notebooks in `nootbooks/01.EDA/` (all executed with embedded figures):
-
-- [x] **Notebook 1: `nootbooks/01.EDA/01_data_architecture_and_profiling.ipynb`**
-  - High-dimensional profiling, memory footprints, country distributions, waterbody breakdowns, sampling frequencies.
-  - Output: `data/GeneratedOutput/01.EDA/01_dataset_summary_profile.parquet` (Snappy)
-- [x] **Notebook 2: `nootbooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb`**
-  - Sensor missingness patterns, co-occurrence matrices, dendrogram clustering, and country-level sensor protocols.
-  - Output: `data/GeneratedOutput/01.EDA/02_missingness_patterns.parquet` (Snappy)
-- [x] **Notebook 3: `nootbooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb`**
-  - Cleaning sensor error sentinels (`-999999.0`, `pH 67115.0`), Henry's Law DO-Temperature saturation bounds, detection limit offsets.
-  - Output: `data/GeneratedOutput/01.EDA/03_cleaned_physically_validated.parquet` (Snappy)
-- [x] **Notebook 4: `nootbooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb`**
-  - Pearson & Spearman correlation matrices, $N:P$ nutrient ratios, BOD-DO oxygen sag curves.
-  - Output: `data/GeneratedOutput/01.EDA/04_feature_correlations.parquet` (Snappy)
-- [x] **Notebook 5: `nootbooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb`**
-  - Multi-decade historical evolution (1940–2023), seasonal cyclic dynamics, waterbody comparisons (rivers, streams, lakes, coastal).
-  - Output: `data/GeneratedOutput/01.EDA/05_temporal_spatial_aggregates.parquet` (Snappy)
-- [x] **Notebook 6: `nootbooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb`**
-  - Target score analysis (`CCME_Values` spike at 100), class imbalance (Excellent 50.1% vs Poor 3.0%), mathematical leakage audit.
-  - Formulates **70 / 15 / 15 Splitting Guidelines** as the formal handoff to Role 3.
-  - Output: `data/GeneratedOutput/01.EDA/06_target_audit_and_splitting_guidelines.parquet` (Snappy)
-
----
-
-## 8. Task Log & Current Progress
-
-| Date | Step | Description | Output Files | Status |
+| Date | Phase / Role | Key Milestone | Artifacts Produced | Status |
 |---|---|---|---|---|
-| 2026-10-19 | Dataset Collection | Harvested 4.29M rows across 7 nations (England, USA, Ireland, China, Canada, India, Australia) with exact CCME WQI | `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet` | Completed |
-| 2026-10-19 | Parquet Compatibility | Re-saved all Parquet datasets with `snappy` compression for full Parquetly viewing | All `.parquet` files in `data/` | Completed |
-| 2026-10-19 | Agent Context Setup | Created `AGENT.md`, established workflow between `nootbooks/`, `docs/`, and `data/GeneratedOutput/` | `AGENT.md`, `docs/` | Completed |
-| 2026-10-19 | Deep Data Profiling | Profiled all 4.3M rows; identified sentinels (-999999, pH 67115), sensor missingness, and target distributions | Terminal execution logs | Completed |
-| 2026-10-19 | Comprehensive EDA Plan | Designed modular EDA pipeline and 70/15/15 splitting strategy in `docs/01_comprehensive_eda_plan.md` | `docs/01_comprehensive_eda_plan.md` | Completed |
-| 2026-10-19 | 6-Notebook EDA Execution | Generated & executed all 6 EDA notebooks with embedded plots & exported 6 Snappy Parquet summary datasets | `nootbooks/01.EDA/*.ipynb`, `data/GeneratedOutput/01.EDA/*.parquet` | Completed |
-
-
+| 2026-10-19 | Role 2 (Collection) | Aggregated 4.29M rows across 7 countries; computed exact CCME WQI | `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet` | **Completed** |
+| 2026-10-19 | Role 2 (Collection) | Re-encoded all Parquet files with Snappy compression for Parquetly viewer | All Parquet files in `data/` | **Completed** |
+| 2026-10-19 | Role 2 (EDA) | Profiled 4.3M rows; discovered sentinels (-999999, pH 67115) & missingness mechanisms | Profiling execution logs | **Completed** |
+| 2026-10-19 | Role 2 (EDA) | Built & executed all 6 Pure EDA Notebooks with embedded plots | `nootbooks/01.EDA/*.ipynb` (6 notebooks) | **Completed** |
+| 2026-10-19 | Role 2 (EDA) | Exported 6 analytical summary Parquet datasets | `data/GeneratedOutput/01.EDA/*.parquet` (6 files) | **Completed** |
+| 2026-10-19 | Role 2 (EDA) | Compiled single unified EDA scientific report | `docs/EDA_REPORT.md` | **Completed** |
+| 2026-10-19 | Role 6 (Setup) | Created root `requirements.txt` and virtual environment setup guide | `requirements.txt`, `docs/environment_setup.md` | **Completed** |
+| Next | **Role 3 (Preprocessing)** | Build clean imputation pipeline, feature scaling, and 70/15/15 stratified train/val/test splits | `nootbooks/02.Preprocessing/`, `data/GeneratedOutput/02.Preprocessing/` | **Up Next** |
+| Next | **Role 4 (AML Models)** | Train and tune Random Forest and XGBoost baselines; evaluate MAE/RMSE/R2 and Macro F1 | `nootbooks/03.AML_Models/` | Queued |
+| Next | **Role 5 (Deep Learning)** | Train regularized dual-head MLP; evaluate calibration, uncertainty, and SHAP explainability | `nootbooks/04.Deep_Learning/` | Queued |
+| Next | **Role 6 (Integration)** | Compile final comparative benchmark report, presentation slide deck, and viva prep | `docs/FINAL_REPORT.md` | Queued |

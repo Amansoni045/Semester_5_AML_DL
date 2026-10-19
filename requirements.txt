@@ -1,0 +1,19 @@
+# Core Data Manipulation & I/O
+pandas
+numpy
+pyarrow
+scipy
+
+# Visualization
+matplotlib
+seaborn
+
+# Machine Learning & Deep Learning
+scikit-learn
+xgboost
+torch
+
+# Notebook & Environment Support
+nbformat
+ipykernel
+jupyter
