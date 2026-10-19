@@ -119,7 +119,7 @@ We evaluated both linear (Pearson) and monotonic non-linear (Spearman) relations
 
 ---
 
-## 7. Target Behavior, Leakage Warning & Handoff to Role 3
+## 7. Target Metric Behavior & Data Leakage Audit
 
 ### Target Distributions
 - **Continuous Score (`CCME_Values`)**:
@@ -138,16 +138,7 @@ $$\text{WQI} = 100 - \frac{\sqrt{F_1^2 + F_2^2 + F_3^2}}{1.732}$$
 > [!WARNING]
 > If a machine learning model is trained on all 8 clean constituent parameters to predict CCME WQI, it will merely memorize the algebraic arithmetic rather than learning environmental chemistry. The authentic machine learning objective is predicting water quality from **sparse physical sensor proxies** (`Temperature`, `pH`, `Dissolved Oxygen`) or **forecasting future water quality** from historical lag measurements.
 
-### Specifications for Role 3: 70 / 15 / 15 Stratified Split
-To prevent station-level or temporal data leakage during model training:
-
-| Partition | Share | Record Count | Stratification Strategy | Target Role |
-|---|---|---|---|---|
-| **Training Set** | **70%** | ~3,008,526 rows | Stratified across `Country`, `Waterbody Type`, and `CCME_WQI` | Role 4 (XGBoost/RF) & Role 5 (MLP) |
-| **Validation Set** | **15%** | ~644,684 rows | Stratified across `Country`, `Waterbody Type`, and `CCME_WQI` | Hyperparameter tuning & early stopping |
-| **Test Set** | **15%** | ~644,685 rows | Stratified across `Country`, `Waterbody Type`, and `CCME_WQI` | Final unbiased evaluation (MAE, RMSE, $R^2$, Macro F1) |
-
-*Generated Output*: [`data/GeneratedOutput/01.EDA/06_target_audit_and_splitting_guidelines.parquet`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/data/GeneratedOutput/01.EDA/06_target_audit_and_splitting_guidelines.parquet)  
+*Generated Output*: [`data/GeneratedOutput/01.EDA/06_target_distributions_and_leakage_audit.parquet`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/data/GeneratedOutput/01.EDA/06_target_distributions_and_leakage_audit.parquet)  
 *Notebook*: [`nootbooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb)
 
 ---
@@ -163,6 +154,6 @@ data/GeneratedOutput/01.EDA/
 ├── 03_cleaned_physically_validated.parquet            # Anomaly & sentinel removal metrics
 ├── 04_feature_correlations.parquet                    # Spearman rank correlation matrix
 ├── 05_temporal_spatial_aggregates.parquet             # Monthly seasonal parameter profiles
-├── 06_target_audit_and_splitting_guidelines.parquet   # 70/15/15 Stratified split specifications
+├── 06_target_distributions_and_leakage_audit.parquet  # Target distributions & algebraic leakage manifest
 └── final_eda_cleaned_dataset.parquet                  # PRIMARY PROCESSED DATASET for Role 3 (4,290,073 clean rows)
 ```
