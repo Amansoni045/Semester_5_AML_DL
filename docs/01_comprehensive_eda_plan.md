@@ -34,9 +34,11 @@ Before designing the plan, we analyzed all **4,297,895 rows** in detail. Here ar
 
 ---
 
-## 2. The 7-Stage EDA & Modeling Plan
+## 2. The 6 Pure EDA Notebooks (Role 2 Scope)
 
-We organize our work into **7 structured Jupyter Notebooks** in `nootbooks/`, each delivering a visual presentation and clean `.parquet` output into `data/GeneratedOutput/`:
+Since our role is strictly **Role 2: Dataset Collection & EDA**, our notebooks focus 100% on exploratory analysis, data profiling, anomaly detection, and geochemical relationships. 
+
+Data splitting, imputation pipelines, and model baseline setup belong to **Role 3: Data Preprocessing & Feature Engineering**. Therefore, our final EDA notebook (`06_target_behavior_and_leakage_audit.ipynb`) wraps up with clear **Handoff Recommendations** for the Role 3 teammate on how to perform a 70/15/15 leakage-free split.
 
 ```
 nootbooks/
@@ -45,8 +47,7 @@ nootbooks/
 ├── 03_geochemical_physics_and_anomalies.ipynb
 ├── 04_bivariate_and_multivariate_correlations.ipynb
 ├── 05_temporal_seasonality_and_spatial_trends.ipynb
-├── 06_target_behavior_and_leakage_audit.ipynb
-└── 07_advanced_data_splitting_and_benchmark.ipynb
+└── 06_target_behavior_and_leakage_audit.ipynb
 ```
 
 ---
@@ -129,19 +130,19 @@ nootbooks/
 
 ---
 
-### Notebook 7: Advanced AML / DL Data Splitting Strategy (70 / 15 / 15)
-- **Objective**: Build clean, leakage-free Train (70%), Validation (15%), and Test (15%) splits ready for model training.
-- **Why Naive Splitting Fails**:
-  - A random `train_test_split()` mixes identical stations and consecutive days across train and test. Models simply memorize the station and report artificially inflated $R^2$ > 0.99.
-- **Our Advanced Splitting Strategies Evaluated**:
-  1. **Stratified Hybrid Split (Selected)**: Stratified across `Country`, `Waterbody Type`, and `CCME_WQI` class labels to preserve exact class ratios in Train (70%), Val (15%), and Test (15%).
-  2. **Temporal (Out-of-Time) Split**: Train on historic data up to 2019, Validate on 2020–2021, Test on 2022–2023 to evaluate true temporal forecasting.
-  3. **Spatial (Station-Holdout) Split**: GroupKFold by station identifier (`Area`) to evaluate how the models generalize to brand-new, unseen geographic locations.
-- **Outputs Produced**:
-  - `data/GeneratedOutput/train_split_70.parquet` (~3,008,526 rows)
-  - `data/GeneratedOutput/val_split_15.parquet` (~644,684 rows)
-  - `data/GeneratedOutput/test_split_15.parquet` (~644,685 rows)
-  - Complete with Snappy compression for fast loading in PyTorch, Scikit-Learn, and XGBoost.
+### Notebook 6: Target Metric Behavior, Leakage Audit & Handoff to Role 3
+- **Objective**: Deep-dive into the target variables (`CCME_Values` and `CCME_WQI`), perform an AML/DL leakage audit, and formulate the **70 / 15 / 15 Splitting Guidelines** for Role 3.
+- **Key Analyses & Visualizations**:
+  - Distribution analysis of `CCME_Values` (identifying the spike at 100.0 for pristine water and tail towards 31.3).
+  - Class distribution analysis of `CCME_WQI` (measuring the 50.1% Excellent vs 3.0% Poor class imbalance).
+  - **Target Leakage Analysis**:
+    - The CCME formula is a mathematical combination of feature standard exceedances.
+    - We document how a model can either learn the proxy index from subset features or predict directly from raw sensor signals without data leakage.
+  - **Handoff to Role 3 (Preprocessing & Feature Engineering)**:
+    - Recommendations for handling the severe class imbalance (Class-weighted Cross-Entropy, Focal Loss).
+    - Guidelines for executing a **70 / 15 / 15 Train / Val / Test split** (stratified across Country, Waterbody Type, and WQI Class to prevent temporal and spatial data leakage).
+- **Presentation Value**: Directly addresses the project requirement: *"do not derive a target index from the same components without acknowledging leakage"* and cleanly establishes our team handoff.
+- **Saved Output**: `data/GeneratedOutput/06_target_audit_and_splitting_guidelines.parquet`
 
 ---
 
@@ -154,15 +155,15 @@ nootbooks/
 | `03_geochemical_physics_and_anomalies.ipynb` | Sentinel code cleanup & physical bounds | `03_cleaned_physically_validated.parquet` |
 | `04_bivariate_and_multivariate_correlations.ipynb` | Chemical interactions & correlations | `04_feature_correlations.parquet` |
 | `05_temporal_seasonality_and_spatial_trends.ipynb` | Seasonal cycles & spatial variations | `05_temporal_spatial_aggregates.parquet` |
-| `06_target_behavior_and_leakage_audit.ipynb` | CCME WQI behavior & leakage audit | `06_target_audit.parquet` |
-| `07_advanced_data_splitting_and_benchmark.ipynb` | 70/15/15 Train/Val/Test dataset creation | `train_split_70.parquet`, `val_split_15.parquet`, `test_split_15.parquet` |
+| `06_target_behavior_and_leakage_audit.ipynb` | CCME WQI behavior, leakage audit & Role 3 splitting handoff | `06_target_audit_and_splitting_guidelines.parquet` |
 
 ---
 
 ## 4. How to Present This Work
 
 When presenting this project to evaluators:
-1. **Show the 7-Notebook Architecture**: Emphasize that our team did not just throw the raw data into XGBoost, but built a comprehensive 7-stage data science investigation.
-2. **Highlight the Discovery of Sensor Anomalies**: Show before-and-after plots of removing `-999999.0` sentinels and `pH 67115.0` outliers that would otherwise destroy deep learning models.
+1. **Show the 6-Notebook EDA Architecture**: Emphasize that our team built a comprehensive 6-stage data science investigation that systematically covers every aspect of environmental water quality.
+2. **Highlight the Discovery of Sensor Anomalies**: Show before-and-after plots of discovering `-999999.0` sentinels and `pH 67115.0` outliers that would otherwise crash deep learning models.
 3. **Show the Chemical Science**: Present the Henry's Law DO-Temperature curve and the $N:P$ eutrophication ratio.
-4. **Demonstrate Methodological Rigor**: Explain why random data splitting causes spatial/temporal leakage, and demonstrate our **70 / 15 / 15 Stratified Benchmark Splits** ready for the modeling team.
+4. **Demonstrate Methodological Rigor & Clean Team Handoff**: Show how our EDA directly warned against data leakage and handed off mathematically sound **70 / 15 / 15 Stratification Guidelines** to the Preprocessing & Modeling teammates.
+

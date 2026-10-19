@@ -103,17 +103,19 @@ We also have location and time metadata:
 
 ---
 
-## 7. The 7-Stage EDA Roadmap
+## 7. The 6-Stage Pure EDA Roadmap (Role 2 Scope)
 
 For the complete technical breakdown, read our [Comprehensive EDA Plan](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/01_comprehensive_eda_plan.md).
 
-Here are the 7 notebooks we will build in `nootbooks/`:
+Since our role is strictly **Role 2: Dataset Collection & EDA**, our notebooks focus 100% on exploratory data science. Preprocessing pipelines and data splitting belong to **Role 3: Data Preprocessing & Feature Engineering**.
+
+Here are the 6 notebooks we will build in `nootbooks/`:
 
 1. **`01_data_architecture_and_profiling.ipynb`**: High-dimensional profiling, country breakdowns, waterbody types, memory optimization.
 2. **`02_sensor_sparsity_and_missingness.ipynb`**: Missing data mechanics (MCAR/MAR), dendrogram sensor clustering, country-level sensor comparisons.
 3. **`03_geochemical_physics_and_anomalies.ipynb`**: Cleaning sensor error sentinels (`-999999.0`, `pH 67115.0`), Henry's Law DO saturation checks, detection limits.
 4. **`04_bivariate_and_multivariate_correlations.ipynb`**: Pearson & Spearman correlations, $N:P$ nutrient ratios, BOD-DO oxygen sag curves.
 5. **`05_temporal_seasonality_and_spatial_trends.ipynb`**: Multi-decade trends (1940–2023), seasonal cyclic dynamics, waterbody comparisons.
-6. **`06_target_behavior_and_leakage_audit.ipynb`**: CCME WQI score distributions, class imbalance (Excellent 50.1% vs Poor 3.0%), mathematical leakage audit.
-7. **`07_advanced_data_splitting_and_benchmark.ipynb`**: Advanced **70 / 15 / 15 Train, Validation, and Test** dataset generation with stratification to prevent data leakage.
+6. **`06_target_behavior_and_leakage_audit.ipynb`**: CCME WQI score distributions, class imbalance (Excellent 50.1% vs Poor 3.0%), mathematical leakage audit, and the **70 / 15 / 15 Splitting Handoff to Role 3**.
+
 

@@ -109,9 +109,11 @@ Semester_5_AML_DL/
 
 ---
 
-## 7. The 7-Stage EDA & Modeling Preparation Architecture
+## 7. The 6-Stage Pure EDA Architecture (Role 2 Scope)
 
-Based on deep data profiling of the 4,297,895 rows, the EDA pipeline consists of 7 modular notebooks in `nootbooks/`:
+Since our responsibility is strictly **Role 2: Dataset Collection & EDA**, our notebooks focus 100% on exploratory analysis, data profiling, anomaly detection, and geochemical relationships. Data splitting and preprocessing pipelines belong to **Role 3: Data Preprocessing & Feature Engineering**.
+
+The 6 pure EDA notebooks in `nootbooks/`:
 
 - [ ] **Notebook 1: `01_data_architecture_and_profiling.ipynb`**
   - High-dimensional profiling, memory footprints, country distributions, waterbody breakdowns, sampling frequencies.
@@ -130,11 +132,8 @@ Based on deep data profiling of the 4,297,895 rows, the EDA pipeline consists of
   - Output: `data/GeneratedOutput/05_temporal_spatial_aggregates.parquet`
 - [ ] **Notebook 6: `06_target_behavior_and_leakage_audit.ipynb`**
   - Target score analysis (`CCME_Values` spike at 100), class imbalance (Excellent 50.1% vs Poor 3.0%), mathematical leakage audit.
-  - Output: `data/GeneratedOutput/06_target_audit.parquet`
-- [ ] **Notebook 7: `07_advanced_data_splitting_and_benchmark.ipynb`**
-  - Advanced **70 / 15 / 15 Train, Validation, and Test** data partitioning (stratified across Country, Waterbody Type, and WQI Class).
-  - Evaluates Temporal and Station-Holdout split alternatives to prevent data leakage.
-  - Outputs: `data/GeneratedOutput/train_split_70.parquet`, `data/GeneratedOutput/val_split_15.parquet`, `data/GeneratedOutput/test_split_15.parquet`
+  - Formulates **70 / 15 / 15 Splitting Guidelines** as the formal handoff to Role 3.
+  - Output: `data/GeneratedOutput/06_target_audit_and_splitting_guidelines.parquet`
 
 ---
 
