@@ -224,3 +224,7 @@ __marimo__/
 *.xlsx
 *.xls
 .DS_Store
+
+# Code directory ignored (write custom code locally)
+**/Code/
+code/
