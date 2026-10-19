@@ -122,7 +122,7 @@ Semester_5_AML_DL/
 │   │   ├── DataCollectionSources.parquet         # Provenance URLs & source metadata (153 records)
 │   │   └── DataCollectionSources.xlsx            # Raw reference file (ignored via .gitignore)
 │   └── GeneratedOutput/
-│       └── 01.EDA/                               # All 6 analytical Parquet outputs from EDA
+│       └── 01.EDA/                               # 03_eda_cleaned_dataset.parquet (4.29M clean rows for Role 3) + 6 analytical reports
 ├── nootbooks/
 │   └── 01.EDA/                                   # All 6 fully executed EDA Jupyter notebooks
 └── docs/
