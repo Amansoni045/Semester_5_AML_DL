@@ -103,11 +103,17 @@ We also have location and time metadata:
 
 ---
 
-## 7. Upcoming EDA Roadmap
+## 7. The 7-Stage EDA Roadmap
 
-1. **`01_dataset_overview_and_summary.ipynb`**: Summary statistics, record counts per country, date distributions, and target class balance.
-2. **`02_missing_values_and_sparsity.ipynb`**: Finding which sensors are missing most often and deciding how to handle them.
-3. **`03_outliers_and_sensor_anomalies.ipynb`**: Spotting extreme or impossible values (like negative pH or extreme temperatures).
-4. **`04_feature_correlations.ipynb`**: Analyzing how parameters correlate with each other and with the water quality score.
-5. **`05_temporal_and_spatial_trends.ipynb`**: Seeing how water quality changes over seasons, years, and waterbody types.
-6. **`06_benchmark_splits_for_modeling.ipynb`**: Creating leak-free Train, Validation, and Test datasets for the modeling team.
+For the complete technical breakdown, read our [Comprehensive EDA Plan](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/01_comprehensive_eda_plan.md).
+
+Here are the 7 notebooks we will build in `nootbooks/`:
+
+1. **`01_data_architecture_and_profiling.ipynb`**: High-dimensional profiling, country breakdowns, waterbody types, memory optimization.
+2. **`02_sensor_sparsity_and_missingness.ipynb`**: Missing data mechanics (MCAR/MAR), dendrogram sensor clustering, country-level sensor comparisons.
+3. **`03_geochemical_physics_and_anomalies.ipynb`**: Cleaning sensor error sentinels (`-999999.0`, `pH 67115.0`), Henry's Law DO saturation checks, detection limits.
+4. **`04_bivariate_and_multivariate_correlations.ipynb`**: Pearson & Spearman correlations, $N:P$ nutrient ratios, BOD-DO oxygen sag curves.
+5. **`05_temporal_seasonality_and_spatial_trends.ipynb`**: Multi-decade trends (1940–2023), seasonal cyclic dynamics, waterbody comparisons.
+6. **`06_target_behavior_and_leakage_audit.ipynb`**: CCME WQI score distributions, class imbalance (Excellent 50.1% vs Poor 3.0%), mathematical leakage audit.
+7. **`07_advanced_data_splitting_and_benchmark.ipynb`**: Advanced **70 / 15 / 15 Train, Validation, and Test** dataset generation with stratification to prevent data leakage.
+

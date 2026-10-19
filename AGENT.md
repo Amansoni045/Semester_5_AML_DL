@@ -109,15 +109,32 @@ Semester_5_AML_DL/
 
 ---
 
-## 7. Planned Notebook Workflow (EDA & Dataset Preparation)
+## 7. The 7-Stage EDA & Modeling Preparation Architecture
 
-- [x] **Phase 0 — Dataset Collection & Harmonization**: 4.29M records collected, harmonized to 14 columns with CCME WQI, Snappy compressed.
-- [ ] **Notebook 1 — Dataset Overview & Univariate Distribution**: Inspect feature ranges, statistical distributions, boxplots, histograms, and class balance across countries.
-- [ ] **Notebook 2 — Missing Value & Sensor Sparsity Analysis**: Quantify missingness patterns per parameter and per country, analyze missing-at-random (MAR) vs sensor absence.
-- [ ] **Notebook 3 — Outlier Detection & Physical Boundary Checks**: Flag impossible chemical values (e.g. negative pH, dissolved oxygen > physical saturation) and quantify sensor drift.
-- [ ] **Notebook 4 — Bivariate & Multivariate Correlation**: Pearson and Spearman correlations among chemical parameters, correlation with `CCME_Values`.
-- [ ] **Notebook 5 — Temporal & Spatial Trend Analysis**: Multi-year seasonal trends, water quality variation across river vs lake waterbodies.
-- [ ] **Notebook 6 — Modeling Dataset Split & Benchmark Prep**: Generate leak-free train/val/test splits (time and site stratified) saved into `data/GeneratedOutput/` for Role 3 & Role 4.
+Based on deep data profiling of the 4,297,895 rows, the EDA pipeline consists of 7 modular notebooks in `nootbooks/`:
+
+- [ ] **Notebook 1: `01_data_architecture_and_profiling.ipynb`**
+  - High-dimensional profiling, memory footprints, country distributions, waterbody breakdowns, sampling frequencies.
+  - Output: `data/GeneratedOutput/01_dataset_summary_profile.parquet`
+- [ ] **Notebook 2: `02_sensor_sparsity_and_missingness.ipynb`**
+  - Sensor missingness patterns, co-occurrence matrices, dendrogram clustering, and country-level sensor protocols.
+  - Output: `data/GeneratedOutput/02_missingness_patterns.parquet`
+- [ ] **Notebook 3: `03_geochemical_physics_and_anomalies.ipynb`**
+  - Cleaning sensor error sentinels (`-999999.0`, `pH 67115.0`), Henry's Law DO-Temperature saturation bounds, detection limit offsets.
+  - Output: `data/GeneratedOutput/03_cleaned_physically_validated.parquet`
+- [ ] **Notebook 4: `04_bivariate_and_multivariate_correlations.ipynb`**
+  - Pearson & Spearman correlation matrices, $N:P$ nutrient ratios, BOD-DO oxygen sag curves.
+  - Output: `data/GeneratedOutput/04_feature_correlations.parquet`
+- [ ] **Notebook 5: `05_temporal_seasonality_and_spatial_trends.ipynb`**
+  - Multi-decade historical evolution (1940–2023), seasonal cyclic dynamics, waterbody comparisons (rivers, streams, lakes, coastal).
+  - Output: `data/GeneratedOutput/05_temporal_spatial_aggregates.parquet`
+- [ ] **Notebook 6: `06_target_behavior_and_leakage_audit.ipynb`**
+  - Target score analysis (`CCME_Values` spike at 100), class imbalance (Excellent 50.1% vs Poor 3.0%), mathematical leakage audit.
+  - Output: `data/GeneratedOutput/06_target_audit.parquet`
+- [ ] **Notebook 7: `07_advanced_data_splitting_and_benchmark.ipynb`**
+  - Advanced **70 / 15 / 15 Train, Validation, and Test** data partitioning (stratified across Country, Waterbody Type, and WQI Class).
+  - Evaluates Temporal and Station-Holdout split alternatives to prevent data leakage.
+  - Outputs: `data/GeneratedOutput/train_split_70.parquet`, `data/GeneratedOutput/val_split_15.parquet`, `data/GeneratedOutput/test_split_15.parquet`
 
 ---
 
@@ -128,3 +145,6 @@ Semester_5_AML_DL/
 | 2026-10-19 | Dataset Collection | Harvested 4.29M rows across 7 nations (England, USA, Ireland, China, Canada, India, Australia) with exact CCME WQI | `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet` | Completed |
 | 2026-10-19 | Parquet Compatibility | Re-saved all Parquet datasets with `snappy` compression for full Parquetly viewing | All `.parquet` files in `data/` | Completed |
 | 2026-10-19 | Agent Context Setup | Created `AGENT.md`, established workflow between `nootbooks/`, `docs/`, and `data/GeneratedOutput/` | `AGENT.md`, `docs/` | Completed |
+| 2026-10-19 | Deep Data Profiling | Profiled all 4.3M rows; identified sentinels (-999999, pH 67115), sensor missingness, and target distributions | Terminal execution logs | Completed |
+| 2026-10-19 | Comprehensive EDA Plan | Designed 7-stage modular EDA pipeline and 70/15/15 splitting strategy in `docs/01_comprehensive_eda_plan.md` | `docs/01_comprehensive_eda_plan.md` | Completed |
+
