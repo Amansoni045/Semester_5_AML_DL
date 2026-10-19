@@ -161,8 +161,8 @@ data/GeneratedOutput/01.EDA/
 ├── 01_dataset_summary_profile.parquet                 # Global dataset architectural metrics
 ├── 02_missingness_patterns.parquet                    # Country sensor missingness rates
 ├── 03_cleaned_physically_validated.parquet            # Anomaly & sentinel removal metrics
-├── 03_eda_cleaned_dataset.parquet                     # PRIMARY PROCESSED DATASET for Role 3 (4,290,073 clean rows)
 ├── 04_feature_correlations.parquet                    # Spearman rank correlation matrix
 ├── 05_temporal_spatial_aggregates.parquet             # Monthly seasonal parameter profiles
-└── 06_target_audit_and_splitting_guidelines.parquet   # 70/15/15 Stratified split specifications
+├── 06_target_audit_and_splitting_guidelines.parquet   # 70/15/15 Stratified split specifications
+└── final_eda_cleaned_dataset.parquet                  # PRIMARY PROCESSED DATASET for Role 3 (4,290,073 clean rows)
 ```
