@@ -220,8 +220,6 @@ __marimo__/
 # Raw CSV and Excel files ignored (only Parquet files are tracked)
 **/Dataset/CSV/*
 !**/Dataset/CSV/.gitkeep
-**/Summaries/CSV/*
-!**/Summaries/CSV/.gitkeep
 *.csv
 *.xlsx
 *.xls
