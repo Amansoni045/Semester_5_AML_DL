@@ -217,7 +217,8 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Raw CSV datasets ignored (Parquet format in Dataset/Parquet/ is used instead)
-**/Dataset/CSV/
+# Raw CSV datasets directory (contents ignored except .gitkeep)
+**/Dataset/CSV/*
+!**/Dataset/CSV/.gitkeep
 *.csv
 .DS_Store
