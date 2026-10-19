@@ -226,5 +226,7 @@ __marimo__/
 .DS_Store
 
 # Code directory ignored (write custom code locally)
+data/Code/
+data/Code/**
 **/Code/
 code/
