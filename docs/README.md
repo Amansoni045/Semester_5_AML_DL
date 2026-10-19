@@ -103,19 +103,22 @@ We also have location and time metadata:
 
 ---
 
-## 7. The 6-Stage Pure EDA Roadmap (Role 2 Scope)
+## 7. The 6-Stage Pure EDA Suite (Role 2 Scope) — COMPLETED
 
-For the complete technical breakdown, read our [Comprehensive EDA Plan](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/01_comprehensive_eda_plan.md).
+For the complete technical breakdown and findings, read our:
+- [Comprehensive EDA Plan](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/01_comprehensive_eda_plan.md)
+- [EDA Results & Scientific Findings Report](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/02_eda_results_and_findings.md)
 
-Since our role is strictly **Role 2: Dataset Collection & EDA**, our notebooks focus 100% on exploratory data science. Preprocessing pipelines and data splitting belong to **Role 3: Data Preprocessing & Feature Engineering**.
+All 6 notebooks are fully executed with embedded figures in **[`nootbooks/01.EDA/`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/)**:
 
-Here are the 6 notebooks we will build in `nootbooks/`:
+1. **[`01_data_architecture_and_profiling.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/01_data_architecture_and_profiling.ipynb)**: High-dimensional profiling, country breakdowns, waterbody types, memory optimization.
+2. **[`02_sensor_sparsity_and_missingness.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb)**: Missing data mechanics (MCAR/MAR), dendrogram sensor clustering, country-level sensor comparisons.
+3. **[`03_geochemical_physics_and_anomalies.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb)**: Cleaning sensor error sentinels (`-999999.0`, `pH 67115.0`), Henry's Law DO saturation checks, detection limits.
+4. **[`04_bivariate_and_multivariate_correlations.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb)**: Pearson & Spearman correlations, $N:P$ nutrient ratios, BOD-DO oxygen sag curves.
+5. **[`05_temporal_seasonality_and_spatial_trends.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb)**: Multi-decade trends (1940–2023), seasonal cyclic dynamics, waterbody comparisons.
+6. **[`06_target_behavior_and_leakage_audit.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb)**: CCME WQI score distributions, class imbalance (Excellent 50.1% vs Poor 3.0%), mathematical leakage audit, and the **70 / 15 / 15 Splitting Handoff to Role 3**.
 
-1. **`01_data_architecture_and_profiling.ipynb`**: High-dimensional profiling, country breakdowns, waterbody types, memory optimization.
-2. **`02_sensor_sparsity_and_missingness.ipynb`**: Missing data mechanics (MCAR/MAR), dendrogram sensor clustering, country-level sensor comparisons.
-3. **`03_geochemical_physics_and_anomalies.ipynb`**: Cleaning sensor error sentinels (`-999999.0`, `pH 67115.0`), Henry's Law DO saturation checks, detection limits.
-4. **`04_bivariate_and_multivariate_correlations.ipynb`**: Pearson & Spearman correlations, $N:P$ nutrient ratios, BOD-DO oxygen sag curves.
-5. **`05_temporal_seasonality_and_spatial_trends.ipynb`**: Multi-decade trends (1940–2023), seasonal cyclic dynamics, waterbody comparisons.
-6. **`06_target_behavior_and_leakage_audit.ipynb`**: CCME WQI score distributions, class imbalance (Excellent 50.1% vs Poor 3.0%), mathematical leakage audit, and the **70 / 15 / 15 Splitting Handoff to Role 3**.
+All analytical summary outputs are exported in **[`data/GeneratedOutput/01.EDA/`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/data/GeneratedOutput/01.EDA/)** as Snappy-compressed Parquet files.
+
 
 

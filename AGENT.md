@@ -109,31 +109,31 @@ Semester_5_AML_DL/
 
 ---
 
-## 7. The 6-Stage Pure EDA Architecture (Role 2 Scope)
+## 7. The 6-Stage Pure EDA Architecture (Role 2 Scope) — COMPLETED
 
 Since our responsibility is strictly **Role 2: Dataset Collection & EDA**, our notebooks focus 100% on exploratory analysis, data profiling, anomaly detection, and geochemical relationships. Data splitting and preprocessing pipelines belong to **Role 3: Data Preprocessing & Feature Engineering**.
 
-The 6 pure EDA notebooks in `nootbooks/`:
+The 6 pure EDA notebooks in `nootbooks/01.EDA/` (all executed with embedded figures):
 
-- [ ] **Notebook 1: `01_data_architecture_and_profiling.ipynb`**
+- [x] **Notebook 1: `nootbooks/01.EDA/01_data_architecture_and_profiling.ipynb`**
   - High-dimensional profiling, memory footprints, country distributions, waterbody breakdowns, sampling frequencies.
-  - Output: `data/GeneratedOutput/01_dataset_summary_profile.parquet`
-- [ ] **Notebook 2: `02_sensor_sparsity_and_missingness.ipynb`**
+  - Output: `data/GeneratedOutput/01.EDA/01_dataset_summary_profile.parquet` (Snappy)
+- [x] **Notebook 2: `nootbooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb`**
   - Sensor missingness patterns, co-occurrence matrices, dendrogram clustering, and country-level sensor protocols.
-  - Output: `data/GeneratedOutput/02_missingness_patterns.parquet`
-- [ ] **Notebook 3: `03_geochemical_physics_and_anomalies.ipynb`**
+  - Output: `data/GeneratedOutput/01.EDA/02_missingness_patterns.parquet` (Snappy)
+- [x] **Notebook 3: `nootbooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb`**
   - Cleaning sensor error sentinels (`-999999.0`, `pH 67115.0`), Henry's Law DO-Temperature saturation bounds, detection limit offsets.
-  - Output: `data/GeneratedOutput/03_cleaned_physically_validated.parquet`
-- [ ] **Notebook 4: `04_bivariate_and_multivariate_correlations.ipynb`**
+  - Output: `data/GeneratedOutput/01.EDA/03_cleaned_physically_validated.parquet` (Snappy)
+- [x] **Notebook 4: `nootbooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb`**
   - Pearson & Spearman correlation matrices, $N:P$ nutrient ratios, BOD-DO oxygen sag curves.
-  - Output: `data/GeneratedOutput/04_feature_correlations.parquet`
-- [ ] **Notebook 5: `05_temporal_seasonality_and_spatial_trends.ipynb`**
+  - Output: `data/GeneratedOutput/01.EDA/04_feature_correlations.parquet` (Snappy)
+- [x] **Notebook 5: `nootbooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb`**
   - Multi-decade historical evolution (1940–2023), seasonal cyclic dynamics, waterbody comparisons (rivers, streams, lakes, coastal).
-  - Output: `data/GeneratedOutput/05_temporal_spatial_aggregates.parquet`
-- [ ] **Notebook 6: `06_target_behavior_and_leakage_audit.ipynb`**
+  - Output: `data/GeneratedOutput/01.EDA/05_temporal_spatial_aggregates.parquet` (Snappy)
+- [x] **Notebook 6: `nootbooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb`**
   - Target score analysis (`CCME_Values` spike at 100), class imbalance (Excellent 50.1% vs Poor 3.0%), mathematical leakage audit.
   - Formulates **70 / 15 / 15 Splitting Guidelines** as the formal handoff to Role 3.
-  - Output: `data/GeneratedOutput/06_target_audit_and_splitting_guidelines.parquet`
+  - Output: `data/GeneratedOutput/01.EDA/06_target_audit_and_splitting_guidelines.parquet` (Snappy)
 
 ---
 
@@ -145,5 +145,7 @@ The 6 pure EDA notebooks in `nootbooks/`:
 | 2026-10-19 | Parquet Compatibility | Re-saved all Parquet datasets with `snappy` compression for full Parquetly viewing | All `.parquet` files in `data/` | Completed |
 | 2026-10-19 | Agent Context Setup | Created `AGENT.md`, established workflow between `nootbooks/`, `docs/`, and `data/GeneratedOutput/` | `AGENT.md`, `docs/` | Completed |
 | 2026-10-19 | Deep Data Profiling | Profiled all 4.3M rows; identified sentinels (-999999, pH 67115), sensor missingness, and target distributions | Terminal execution logs | Completed |
-| 2026-10-19 | Comprehensive EDA Plan | Designed 7-stage modular EDA pipeline and 70/15/15 splitting strategy in `docs/01_comprehensive_eda_plan.md` | `docs/01_comprehensive_eda_plan.md` | Completed |
+| 2026-10-19 | Comprehensive EDA Plan | Designed modular EDA pipeline and 70/15/15 splitting strategy in `docs/01_comprehensive_eda_plan.md` | `docs/01_comprehensive_eda_plan.md` | Completed |
+| 2026-10-19 | 6-Notebook EDA Execution | Generated & executed all 6 EDA notebooks with embedded plots & exported 6 Snappy Parquet summary datasets | `nootbooks/01.EDA/*.ipynb`, `data/GeneratedOutput/01.EDA/*.parquet` | Completed |
+
 
