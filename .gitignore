@@ -217,9 +217,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Datasets and large data files
-[Dd]ataset/
-[Dd]ata/
+# Raw CSV datasets ignored (Parquet format is used for efficient storage and fast I/O)
 *.csv
-*.xlsx
 .DS_Store
