@@ -217,8 +217,12 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Raw CSV datasets directory (contents ignored except .gitkeep)
+# Raw CSV and Excel files ignored (only Parquet files are tracked)
 **/Dataset/CSV/*
 !**/Dataset/CSV/.gitkeep
+**/Summaries/CSV/*
+!**/Summaries/CSV/.gitkeep
 *.csv
+*.xlsx
+*.xls
 .DS_Store
