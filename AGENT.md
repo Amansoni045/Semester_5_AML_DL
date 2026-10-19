@@ -81,8 +81,9 @@ Semester_5_AML_DL/
 ├── README.md                                     # Main public README linking all resources
 ├── requirements.txt                              # Root dependencies (without pinned versions)
 ├── scripts/
-│   ├── run_eda_pipeline.sh                       # Master automation runner (env setup + notebooks)
-│   └── run_eda_notebooks.py                      # Python notebook executor & output verifier
+│   ├── setup_environment.sh                      # Environment setup script (.venv, pip, requirements, ipykernel)
+│   ├── run_eda_pipeline.py                       # Python master runner (auto-bootstraps .venv, runs 6 NBs, parquet audit)
+│   └── run_eda_pipeline.sh                       # Shell wrapper (runs setup then Python runner)
 ├── data/
 │   ├── Dataset/
 │   │   ├── Parquet/

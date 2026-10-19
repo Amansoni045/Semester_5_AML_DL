@@ -16,28 +16,25 @@ This project predicts surface water quality from physical and chemical measureme
 
 ---
 
-## 2. Quickstart & Environment Setup
+## 2. Quickstart & Automated Pipeline Runner
 
-To create an isolated virtual environment (`.venv`) and install all required libraries:
+You can set up the environment and run the entire EDA pipeline with a single command:
 
 ```bash
-# 1. Create and activate virtual environment
-python3 -m venv .venv && source .venv/bin/activate
+# Option A: Universal Python Runner (Auto-creates .venv, installs dependencies, runs all 6 notebooks):
+python3 scripts/run_eda_pipeline.py
 
-# 2. Install dependencies from root requirements.txt
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# 3. Register IPython kernel for VS Code / Jupyter
-python -m ipykernel install --user --name=aml-dl-venv --display-name="Python (.venv - AML/DL)"
-
-# 4. Automatically run all 6 EDA notebooks in sequence:
+# Option B: Bash script wrapper:
 ./scripts/run_eda_pipeline.sh
+
+# Option C: Manual two-step setup and execution:
+./scripts/setup_environment.sh
+.venv/bin/python scripts/run_eda_pipeline.py
 ```
 
 > [!NOTE]  
-> The script `./scripts/run_eda_pipeline.sh` automatically ensures `.venv` is active, checks `requirements.txt`, executes all 6 EDA notebooks in sequence, and verifies output files in `data/GeneratedOutput/01.EDA/`.
-> For manual setup instructions, see the [Environment Setup Guide](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/environment_setup.md).
+> `scripts/run_eda_pipeline.py` automatically checks if `.venv` exists. If run with system Python, it runs `scripts/setup_environment.sh` first to ensure `.venv` and all packages from `requirements.txt` are installed, registers the Jupyter kernel (`aml-dl-venv`), bootstraps execution into `.venv`, runs all 6 EDA notebooks sequentially, and audits generated Parquet files in `data/GeneratedOutput/01.EDA/`.
+> For full setup details, see the [Environment Setup Guide](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/environment_setup.md).
 
 ---
 
@@ -108,8 +105,9 @@ Semester_5_AML_DL/
 ├── README.md                                     # Main project entrypoint (this file)
 ├── requirements.txt                              # Root dependencies (without pinned versions)
 ├── scripts/
-│   ├── run_eda_pipeline.sh                       # Master automation runner (env setup + notebooks)
-│   └── run_eda_notebooks.py                      # Python notebook executor & output verifier
+│   ├── setup_environment.sh                      # Dedicated .venv setup & requirements installer
+│   ├── run_eda_pipeline.py                       # Python master runner (auto-boots .venv, runs 6 notebooks)
+│   └── run_eda_pipeline.sh                       # One-liner bash runner (runs setup + pipeline.py)
 ├── data/
 │   ├── Dataset/
 │   │   ├── Parquet/                              # Tracked in Git (Snappy compressed, fast I/O)
