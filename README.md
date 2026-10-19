@@ -30,10 +30,14 @@ pip install -r requirements.txt
 
 # 3. Register IPython kernel for VS Code / Jupyter
 python -m ipykernel install --user --name=aml-dl-venv --display-name="Python (.venv - AML/DL)"
+
+# 4. Automatically run all 6 EDA notebooks in sequence:
+./scripts/run_eda_pipeline.sh
 ```
 
 > [!NOTE]  
-> For complete platform-specific instructions (Windows PowerShell, Command Prompt, macOS, Linux) and kernel selection, see the [Environment Setup Guide](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/environment_setup.md).
+> The script `./scripts/run_eda_pipeline.sh` automatically ensures `.venv` is active, checks `requirements.txt`, executes all 6 EDA notebooks in sequence, and verifies output files in `data/GeneratedOutput/01.EDA/`.
+> For manual setup instructions, see the [Environment Setup Guide](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/environment_setup.md).
 
 ---
 
@@ -103,6 +107,9 @@ Semester_5_AML_DL/
 ├── AGENT.md                                      # Master AI context & operational instructions (All 6 Roles)
 ├── README.md                                     # Main project entrypoint (this file)
 ├── requirements.txt                              # Root dependencies (without pinned versions)
+├── scripts/
+│   ├── run_eda_pipeline.sh                       # Master automation runner (env setup + notebooks)
+│   └── run_eda_notebooks.py                      # Python notebook executor & output verifier
 ├── data/
 │   ├── Dataset/
 │   │   ├── Parquet/                              # Tracked in Git (Snappy compressed, fast I/O)

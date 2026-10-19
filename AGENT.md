@@ -80,6 +80,9 @@ Semester_5_AML_DL/
 ├── AGENT.md                                      # Master AI instructions for the entire project
 ├── README.md                                     # Main public README linking all resources
 ├── requirements.txt                              # Root dependencies (without pinned versions)
+├── scripts/
+│   ├── run_eda_pipeline.sh                       # Master automation runner (env setup + notebooks)
+│   └── run_eda_notebooks.py                      # Python notebook executor & output verifier
 ├── data/
 │   ├── Dataset/
 │   │   ├── Parquet/
