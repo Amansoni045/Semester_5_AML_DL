@@ -1,6 +1,10 @@
 """
-Water Quality Prediction ML Project - Data Audit Package.
-Contains reusable data inspection, quality audit, and visualization utilities.
+Water Quality Prediction ML Project — Source Package.
+
+Modules
+-------
+data_audit      : Dataset inspection, quality auditing, and visualization utilities.
+preprocessing   : Reusable data-cleaning pipeline (Role 3 — Data Preprocessing).
 """
 
 from .data_audit import (
@@ -19,7 +23,28 @@ from .data_audit import (
     run_full_audit,
 )
 
+from .preprocessing import (
+    WaterQualityPreprocessor,
+    CleaningSummary,
+    run_cleaning_pipeline,
+    COLUMN_NAME_MAP,
+    COLUMN_NAME_MAP_REVERSE,
+    MISSING_VALUE_STRATEGY,
+    SUSPICIOUS_VALUE_RULES,
+    SDL_CLIP_COLUMNS,
+    CCME_WQI_CATEGORIES,
+    # Assertion / validation helpers
+    assert_schema_preserved,
+    assert_no_sentinels,
+    assert_no_sdl_negatives,
+    assert_no_exact_duplicates,
+    assert_targets_complete,
+    assert_flag_columns_present,
+    assert_usa_temperatures_in_celsius_range,
+)
+
 __all__ = [
+    # data_audit
     "find_dataset_path",
     "load_dataset",
     "inspect_dataset_overview",
@@ -33,4 +58,21 @@ __all__ = [
     "generate_audit_visualizations",
     "generate_audit_report",
     "run_full_audit",
+    # preprocessing
+    "WaterQualityPreprocessor",
+    "CleaningSummary",
+    "run_cleaning_pipeline",
+    "COLUMN_NAME_MAP",
+    "COLUMN_NAME_MAP_REVERSE",
+    "MISSING_VALUE_STRATEGY",
+    "SUSPICIOUS_VALUE_RULES",
+    "SDL_CLIP_COLUMNS",
+    "CCME_WQI_CATEGORIES",
+    "assert_schema_preserved",
+    "assert_no_sentinels",
+    "assert_no_sdl_negatives",
+    "assert_no_exact_duplicates",
+    "assert_targets_complete",
+    "assert_flag_columns_present",
+    "assert_usa_temperatures_in_celsius_range",
 ]
