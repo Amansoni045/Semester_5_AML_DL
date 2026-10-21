@@ -143,6 +143,7 @@ Semester_5_AML_DL/
 | 2026-10-19 | Role 2 (EDA) | Exported 6 analytical summary Parquet datasets | `data/GeneratedOutput/01.EDA/*.parquet` (6 files) | **Completed** |
 | 2026-10-19 | Role 2 (EDA) | Compiled single unified EDA scientific report | `docs/EDA_REPORT.md` | **Completed** |
 | 2026-10-19 | Role 6 (Setup) | Created root `requirements.txt` and virtual environment setup guide | `requirements.txt`, `docs/environment_setup.md` | **Completed** |
+| 2026-10-21 | Role 2 / Pipeline | Automated dataset inspection, data quality audit, and visual diagnostics | `src/data_audit.py`, `notebooks/01_dataset_audit.ipynb`, `reports/dataset_audit_report.md` | **Completed** |
 | Next | **Role 3 (Preprocessing)** | Build clean imputation pipeline, feature scaling, and 70/15/15 stratified train/val/test splits | `nootbooks/02.Preprocessing/`, `data/GeneratedOutput/02.Preprocessing/` | **Up Next** |
 | Next | **Role 4 (AML Models)** | Train and tune Random Forest and XGBoost baselines; evaluate MAE/RMSE/R2 and Macro F1 | `nootbooks/03.AML_Models/` | Queued |
 | Next | **Role 5 (Deep Learning)** | Train regularized dual-head MLP; evaluate calibration, uncertainty, and SHAP explainability | `nootbooks/04.Deep_Learning/` | Queued |
