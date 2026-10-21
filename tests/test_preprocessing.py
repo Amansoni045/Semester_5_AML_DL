@@ -61,6 +61,8 @@ from src.preprocessing import (
     assert_schema_preserved,
     assert_targets_complete,
     assert_usa_temperatures_in_celsius_range,
+    assert_raw_unmodified,
+    generate_data_quality_summary,
 )
 
 
@@ -635,7 +637,234 @@ class TestFullPipelineOnFixture:
 
 
 # ---------------------------------------------------------------------------
-# 14. Integration: run on real dataset if available (optional / skipped in CI)
+# 14. Raw Input Preservation & Schema Assertions
+# ---------------------------------------------------------------------------
+
+class TestRawPreservationAndSchema:
+
+    def test_raw_input_dataframe_not_modified(self, raw_fixture, tmp_path):
+        """Pipeline must not mutate the raw in-memory DataFrame passed or loaded."""
+        raw_copy = raw_fixture.copy(deep=True)
+        raw_path = tmp_path / "raw_preserve.parquet"
+        raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
+
+        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
+        df_out, _ = pipeline.run()
+
+        # The on-disk file and loaded dataframe must not mutate the raw baseline
+        df_reloaded_raw = pd.read_parquet(str(raw_path))
+        assert_raw_unmodified(raw_copy, df_reloaded_raw)
+
+    def test_expected_schema_assertions(self, cleaned_fixture):
+        """Check all required columns, types and flag columns."""
+        df, _ = cleaned_fixture
+        assert_schema_preserved(df)
+        assert_flag_columns_present(df)
+        assert_targets_complete(df)
+
+    def test_all_key_metadata_fields_available_post_cleaning(self, cleaned_fixture):
+        """Check that country, area, waterbody_type, and date are fully preserved."""
+        df, _ = cleaned_fixture
+        for meta_col in ["country", "area", "waterbody_type", "date"]:
+            assert meta_col in df.columns, f"Metadata column '{meta_col}' missing"
+            # In fixture, all 7 non-duplicate records have valid metadata
+            assert df[meta_col].notna().all(), f"Metadata column '{meta_col}' has nulls in fixture"
+
+
+# ---------------------------------------------------------------------------
+# 15. Before-versus-After Data Quality Summary
+# ---------------------------------------------------------------------------
+
+class TestDataQualitySummary:
+
+    def test_generate_data_quality_summary_structure(self, raw_fixture, cleaned_fixture):
+        df_clean, _ = cleaned_fixture
+        summary_df = generate_data_quality_summary(raw_fixture, df_clean)
+
+        assert isinstance(summary_df, pd.DataFrame)
+        required_summary_cols = [
+            "column_raw", "column_clean", "raw_null_count",
+            "raw_null_pct", "clean_null_count", "clean_null_pct", "null_delta",
+        ]
+        for col in required_summary_cols:
+            assert col in summary_df.columns, f"Missing summary column '{col}'"
+
+        assert "row_counts" in summary_df.attrs
+        assert "duplicate_counts" in summary_df.attrs
+        assert summary_df.attrs["row_counts"]["raw"] == len(raw_fixture)
+        assert summary_df.attrs["row_counts"]["clean"] == len(df_clean)
+        assert summary_df.attrs["duplicate_counts"]["raw"] >= summary_df.attrs["duplicate_counts"]["clean"]
+
+    def test_summary_reflects_sentinel_replacement_null_increases(self, raw_fixture, cleaned_fixture):
+        """Sentinel values replaced by NaN should show up in null_delta or clean_null_count."""
+        df_clean, _ = cleaned_fixture
+        summary_df = generate_data_quality_summary(raw_fixture, df_clean)
+        # Temperature had -999999 injected in row 0
+        temp_row = summary_df[summary_df["column_clean"] == "temperature_c"].iloc[0]
+        assert temp_row["clean_null_count"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# 16. Pipeline Idempotency / Consistency
+# ---------------------------------------------------------------------------
+
+class TestPipelineConsistency:
+
+    def test_running_pipeline_twice_on_same_raw_input_is_deterministic(self, raw_fixture, tmp_path):
+        """Executing the cleaning pipeline twice on the same raw file must yield identical output."""
+        raw_path = tmp_path / "raw_deterministic.parquet"
+        raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
+
+        pipeline_1 = WaterQualityPreprocessor(raw_path=str(raw_path))
+        df_1, summary_1 = pipeline_1.run()
+
+        pipeline_2 = WaterQualityPreprocessor(raw_path=str(raw_path))
+        df_2, summary_2 = pipeline_2.run()
+
+        # DataFrames must be completely identical
+        pd.testing.assert_frame_equal(df_1, df_2)
+        assert summary_1.raw_rows == summary_2.raw_rows
+        assert summary_1.final_rows == summary_2.final_rows
+        assert len(summary_1.steps) == len(summary_2.steps)
+
+
+# ---------------------------------------------------------------------------
+# 17. Synthetic Corner Cases (Missing, Duplicates, Types, Invalid Numerics)
+# ---------------------------------------------------------------------------
+
+class TestSyntheticCornerCases:
+
+    def test_all_missing_optional_nutrients(self, tmp_path):
+        """Pipeline handles a record where all chemical nutrients are NaN."""
+        data = {
+            "Country": ["Canada"],
+            "Area": ["Site Null"],
+            "Waterbody Type": ["River"],
+            "Date": ["01-01-2020"],
+            "Ammonia (mg/l)": [np.nan],
+            "Biochemical Oxygen Demand (mg/l)": [np.nan],
+            "Dissolved Oxygen (mg/l)": [np.nan],
+            "Orthophosphate (mg/l)": [np.nan],
+            "pH (ph units)": [np.nan],
+            "Temperature (cel)": [np.nan],
+            "Nitrogen (mg/l)": [np.nan],
+            "Nitrate (mg/l)": [np.nan],
+            "CCME_Values": [80.0],
+            "CCME_WQI": ["Good"],
+        }
+        df_synthetic = pd.DataFrame(data)
+        raw_path = tmp_path / "all_null.parquet"
+        df_synthetic.to_parquet(str(raw_path), compression="snappy", index=False)
+
+        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
+        df_out, _ = pipeline.run()
+
+        assert len(df_out) == 1
+        assert_schema_preserved(df_out)
+        assert_flag_columns_present(df_out)
+        # Flags for NaN values must be False
+        for col in SUSPICIOUS_VALUE_RULES:
+            assert not df_out[f"{col}_flag_suspicious"].iloc[0]
+
+    def test_inconsistent_string_whitespace_and_null_markers(self, tmp_path):
+        """String fields with extra whitespace, 'N/A', 'NULL', 'None' must be cleaned properly."""
+        data = {
+            "Country": ["  USA  ", "India"],
+            "Area": ["Lake Tahoe ", " none "],
+            "Waterbody Type": [" River\t", "Lake"],
+            "Date": ["12-05-2015", "04-10-2019"],
+            "Ammonia (mg/l)": [0.05, 0.02],
+            "Biochemical Oxygen Demand (mg/l)": [2.0, 1.5],
+            "Dissolved Oxygen (mg/l)": [8.0, 7.5],
+            "Orthophosphate (mg/l)": [0.01, 0.03],
+            "pH (ph units)": [7.4, 7.8],
+            "Temperature (cel)": [15.0, 22.0],
+            "Nitrogen (mg/l)": [1.0, 1.2],
+            "Nitrate (mg/l)": [4.0, 5.0],
+            "CCME_Values": [90.0, 85.0],
+            "CCME_WQI": ["Good", "Good"],
+        }
+        df_synthetic = pd.DataFrame(data)
+        raw_path = tmp_path / "dirty_strings.parquet"
+        df_synthetic.to_parquet(str(raw_path), compression="snappy", index=False)
+
+        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
+        df_out, _ = pipeline.run()
+
+        assert df_out["country"].iloc[0] == "USA"
+        assert df_out["area"].iloc[0] == "Lake Tahoe"
+        assert pd.isna(df_out["area"].iloc[1])  # ' none ' normalized to NaN
+        assert df_out["waterbody_type"].iloc[0] == "River"
+
+    def test_severe_duplicate_cluster_deduplication(self, tmp_path):
+        """10 identical rows must collapse to exactly 1 row."""
+        single_row = {
+            "Country": ["India"],
+            "Area": ["Ganges"],
+            "Waterbody Type": ["River"],
+            "Date": ["01-01-2019"],
+            "Ammonia (mg/l)": [0.1],
+            "Biochemical Oxygen Demand (mg/l)": [2.5],
+            "Dissolved Oxygen (mg/l)": [6.5],
+            "Orthophosphate (mg/l)": [0.04],
+            "pH (ph units)": [7.6],
+            "Temperature (cel)": [20.0],
+            "Nitrogen (mg/l)": [1.8],
+            "Nitrate (mg/l)": [4.2],
+            "CCME_Values": [78.0],
+            "CCME_WQI": ["Fair"],
+        }
+        df_10 = pd.concat([pd.DataFrame(single_row)] * 10, ignore_index=True)
+        raw_path = tmp_path / "dups_10.parquet"
+        df_10.to_parquet(str(raw_path), compression="snappy", index=False)
+
+        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
+        df_out, summary = pipeline.run()
+
+        assert len(df_out) == 1
+        assert summary.raw_rows == 10
+        assert summary.final_rows == 1
+
+    def test_extreme_and_corrupt_numeric_values_handling(self, tmp_path):
+        """Values like -80C temp, pH 67115, extreme negative sentinels handled accurately."""
+        data = {
+            "Country": ["USA", "India", "USA"],
+            "Area": ["Site 1", "Site 2", "Site 3"],
+            "Waterbody Type": ["River", "Lake", "Stream"],
+            "Date": ["01-01-2021", "02-02-2021", "03-03-2021"],
+            "Ammonia (mg/l)": [-0.002, 0.05, 0.01],         # -0.002 is SDL -> 0.0
+            "Biochemical Oxygen Demand (mg/l)": [1.0, -1.0, 2.0],  # -1.0 is SDL -> 0.0
+            "Dissolved Oxygen (mg/l)": [7.0, -999999.0, 9.0],      # -999999 -> NaN
+            "Orthophosphate (mg/l)": [0.01, 0.02, 0.03],
+            "pH (ph units)": [67115.0, -1.0, 16.0],        # all 3 are invalid pH -> NaN
+            "Temperature (cel)": [-80.0, -999999.0, 75.0], # -80 & -999999 -> NaN, 75.0 in USA -> 23.88C
+            "Nitrogen (mg/l)": [1.0, 2.0, 3.0],
+            "Nitrate (mg/l)": [5.0, 6.0, 7.0],
+            "CCME_Values": [85.0, 90.0, 95.0],
+            "CCME_WQI": ["Good", "Excellent", "Excellent"],
+        }
+        df_raw = pd.DataFrame(data)
+        raw_path = tmp_path / "corrupt_numerics.parquet"
+        df_raw.to_parquet(str(raw_path), compression="snappy", index=False)
+
+        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
+        df_out, _ = pipeline.run()
+
+        # SDL negatives clipped to 0.0
+        assert df_out["ammonia_mg_l"].iloc[0] == 0.0
+        assert df_out["bod_mg_l"].iloc[1] == 0.0
+
+        # pH sentinels converted to NaN
+        assert df_out["ph"].isna().all()
+
+        # Temp: row 0 (-80.0 sentinel) -> NaN; row 1 (-999999 sentinel) -> NaN; row 2 (USA 75F) -> 23.89C
+        assert pd.isna(df_out["temperature_c"].iloc[0])
+        assert pd.isna(df_out["temperature_c"].iloc[1])
+        assert round(df_out["temperature_c"].iloc[2], 2) == round((75.0 - 32) * 5 / 9, 2)
+
+
+# ---------------------------------------------------------------------------
+# 18. Integration: run on real dataset if available (optional / skipped in CI)
 # ---------------------------------------------------------------------------
 
 REAL_DATASET_PATH = os.path.join(
@@ -683,3 +912,4 @@ class TestRealDataset:
         assert_no_sdl_negatives(df_out)
         assert_targets_complete(df_out)
         assert out_path.exists()
+

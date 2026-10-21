@@ -41,6 +41,8 @@ from .preprocessing import (
     assert_targets_complete,
     assert_flag_columns_present,
     assert_usa_temperatures_in_celsius_range,
+    assert_raw_unmodified,
+    generate_data_quality_summary,
 )
 
 __all__ = [
@@ -75,4 +77,7 @@ __all__ = [
     "assert_targets_complete",
     "assert_flag_columns_present",
     "assert_usa_temperatures_in_celsius_range",
+    "assert_raw_unmodified",
+    "generate_data_quality_summary",
 ]
+

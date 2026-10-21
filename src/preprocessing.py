@@ -967,6 +967,66 @@ def assert_usa_temperatures_in_celsius_range(df: pd.DataFrame) -> None:
     )
 
 
+def assert_raw_unmodified(
+    raw_df_before: pd.DataFrame,
+    raw_df_after: pd.DataFrame,
+) -> None:
+    """
+    Raise AssertionError if the in-memory raw DataFrame was mutated by the pipeline.
+
+    Validates that cleaning operations operate on a copy or do not modify the
+    original input object, protecting upstream callers against in-place corruption.
+    """
+    assert raw_df_before.shape == raw_df_after.shape, (
+        f"Raw DataFrame shape changed: {raw_df_before.shape} -> {raw_df_after.shape}"
+    )
+    assert list(raw_df_before.columns) == list(raw_df_after.columns), (
+        "Raw DataFrame column names were modified"
+    )
+    pd.testing.assert_frame_equal(raw_df_before, raw_df_after)
+
+
+def generate_data_quality_summary(
+    df_raw: pd.DataFrame,
+    df_clean: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Compute a side-by-side data quality summary comparing raw vs cleaned DataFrames.
+
+    Returns a DataFrame indexed by feature/column name detailing:
+      - Raw Null Count & Null %
+      - Clean Null Count & Null %
+      - Change in Null Count (Net Nulls Introduced / Resolved)
+      - Row Counts (Raw vs Clean)
+      - Exact Duplicate Counts (Raw vs Clean)
+    """
+    rows_raw = len(df_raw)
+    rows_clean = len(df_clean)
+    dups_raw = int(df_raw.duplicated().sum())
+    dups_clean = int(df_clean.duplicated().sum())
+
+    records = []
+    for raw_col, clean_col in COLUMN_NAME_MAP.items():
+        if raw_col in df_raw.columns and clean_col in df_clean.columns:
+            r_null = int(df_raw[raw_col].isna().sum())
+            c_null = int(df_clean[clean_col].isna().sum())
+            records.append({
+                "column_raw": raw_col,
+                "column_clean": clean_col,
+                "raw_null_count": r_null,
+                "raw_null_pct": round(r_null / rows_raw * 100, 3) if rows_raw else 0.0,
+                "clean_null_count": c_null,
+                "clean_null_pct": round(c_null / rows_clean * 100, 3) if rows_clean else 0.0,
+                "null_delta": c_null - r_null,
+            })
+
+    summary_df = pd.DataFrame(records)
+    summary_df.attrs["row_counts"] = {"raw": rows_raw, "clean": rows_clean, "removed": rows_raw - rows_clean}
+    summary_df.attrs["duplicate_counts"] = {"raw": dups_raw, "clean": dups_clean, "removed": dups_raw - dups_clean}
+    return summary_df
+
+
+
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
