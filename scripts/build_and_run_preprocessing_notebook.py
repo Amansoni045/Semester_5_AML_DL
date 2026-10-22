@@ -160,7 +160,7 @@ print("\\nLeakage check PASSED: Target columns strictly excluded from input feat
 # Section 5: Train / Validation / Test Splitting
 cells.append(nbf.v4.new_markdown_cell("""## 5. Train / Validation / Test Splitting Strategy
 We implement a reproducible 70% Train / 15% Validation / 15% Test partition stratified by `ccme_wqi` (benchmark).  
-In addition, `split_data()` supports `spatial_group` (disjoint monitoring stations) and `temporal_holdout` (future-year forecasting).
+In addition, `split_data()` supports `country_area_group` (disjoint geographic area/catchment clusters, noting that station-level isolation cannot be claimed due to heterogeneous area granularity) and `temporal_holdout` (future-year forecasting).
 """))
 
 cells.append(nbf.v4.new_code_cell("""train_raw, val_raw, test_raw = split_data(

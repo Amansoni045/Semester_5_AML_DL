@@ -48,6 +48,7 @@ from src.preprocessing import (
     run_cleaning_pipeline,
     scale_features,
     split_data,
+    load_training_data,
 )
 
 
@@ -354,6 +355,18 @@ class TestTargetCompletenessAndMapping:
         for t in targets:
             assert t not in MODEL_INPUT_FEATURES
 
+    def test_model_input_features_authoritative_15_list(self):
+        expected_15 = [
+            "ph", "temperature_c", "do_mg_l", "bod_mg_l", "ammonia_mg_l",
+            "orthophosphate_mg_l", "nitrogen_mg_l", "nitrate_mg_l",
+            "np_ratio", "bod_do_ratio", "do_deficit", "month", "quarter",
+            "month_sin", "month_cos",
+        ]
+        assert len(MODEL_INPUT_FEATURES) == 15
+        assert MODEL_INPUT_FEATURES == expected_15
+        for t in [TARGET_REGRESSION, TARGET_CLASSIFICATION, TARGET_CLASSIFICATION_ORDINAL]:
+            assert t not in MODEL_INPUT_FEATURES
+
 
 # ---------------------------------------------------------------------------
 # 9. Cyclical month encoding
@@ -456,6 +469,32 @@ class TestFeatureEngineeringSafety:
         # Missing input yields NaN
         assert pd.isna(out.loc[2, "do_deficit"])
 
+    def test_calculate_do_saturation_sub_zero_and_range(self):
+        # Sub-zero temperatures (-5C, -1C) must be bounded at freezing point saturation
+        temps = pd.Series([-5.0, -1.0, 0.0, 20.0, 45.0, 55.0, np.nan])
+        sat_eh = calculate_do_saturation(temps, formula="elmore_hayes")
+        sat_bk = calculate_do_saturation(temps, formula="benson_krause")
+
+        # Elmore-Hayes freezing point saturation is 14.652 mg/L
+        assert np.isclose(sat_eh.iloc[0], 14.652)
+        assert np.isclose(sat_eh.iloc[1], 14.652)
+        assert np.isclose(sat_eh.iloc[2], 14.652)
+        assert np.isclose(sat_eh.iloc[3], 9.0218, atol=1e-3)
+
+        # Benson-Krause freezing point saturation is 14.6208 mg/L
+        assert np.isclose(sat_bk.iloc[0], 14.6208, atol=1e-3)
+        assert np.isclose(sat_bk.iloc[1], 14.6208, atol=1e-3)
+        assert np.isclose(sat_bk.iloc[2], 14.6208, atol=1e-3)
+        assert np.isclose(sat_bk.iloc[3], 9.0924, atol=1e-3)
+
+        # High temperatures capped at 45.0C
+        assert np.isclose(sat_eh.iloc[4], sat_eh.iloc[5])
+        assert np.isclose(sat_bk.iloc[4], sat_bk.iloc[5])
+
+        # Missing input returns NaN
+        assert pd.isna(sat_eh.iloc[6])
+        assert pd.isna(sat_bk.iloc[6])
+
 
 # ---------------------------------------------------------------------------
 # 11. Splitting strategies (Random, Group, Temporal)
@@ -472,30 +511,32 @@ class TestSplittingStrategies:
         assert len(train_df) + len(val_df) + len(test_df) == len(df_large)
         assert abs(len(train_df) / len(df_large) - 0.70) < 0.05
 
-    def test_spatial_group_split_disjointness(self):
-        # Create dataset with multiple stations
+    def test_country_area_group_split_disjointness(self):
+        # Create dataset with multiple country-area clusters
         rows = []
         for station_num in range(20):
             for _ in range(5):
                 rows.append({
                     "country": "England",
-                    "area": f"Station_{station_num}",
+                    "area": f"Area_{station_num}",
                     "waterbody_type": "River",
                     "ccme_wqi": "Good",
                     "ccme_values": 85.0,
                     "ph": 7.5,
                 })
-        df_stations = pd.DataFrame(rows)
-        train_df, val_df, test_df = split_data(df_stations, method="spatial_group", random_state=42)
+        df_areas = pd.DataFrame(rows)
+        # Test both authoritative name and legacy alias
+        for method_name in ["country_area_group", "spatial_group"]:
+            train_df, val_df, test_df = split_data(df_areas, method=method_name, random_state=42)
 
-        train_stations = set(train_df["area"])
-        val_stations = set(val_df["area"])
-        test_stations = set(test_df["area"])
+            train_areas = set(train_df["area"])
+            val_areas = set(val_df["area"])
+            test_areas = set(test_df["area"])
 
-        # Stations across partitions must be 100% mutually exclusive
-        assert len(train_stations & val_stations) == 0
-        assert len(train_stations & test_stations) == 0
-        assert len(val_stations & test_stations) == 0
+            # Country-area clusters across partitions must be 100% mutually exclusive
+            assert len(train_areas & val_areas) == 0
+            assert len(train_areas & test_areas) == 0
+            assert len(val_areas & test_areas) == 0
 
     def test_temporal_holdout_split(self):
         dates = pd.to_datetime(["2015-06-01", "2019-01-01", "2020-12-31", "2021-05-15", "2022-03-01", "2023-08-20"])
@@ -681,6 +722,19 @@ class TestRobustnessAndMetadataConsistency:
         assert meta["input_features_ordered"] == MODEL_INPUT_FEATURES
         assert "scaler_parameters" in meta
         assert "leakage_safeguards" in meta
+
+    def test_load_training_data_loader_isolation(self):
+        sample_path = "data/GeneratedOutput/02.Preprocessing&FeatureSelection/train_sample.parquet"
+        if os.path.exists(sample_path):
+            X, y, feature_names = load_training_data(sample_path, target_col="ccme_values")
+            assert X.shape == (50000, 15)
+            assert y.shape == (50000,)
+            assert feature_names == MODEL_INPUT_FEATURES
+            assert np.isnan(X).sum() == 0
+            assert np.isinf(X).sum() == 0
+            # Test critical leakage detection: passing a target in feature_cols must raise ValueError
+            with pytest.raises(ValueError, match="CRITICAL LEAKAGE DETECTED"):
+                load_training_data(sample_path, feature_cols=MODEL_INPUT_FEATURES + ["ccme_values"])
 
 
 

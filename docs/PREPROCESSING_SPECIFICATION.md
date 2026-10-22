@@ -83,20 +83,27 @@ Every transformation addresses a specific empirical anomaly identified during th
 - **Decision**: Append boolean flag columns (`{col}_flag_suspicious`) rather than deleting rows for values outside plausible environmental ranges.
 - **Rationale**: Deleting outliers distorts empirical distributions and discards valid high-pollution event data. Flag columns give downstream modeling teams the choice to filter, re-weight, or evaluate model calibration separately on clean vs anomalous samples.
 
-### Stage 8: Feature Engineering & Target Integrity
+### Stage 8: Feature Engineering, Saturation Thermodynamics & Target Integrity
 - **Decision**: 
-  - **Cyclical Month Encoding**: Generated using $\sin(2\pi(m-1)/12)$ and $\cos(2\pi(m-1)/12)$ so that January ($0^\circ$) and December ($330^\circ$) are adjacent in circular space. Missing dates yield `NaN`, subsequently imputed during train-only imputation.
+  - **Authoritative 15-Feature Input Matrix (`MODEL_INPUT_FEATURES`)**:
+    - **Base Physical/Chemical (8)**: `ph`, `temperature_c`, `do_mg_l`, `bod_mg_l`, `ammonia_mg_l`, `orthophosphate_mg_l`, `nitrogen_mg_l`, `nitrate_mg_l`.
+    - **Engineered Geochemical/Seasonal (7)**: `np_ratio`, `bod_do_ratio`, `do_deficit`, `month`, `quarter`, `month_sin`, `month_cos`.
+  - **Cyclical Month Encoding**: Generated using $\sin(2\pi(m-1)/12)$ and $\cos(2\pi(m-1)/12)$ alongside raw integer `month` and `quarter` so that January ($0^\circ$) and December ($330^\circ$) are adjacent in circular space. Missing dates yield `NaN`, subsequently imputed during train-only imputation.
   - **Safe Ratio Calculations**: `np_ratio` and `bod_do_ratio` set undefined denominators ($P \le 0$ or $DO \le 0$) to `np.nan` rather than adding arbitrary epsilon constants that distort stoichiometric chemical relationships.
-  - **Signed Dissolved Oxygen Deficit**: Computed as $DO_{\text{sat}}(T) - DO$ via the standard Weiss / Benson-Krause formula. Preserves both oxygen depletion ($D > 0$) and photosynthetic supersaturation ($D < 0$).
-  - **Target Segregation**: Continuous target `ccme_values` (regression) and categorical target `ccme_wqi` / `ccme_wqi_code` (classification) are strictly separated from `MODEL_INPUT_FEATURES`. Because CCME WQI is an algebraic index of component chemical exceedances, predicting it from the same measurements is documented as surrogate index reconstruction.
+  - **Signed Dissolved Oxygen Deficit & Sub-Zero Saturation**: Computed as $DO_{\text{sat}}(T) - DO$. Theoretical saturation $DO_{\text{sat}}(T)$ is calculated via the APHA Standard Methods / Elmore & Hayes polynomial and Benson & Krause (1984) USGS thermodynamic standard over the supported liquid domain [$0.0^\circ\text{C}, 45.0^\circ\text{C}$]. Valid sub-zero temperature measurements ($-10.0^\circ\text{C} \le T < 0.0^\circ\text{C}$, such as winter freeze conditions in Canada and Ireland) are evaluated at the freezing point saturation ($0.0^\circ\text{C}$, $14.652$ mg/L) representing the thermodynamic phase boundary of liquid freshwater, avoiding unphysical polynomial extrapolation. Depletion yields $D > 0$; photosynthetic supersaturation yields $D < 0$.
+  - **Target Segregation**: Continuous target `ccme_values` (regression) and categorical target `ccme_wqi` / `ccme_wqi_code` (classification) are strictly separated from `MODEL_INPUT_FEATURES`. Because CCME WQI is an algebraic index of component chemical exceedances, predicting it from contemporaneous measurements is documented as surrogate index reconstruction.
 
 ### Stage 9: Leakage-Free Splitting, Imputation, and Scaling
 - **Decision**:
-  - Support three evaluation regimes: `stratified_random` (70/15/15 benchmark), `spatial_group` (grouped by sampling station `country___area` to measure zero-station leakage generalization), and `temporal_holdout` (train $\le 2020$, val $2021$, test $\ge 2022$).
+  - Support three evaluation regimes:
+    1. `stratified_random` (70/15/15 benchmark stratified by `ccme_wqi`).
+    2. `country_area_group` (formerly `spatial_group`, grouped on `country___area` using `GroupShuffleSplit`). *Limitation*: Because `area` contains a mixture of specific stations (USGS codes), waterbodies ('Lake Sammamish'), composite catchments (Ireland), and whole bays (all China records share 'Hou Bay'), this split measures generalization across geographic areas/catchments, not verified physical station-level isolation.
+    3. `temporal_holdout` (train $\le 2020$, val $2021$, test $\ge 2022$, evaluating decadal temporal shift).
   - Hierarchical group imputation fitted strictly on the 70% train split: `(country, waterbody_type)` median $\to$ `country` median $\to$ global train median $\to$ 0.0.
   - `StandardScaler` fitted strictly on train input features only; targets are never scaled.
+  - Standardized data loading utility `load_training_data()` enforces that only the 15 input features enter model input matrices with zero NaNs, zero Infs, and strict target quarantine.
 
-### Stage 9: Output Parquet with Snappy Compression
+### Stage 10: Output Parquet with Snappy Compression
 - **Decision**: Write cleaned data to Parquet using `compression='snappy'`.
 - **Rationale**: Required by project guidelines for fast random-access reads and zero-copy slicing in PyArrow, DuckDB, and the VS Code Parquetly extension.
 

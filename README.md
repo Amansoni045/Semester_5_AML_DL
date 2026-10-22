@@ -61,18 +61,28 @@ Our harmonized dataset contains **4,297,895 surface water monitoring observation
   - `Area`: Monitoring station location / river / catchment area (string)
   - `Waterbody Type`: River, Stream, Effluent, Lake, Estuary, Marine (string)
   - `Date`: Sampling date formatted as `DD-MM-YYYY` (string)
-- **Water Quality Parameters ($X$)**:
-  - `Ammonia (mg/l)`: Standard limit: 0.5 mg/L
-  - `Biochemical Oxygen Demand (mg/l)`: Standard limit: 6.0 mg/L
-  - `Dissolved Oxygen (mg/l)`: Standard limit: 14.0 mg/L
-  - `Orthophosphate (mg/l)`: Standard limit: 0.05 mg/L
-  - `pH (ph units)`: Standard limit: 8.5
-  - `Temperature (cel)`: Standard limit: 25.0 °C
-  - `Nitrogen (mg/l)`: Standard limit: 20.0 mg/L
-  - `Nitrate (mg/l)`: Standard limit: 45.0 mg/L
-- **Target Indices ($y$)**:
-  - `CCME_Values`: Canadian Council of Ministers of the Environment Water Quality Index score (`0.0` – `100.0`, regression target)
-  - `CCME_WQI`: Categorical classification (`Excellent`, `Good`, `Fair`, `Marginal`, `Poor`)
+- **Authoritative Model Input Features ($X$, 15 Features)**:
+  - *Base Physical & Chemical Parameters (8)*:
+    - `ph`: Negative log hydrogen activity (pH units)
+    - `temperature_c`: Water temperature (Celsius)
+    - `do_mg_l`: Dissolved Oxygen concentration (mg/L)
+    - `bod_mg_l`: 5-day Biochemical Oxygen Demand (mg/L)
+    - `ammonia_mg_l`: Ammonium / ammonia concentration (mg/L)
+    - `orthophosphate_mg_l`: Dissolved reactive phosphorus (mg/L)
+    - `nitrogen_mg_l`: Total / dissolved nitrogen (mg/L)
+    - `nitrate_mg_l`: Nitrate ion concentration (mg/L)
+  - *Domain-Engineered Geochemical & Seasonal Predictors (7)*:
+    - `np_ratio`: Stoichiometric Total Nitrogen to Orthophosphate ratio
+    - `bod_do_ratio`: Organic loading relative to available dissolved oxygen
+    - `do_deficit`: Signed oxygen deficit $DO_{\text{sat}}(T) - DO$ (sub-zero bounded at $0^\circ\text{C}$ freezing point saturation)
+    - `month`: Integer calendar month ($1 \dots 12$)
+    - `quarter`: Integer calendar quarter ($1 \dots 4$)
+    - `month_sin`: Cyclical seasonal transform $\sin(2\pi(m-1)/12)$
+    - `month_cos`: Cyclical seasonal transform $\cos(2\pi(m-1)/12)$
+- **Target Indices ($y$, Strictly Excluded from $X$)**:
+  - `ccme_values`: Canadian Council of Ministers of the Environment Water Quality Index score (`0.0` – `100.0`, continuous regression target)
+  - `ccme_wqi`: Categorical classification (`Poor` < `Marginal` < `Fair` < `Good` < `Excellent`)
+  - `ccme_wqi_code`: Ordinal integer classification label (`0` $\dots$ `4`)
 
 ---
 

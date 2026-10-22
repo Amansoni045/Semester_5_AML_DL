@@ -479,14 +479,54 @@ def run_cleaning_pipeline(
 # Feature Engineering, Splitting, Imputation, and Scaling
 # ---------------------------------------------------------------------------
 
-def calculate_do_saturation(temp_c: pd.Series) -> pd.Series:
+def calculate_do_saturation(temp_c: pd.Series, formula: str = "elmore_hayes") -> pd.Series:
     """
-    Calculates theoretical freshwater dissolved oxygen saturation (mg/L) at 1 atm
-    using the standard polynomial approximation (Elmore & Hayes / APHA Standard Methods):
-    DO_sat(T) = 14.652 - 0.41022*T + 0.007991*T^2 - 0.000077774*T^3
+    Calculates theoretical freshwater dissolved oxygen saturation (mg/L) at 1 atm.
+
+    Scientific Foundations & Formulation:
+      1. Elmore & Hayes (1960) / APHA Standard Methods 4500-O polynomial approximation (Default):
+         DO_sat(T) = 14.652 - 0.41022*T + 0.007991*T^2 - 0.000077774*T^3
+      2. Benson & Krause (1984) / USGS TWRI Book 9, Chap A6 thermodynamic standard:
+         ln C* = -139.34411 + (1.575701e5 / T_K) - (6.642308e7 / T_K^2)
+                 + (1.243800e10 / T_K^3) - (8.621949e11 / T_K^4)
+         where T_K = T_C + 273.15.
+
+    Supported Temperature Domain & Boundary Handling:
+      - Valid liquid range: 0.0°C to 40.0°C (operational safety extension up to 45.0°C).
+      - Sub-Zero Observations (-10.0°C <= T < 0.0°C, e.g. Canadian/Irish winter surface waters):
+        In open natural systems, freshwater gas solubility equations describe the liquid phase.
+        When surface water supercools or exists in equilibrium with frazil/slush ice, the maximum
+        equilibrium concentration of dissolved oxygen in liquid water is thermodynamically bounded
+        by the saturation concentration at the freezing point (0.0°C: 14.652 mg/L via APHA,
+        14.621 mg/L via Benson-Krause). Extrapolating gas solubility curves into negative temperatures
+        creates unphysical mathematical divergence. Therefore, valid sub-zero temperatures are
+        clipped to 0.0°C for the saturation calculation, representing the physical limit at the
+        ice-water phase boundary.
+      - Hardware Sentinels (T < -10.0°C): Neutralized to np.nan during cleaning; returns np.nan.
+      - Extreme High Temperatures (T > 45.0°C): Clipped to 45.0°C for numerical stability and flagged.
+      - Missing Values (NaN): Evaluates cleanly to np.nan and is imputed during train-only imputation.
     """
+    is_na = temp_c.isna()
     t = temp_c.clip(lower=0.0, upper=45.0)
-    return 14.652 - (0.41022 * t) + (0.007991 * (t ** 2)) - (0.000077774 * (t ** 3))
+
+    if formula == "elmore_hayes":
+        sat = 14.652 - (0.41022 * t) + (0.007991 * (t ** 2)) - (0.000077774 * (t ** 3))
+    elif formula == "benson_krause":
+        tk = t + 273.15
+        ln_c = (
+            -139.34411
+            + (1.575701e5 / tk)
+            - (6.642308e7 / (tk ** 2))
+            + (1.243800e10 / (tk ** 3))
+            - (8.621949e11 / (tk ** 4))
+        )
+        sat = np.exp(ln_c)
+    else:
+        raise ValueError(
+            f"Unknown DO saturation formula: '{formula}'. Choose 'elmore_hayes' or 'benson_krause'."
+        )
+
+    return sat.where(~is_na, np.nan)
 
 
 def engineer_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
@@ -581,9 +621,16 @@ def split_data(
     Splits data into train, validation, and test partitions using one of three evaluation regimes:
       1. 'stratified_random' (Default Benchmark): 70/15/15 split stratified by ccme_wqi.
          Evaluates in-domain tabular prediction across mixed stations and years.
-      2. 'spatial_group': Group-based split by station ID ('country___area').
-         Guarantees that sampling stations in Train, Val, and Test are 100% mutually exclusive.
-         Evaluates geographic generalization to completely unseen monitoring stations.
+      2. 'country_area_group' (formerly 'spatial_group'): Group-based holdout split by country and area ('country___area').
+         Guarantees that geographic areas/catchments in Train, Val, and Test are 100% mutually exclusive.
+         
+         Limitation & Generalization Caveat:
+         The 'area' column represents a mixture of granular monitoring station codes (e.g., USGS station IDs
+         in the USA, alphanumeric codes in Canada), whole waterbody names (e.g., 'Lake Sammamish' in USA),
+         composite catchment strings (in Ireland), and entire bays (e.g., in China, all 45,997 records share
+         'Hou Bay'). Therefore, this split evaluates generalization across distinct geographic areas and
+         catchments, NOT verified individual physical sensor stations. Claims of verified station-level
+         generalization must not be made.
       3. 'temporal_holdout': Time-based split (Train <= 2020, Val = 2021, Test >= 2022).
          Guarantees strictly historical training and evaluates future forecasting under decadal shift.
     """
@@ -609,19 +656,19 @@ def split_data(
             stratify=holdout_df[stratify_col] if stratify_col else None,
         )
 
-    elif method == "spatial_group":
-        # Group by station identifier
-        station_id = df["country"].astype(str) + "___" + df["area"].astype(str)
+    elif method in ("country_area_group", "spatial_group"):
+        # Group by country and area identifier
+        group_id = df["country"].astype(str) + "___" + df["area"].astype(str)
         val_test_ratio = val_size + test_size
 
         gss1 = GroupShuffleSplit(n_splits=1, train_size=train_size, random_state=random_state)
-        train_idx, holdout_idx = next(gss1.split(df, groups=station_id))
+        train_idx, holdout_idx = next(gss1.split(df, groups=group_id))
         train_df = df.iloc[train_idx].copy()
         holdout_df = df.iloc[holdout_idx].copy()
 
         test_ratio_of_holdout = test_size / val_test_ratio
         gss2 = GroupShuffleSplit(n_splits=1, train_size=(1.0 - test_ratio_of_holdout), random_state=random_state)
-        val_sub_idx, test_sub_idx = next(gss2.split(holdout_df, groups=station_id.iloc[holdout_idx]))
+        val_sub_idx, test_sub_idx = next(gss2.split(holdout_df, groups=group_id.iloc[holdout_idx]))
         val_df = holdout_df.iloc[val_sub_idx].copy()
         test_df = holdout_df.iloc[test_sub_idx].copy()
 
@@ -635,7 +682,9 @@ def split_data(
         test_df = df[years >= 2022].copy()
 
     else:
-        raise ValueError(f"Unknown split method: {method}. Choose 'stratified_random', 'spatial_group', or 'temporal_holdout'.")
+        raise ValueError(
+            f"Unknown split method: {method}. Choose 'stratified_random', 'country_area_group' (or 'spatial_group'), or 'temporal_holdout'."
+        )
 
     logger.info(
         "Split data (%s): Train=%s (%.1f%%), Val=%s (%.1f%%), Test=%s (%.1f%%)",
@@ -905,7 +954,7 @@ def prepare_training_datasets(
             "Imputer statistics fitted strictly on the 70% train split and applied to val/test without refitting",
             "StandardScaler fitted strictly on the 70% train split and applied to val/test without refitting",
             "Exact 14-column duplicate rows removed prior to splitting to prevent memorization",
-            "Alternative spatial_group split guarantees mutually exclusive stations between train, val, and test",
+            "Alternative country_area_group split guarantees mutually exclusive country-area geographic clusters between train, val, and test (not claiming verified station-level generalization due to area heterogeneity)",
         ],
         "output_artifacts": {
             "cleaned_data": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/cleaned_water_quality.parquet",
@@ -1034,12 +1083,76 @@ def generate_data_quality_summary(df_raw: pd.DataFrame, df_clean: pd.DataFrame) 
     return summary_df
 
 
+def load_training_data(
+    data_path: str,
+    feature_cols: Optional[List[str]] = None,
+    target_col: str = "ccme_values",
+) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+    """
+    Authoritative training data loader for Stage 03 Model Training.
+
+    Ensures that downstream modeling scripts (tree models, neural networks) load ONLY
+    the authoritative 15 input features, that target variables are strictly excluded
+    from the input matrix, and that no NaNs or Infs enter the model.
+
+    Args:
+        data_path: Path to the Parquet dataset (e.g. 'train.parquet' or 'train_scaled.parquet').
+        feature_cols: List of feature names. Defaults to MODEL_INPUT_FEATURES (15 features).
+        target_col: Target column to extract ('ccme_values' for regression, 'ccme_wqi' or 'ccme_wqi_code' for classification).
+
+    Returns:
+        X: numpy.ndarray of shape (N, 15) with float64 data.
+        y: numpy.ndarray of shape (N,) with target labels.
+        feature_names: List of feature names in exact column order.
+    """
+    if feature_cols is None:
+        feature_cols = MODEL_INPUT_FEATURES.copy()
+
+    # Critical leak check: Never allow target in input features
+    for forbidden_target in [TARGET_REGRESSION, TARGET_CLASSIFICATION, TARGET_CLASSIFICATION_ORDINAL]:
+        if forbidden_target in feature_cols:
+            raise ValueError(
+                f"CRITICAL LEAKAGE DETECTED: Target '{forbidden_target}' cannot be included in input feature_cols!"
+            )
+
+    df = pd.read_parquet(data_path)
+
+    missing_cols = [c for c in feature_cols if c not in df.columns]
+    if missing_cols:
+        raise KeyError(f"Missing required input features in {data_path}: {missing_cols}")
+
+    if target_col not in df.columns:
+        raise KeyError(f"Target column '{target_col}' not found in {data_path}")
+
+    X_df = df[feature_cols]
+    y_ser = df[target_col]
+
+    nan_count = int(X_df.isna().sum().sum())
+    if nan_count > 0:
+        raise ValueError(f"Input feature matrix contains {nan_count} NaN values in {data_path}")
+
+    inf_count = int(np.isinf(X_df.select_dtypes(include=np.number).values).sum())
+    if inf_count > 0:
+        raise ValueError(f"Input feature matrix contains {inf_count} infinite values in {data_path}")
+
+    X = X_df.to_numpy(dtype=np.float64)
+    y = y_ser.to_numpy()
+
+    return X, y, feature_cols
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Water Quality Preprocessing and Dataset Preparation")
     parser.add_argument("--input", type=str, default=None, help="Path to raw dataset")
     parser.add_argument("--output", type=str, default=None, help="Output path for cleaned parquet")
     parser.add_argument("--prepare-splits", action="store_true", help="Generate train/val/test splits")
-    parser.add_argument("--split-method", type=str, default="stratified_random", choices=["stratified_random", "spatial_group", "temporal_holdout"], help="Splitting methodology")
+    parser.add_argument(
+        "--split-method",
+        type=str,
+        default="stratified_random",
+        choices=["stratified_random", "country_area_group", "spatial_group", "temporal_holdout"],
+        help="Splitting methodology",
+    )
     parser.add_argument("--nrows", type=int, default=None, help="Limit rows loaded")
     args = parser.parse_args()
 
