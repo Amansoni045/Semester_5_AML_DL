@@ -1,11 +1,31 @@
 {
-  "total_rows": 4287890,
+  "metadata_version": "2.0.0",
+  "dataset_source": "data/Dataset/Parquet/Combined Data/Combined_dataset.parquet",
+  "source_filename": "Combined_dataset.parquet",
+  "original_row_count": 4297895,
+  "cleaned_row_count": 4287890,
+  "rows_removed": 10005,
+  "exact_duplicates_removed": 10005,
+  "usa_temperature_degf_converted": 5852,
+  "sentinels_neutralized": 84,
+  "split_methodology": "stratified_random",
+  "random_seed": 42,
+  "split_ratios": {
+    "train": 0.7,
+    "val": 0.15,
+    "test": 0.15
+  },
   "split_counts": {
     "train": 3001523,
     "val": 643183,
     "test": 643184
   },
-  "feature_columns": [
+  "sample_sizes": {
+    "train_sample": 50000,
+    "val_sample": 12500,
+    "test_sample": 12500
+  },
+  "input_features_ordered": [
     "ph",
     "temperature_c",
     "do_mg_l",
@@ -22,6 +42,7 @@
     "month_sin",
     "month_cos"
   ],
+  "input_feature_count": 15,
   "base_features": [
     "ph",
     "temperature_c",
@@ -41,52 +62,123 @@
     "month_sin",
     "month_cos"
   ],
-  "targets": {
-    "continuous": "ccme_values",
-    "categorical": "ccme_wqi",
-    "categorical_code": "ccme_wqi_code"
+  "target_definitions": {
+    "regression_target": "ccme_values",
+    "classification_target": "ccme_wqi",
+    "classification_target_ordinal": "ccme_wqi_code"
   },
-  "target_classes": [
+  "target_class_mapping": {
+    "Poor": 0,
+    "Marginal": 1,
+    "Fair": 2,
+    "Good": 3,
+    "Excellent": 4
+  },
+  "target_class_order": [
     "Poor",
     "Marginal",
     "Fair",
     "Good",
     "Excellent"
   ],
-  "scaler": {
+  "imputation_strategy": {
+    "chemical_features": "Group median by (country, waterbody_type) strictly on train split",
+    "seasonal_features": "Group median by (country, month) strictly on train split",
+    "fallback_hierarchy": [
+      "group_median",
+      "country_median",
+      "global_train_median",
+      0.0
+    ],
+    "global_medians_fitted_on_train": {
+      "ph": 7.78,
+      "temperature_c": 11.9,
+      "do_mg_l": 10.2,
+      "bod_mg_l": 2.7,
+      "ammonia_mg_l": 0.055,
+      "orthophosphate_mg_l": 0.108,
+      "nitrogen_mg_l": 4.01,
+      "nitrate_mg_l": 4.5,
+      "np_ratio": 26.176470588235293,
+      "bod_do_ratio": 0.23478260869565218,
+      "do_deficit": 0.6832950685827335,
+      "month": 7.0,
+      "quarter": 3.0,
+      "month_sin": 1.2246467991473532e-16,
+      "month_cos": -1.8369701987210297e-16
+    }
+  },
+  "scaler_parameters": {
+    "feature_names": [
+      "ph",
+      "temperature_c",
+      "do_mg_l",
+      "bod_mg_l",
+      "ammonia_mg_l",
+      "orthophosphate_mg_l",
+      "nitrogen_mg_l",
+      "nitrate_mg_l",
+      "np_ratio",
+      "bod_do_ratio",
+      "do_deficit",
+      "month",
+      "quarter",
+      "month_sin",
+      "month_cos"
+    ],
     "mean": {
       "ph": 7.720375275973079,
-      "temperature_c": 13.70772500200108,
+      "temperature_c": 13.704540551973546,
       "do_mg_l": 9.363171655289289,
-      "bod_mg_l": 4.1488114834282035,
-      "ammonia_mg_l": 0.7911190630241295,
-      "orthophosphate_mg_l": 0.5053106098779504,
-      "nitrogen_mg_l": 4.807258021880423,
-      "nitrate_mg_l": 4.679695498271872,
-      "np_ratio": 50.62977226029255,
-      "bod_do_ratio": 2.0494911064382384,
-      "do_deficit": 1.077351503060861,
+      "bod_mg_l": 3.7729366025760496,
+      "ammonia_mg_l": 0.7795010977445032,
+      "orthophosphate_mg_l": 0.4820746793186975,
+      "nitrogen_mg_l": 3.573703473073035,
+      "nitrate_mg_l": 3.4495579980761386,
+      "np_ratio": 43.07024729616688,
+      "bod_do_ratio": 13.040568835933147,
+      "do_deficit": 0.96814210054955,
       "month": 6.487737725148199,
       "quarter": 2.501686643747191,
-      "month_sin": -0.017712098607638276,
-      "month_cos": -0.024329832642089513
+      "month_sin": -0.0031742110275049806,
+      "month_cos": -0.029926302441692525
     },
     "scale": {
       "ph": 0.3967740119699942,
-      "temperature_c": 6.665851233271183,
+      "temperature_c": 6.666234333943896,
       "do_mg_l": 1.9502396931250108,
-      "bod_mg_l": 13.398198764958689,
-      "ammonia_mg_l": 4.626020941044595,
-      "orthophosphate_mg_l": 1.7208142136403293,
-      "nitrogen_mg_l": 5.062592998864918,
-      "nitrate_mg_l": 4.950902623917017,
-      "np_ratio": 431.53421143004016,
-      "bod_do_ratio": 427.3239475715944,
-      "do_deficit": 1.422853809192932,
+      "bod_mg_l": 13.44890526857102,
+      "ammonia_mg_l": 4.627897383490385,
+      "orthophosphate_mg_l": 1.726471967962068,
+      "nitrogen_mg_l": 5.525237143091228,
+      "nitrate_mg_l": 5.279090249740614,
+      "np_ratio": 313.2422458237542,
+      "bod_do_ratio": 3315.2779413569738,
+      "do_deficit": 1.6638156840281975,
       "month": 3.3821752205494957,
       "quarter": 1.1063420312752754,
-      "month_sin": 0.7107973567798483,
-      "month_cos": 0.7027527718915823
+      "month_sin": 0.7103312131298168,
+      "month_cos": 0.7032239390550096
     }
+  },
+  "leakage_safeguards": [
+    "Targets (ccme_values, ccme_wqi, ccme_wqi_code) strictly excluded from MODEL_INPUT_FEATURES",
+    "Imputer statistics fitted strictly on the 70% train split and applied to val/test without refitting",
+    "StandardScaler fitted strictly on the 70% train split and applied to val/test without refitting",
+    "Exact 14-column duplicate rows removed prior to splitting to prevent memorization",
+    "Alternative spatial_group split guarantees mutually exclusive stations between train, val, and test"
+  ],
+  "output_artifacts": {
+    "cleaned_data": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/cleaned_water_quality.parquet",
+    "train_unscaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/train.parquet",
+    "val_unscaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/val.parquet",
+    "test_unscaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/test.parquet",
+    "train_scaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/train_scaled.parquet",
+    "val_scaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/val_scaled.parquet",
+    "test_scaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/test_scaled.parquet",
+    "train_sample": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/train_sample.parquet",
+    "val_sample": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/val_sample.parquet",
+    "test_sample": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/test_sample.parquet",
+    "metadata_file": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/preprocessing_metadata.json"
   }
 }

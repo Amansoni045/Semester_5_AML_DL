@@ -66,9 +66,14 @@ Every transformation addresses a specific empirical anomaly identified during th
 - **Decision**: Convert temperature readings for `country == 'USA'` where `temperature_c > 50.0` from Fahrenheit to Celsius using $(F - 32) \times \frac{5}{9}$.
 - **Rationale**: Audit revealed 5,852 USA records with temperatures exceeding 50°C (up to 104°F). Surface water in continental USA cannot reach 50°C–100°C without boiling. Post-conversion, all values cleanly map to the plausible range of 10°C–36°C. Non-USA high temperatures (e.g., England industrial effluent discharges) were left untouched based on station site metadata.
 
-### Stage 5: Sub-Detection-Limit (SDL) Negative Clipping
-- **Decision**: Clip negative chemical concentrations in the range $[-5.0, 0.0)$ to `0.0` for `ammonia_mg_l`, `bod_mg_l`, `do_mg_l`, `orthophosphate_mg_l`, `nitrogen_mg_l`, and `nitrate_mg_l`.
-- **Rationale**: Concentrations of physical matter cannot be negative. These values are standard analytical chemistry baseline noise around sensor zero-calibration points. In contrast, `temperature_c` is permitted to retain sub-zero values for freeze conditions in Canada and Ireland.
+### Stage 5: Domain-Informed Physical Bounds & Negative Concentration Rules
+- **Decision**: Refined from blunt `[-5.0, 0.0)` clipping to column-specific physical and analytical detection limits:
+  - `ammonia_mg_l` & `orthophosphate_mg_l`: $[-0.01, 0.0) \to 0.0$ (calibrated zero-baseline drift); values $<-0.01 \to \text{NaN}$.
+  - `bod_mg_l`: $[-0.10, 0.0) \to 0.0$; values $<-0.10 \to \text{NaN}$ (neutralizing unphysical $-2.0$ mg/L anomaly to NaN).
+  - `do_mg_l`: $[-0.15, 0.0) \to 0.0$ (resolving 94 records of $-0.05$ and $-0.10$ mg/L polarographic probe zero-drift in anoxic waters); values $<-0.15 \to \text{NaN}$ (hardware sentinels like $-999999.0$).
+  - `temperature_c`: Valid sub-zero winter freeze readings (down to $-5.3^\circ\text{C}$ in Canada/Ireland) are preserved. Hardware dropouts ($<-10.0^\circ\text{C}$, including $-999999.0$) are converted to `np.nan`. Suspicious non-USA high temperatures ($> 45.0^\circ\text{C}$) are flagged.
+  - `nitrogen_mg_l` & `nitrate_mg_l`: $[-0.05, 0.0) \to 0.0$; values $<-0.05 \to \text{NaN}$.
+- **Rationale**: Physical matter concentrations cannot be negative. Applying column-specific boundaries distinguishes instrument zero-calibration noise from severe sensor corruptions or hardware dropout codes without fabricating data.
 
 ### Stage 6: Exact Duplicate Removal
 - **Decision**: Drop identical duplicate records across all 14 features using `keep='first'`.
@@ -78,9 +83,18 @@ Every transformation addresses a specific empirical anomaly identified during th
 - **Decision**: Append boolean flag columns (`{col}_flag_suspicious`) rather than deleting rows for values outside plausible environmental ranges.
 - **Rationale**: Deleting outliers distorts empirical distributions and discards valid high-pollution event data. Flag columns give downstream modeling teams the choice to filter, re-weight, or evaluate model calibration separately on clean vs anomalous samples.
 
-### Stage 8: Documented Missingness Strategy (No Global Mean/Median Imputation)
-- **Decision**: Document per-column missingness mechanisms without performing naive imputation on the raw dataset.
-- **Rationale**: Nutrients exhibit 34.2% Missing At Random (MAR) synchrony. Imputing globally before splitting causes severe data leakage. All imputations (KNN within Country $\times$ Waterbody Type or physics-informed DO estimation) must be fitted strictly on the 70% training split.
+### Stage 8: Feature Engineering & Target Integrity
+- **Decision**: 
+  - **Cyclical Month Encoding**: Generated using $\sin(2\pi(m-1)/12)$ and $\cos(2\pi(m-1)/12)$ so that January ($0^\circ$) and December ($330^\circ$) are adjacent in circular space. Missing dates yield `NaN`, subsequently imputed during train-only imputation.
+  - **Safe Ratio Calculations**: `np_ratio` and `bod_do_ratio` set undefined denominators ($P \le 0$ or $DO \le 0$) to `np.nan` rather than adding arbitrary epsilon constants that distort stoichiometric chemical relationships.
+  - **Signed Dissolved Oxygen Deficit**: Computed as $DO_{\text{sat}}(T) - DO$ via the standard Weiss / Benson-Krause formula. Preserves both oxygen depletion ($D > 0$) and photosynthetic supersaturation ($D < 0$).
+  - **Target Segregation**: Continuous target `ccme_values` (regression) and categorical target `ccme_wqi` / `ccme_wqi_code` (classification) are strictly separated from `MODEL_INPUT_FEATURES`. Because CCME WQI is an algebraic index of component chemical exceedances, predicting it from the same measurements is documented as surrogate index reconstruction.
+
+### Stage 9: Leakage-Free Splitting, Imputation, and Scaling
+- **Decision**:
+  - Support three evaluation regimes: `stratified_random` (70/15/15 benchmark), `spatial_group` (grouped by sampling station `country___area` to measure zero-station leakage generalization), and `temporal_holdout` (train $\le 2020$, val $2021$, test $\ge 2022$).
+  - Hierarchical group imputation fitted strictly on the 70% train split: `(country, waterbody_type)` median $\to$ `country` median $\to$ global train median $\to$ 0.0.
+  - `StandardScaler` fitted strictly on train input features only; targets are never scaled.
 
 ### Stage 9: Output Parquet with Snappy Compression
 - **Decision**: Write cleaned data to Parquet using `compression='snappy'`.

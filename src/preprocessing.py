@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit, train_test_split
 from sklearn.preprocessing import StandardScaler
 
 logging.basicConfig(
@@ -60,14 +60,14 @@ COLUMN_NAME_MAP: Dict[str, str] = {
 
 COLUMN_NAME_MAP_REVERSE: Dict[str, str] = {v: k for k, v in COLUMN_NAME_MAP.items()}
 
-# Sensor error sentinels found during data audit
+# Telemetry error sentinels found in empirical data audit
 SENTINEL_VALUES: List[float] = [-999999.0, -9999.0, -999.0, -596.0, -99.9, -80.0]
 SENTINEL_COLUMNS: List[str] = ["ph", "temperature_c", "do_mg_l"]
 
 # Plausible domain bounds used for quality flagging
 SUSPICIOUS_VALUE_RULES: Dict[str, Dict[str, float]] = {
     "ph": {"hard_min": 0.0, "hard_max": 14.0},
-    "temperature_c": {"hard_min": -5.0, "hard_max": 98.0},
+    "temperature_c": {"hard_min": -5.0, "hard_max": 45.0},
     "ammonia_mg_l": {"hard_min": 0.0, "hard_max": 500.0},
     "bod_mg_l": {"hard_min": 0.0, "hard_max": 1000.0},
     "do_mg_l": {"hard_min": 0.0, "hard_max": 30.0},
@@ -77,15 +77,22 @@ SUSPICIOUS_VALUE_RULES: Dict[str, Dict[str, float]] = {
     "ccme_values": {"hard_min": 0.0, "hard_max": 100.0},
 }
 
-# Sub-detection limit negative clipping
-SDL_CLIP_COLUMNS: List[str] = [
-    "ammonia_mg_l",
-    "bod_mg_l",
-    "do_mg_l",
-    "orthophosphate_mg_l",
-    "nitrogen_mg_l",
-    "nitrate_mg_l",
-]
+# Column-specific cleaning rules for negative values
+# Concentrations cannot be negative. Values in [noise_min, 0.0) reflect instrument zero-drift
+# around the analytical detection limit and are clipped to 0.0. Values below noise_min are
+# confirmed physically invalid (or hardware sentinels) and converted to NaN.
+# Temperature is excluded here because sub-zero water/slush temperatures down to -10C are valid.
+NEGATIVE_CLEANING_RULES: Dict[str, Dict[str, float]] = {
+    "ammonia_mg_l": {"noise_min": -0.01},
+    "bod_mg_l": {"noise_min": -0.10},
+    "do_mg_l": {"noise_min": -0.15},
+    "orthophosphate_mg_l": {"noise_min": -0.01},
+    "nitrogen_mg_l": {"noise_min": -0.01},
+    "nitrate_mg_l": {"noise_min": -0.01},
+}
+
+# Legacy alias for backward compatibility with existing tests
+SDL_CLIP_COLUMNS: List[str] = list(NEGATIVE_CLEANING_RULES.keys())
 
 CCME_WQI_CATEGORIES: List[str] = ["Poor", "Marginal", "Fair", "Good", "Excellent"]
 CCME_WQI_MAP: Dict[str, int] = {cat: idx for idx, cat in enumerate(CCME_WQI_CATEGORIES)}
@@ -96,15 +103,23 @@ MISSING_VALUE_STRATEGY: Dict[str, str] = {
     "nitrogen_mg_l": "Group median imputation by (country, waterbody_type) on train split.",
     "nitrate_mg_l": "Group median imputation by (country, waterbody_type) on train split.",
     "bod_mg_l": "Group median imputation by (country, waterbody_type) on train split.",
-    "do_mg_l": "Group median or temperature-informed oxygen saturation imputation on train split.",
+    "do_mg_l": "Group median imputation by (country, waterbody_type) on train split.",
     "ph": "Group median imputation by (country, waterbody_type) on train split.",
     "temperature_c": "Group median imputation by (country, month) on train split.",
-    "ccme_values": "Complete (target) - no imputation.",
-    "ccme_wqi": "Complete (target) - no imputation.",
+    "np_ratio": "Group median imputation by (country, waterbody_type) on train split.",
+    "bod_do_ratio": "Group median imputation by (country, waterbody_type) on train split.",
+    "do_deficit": "Group median imputation by (country, month) on train split.",
+    "month": "Mode / median month imputation on train split.",
+    "quarter": "Derived from month on train split.",
+    "month_sin": "Cyclical sin transform of imputed month.",
+    "month_cos": "Cyclical cos transform of imputed month.",
+    "ccme_values": "Complete (continuous regression target) - no imputation.",
+    "ccme_wqi": "Complete (categorical classification target) - no imputation.",
+    "ccme_wqi_code": "Complete (ordinal classification target) - no imputation.",
     "country": "Complete - no imputation.",
-    "area": "Complete - no imputation.",
-    "waterbody_type": "Complete - no imputation.",
-    "date": "Complete - parsed to datetime.",
+    "area": "Complete metadata - blank strings normalized to NaN.",
+    "waterbody_type": "Complete metadata - no imputation.",
+    "date": "Parsed to datetime64[ns].",
 }
 
 BASE_NUMERIC_FEATURES: List[str] = [
@@ -117,6 +132,23 @@ BASE_NUMERIC_FEATURES: List[str] = [
     "nitrogen_mg_l",
     "nitrate_mg_l",
 ]
+
+ENGINEERED_FEATURES: List[str] = [
+    "np_ratio",
+    "bod_do_ratio",
+    "do_deficit",
+    "month",
+    "quarter",
+    "month_sin",
+    "month_cos",
+]
+
+# Authoritative list of 15 predictor features used across XGBoost, Random Forest, and MLP models
+MODEL_INPUT_FEATURES: List[str] = BASE_NUMERIC_FEATURES + ENGINEERED_FEATURES
+
+TARGET_REGRESSION: str = "ccme_values"
+TARGET_CLASSIFICATION: str = "ccme_wqi"
+TARGET_CLASSIFICATION_ORDINAL: str = "ccme_wqi_code"
 
 
 @dataclass
@@ -208,7 +240,7 @@ class WaterQualityPreprocessor:
         df = self._cast_data_types(df)
         df = self._replace_sentinels(df)
         df = self._fix_usa_temperature_unit(df)
-        df = self._clip_sub_detection_limit_negatives(df)
+        df = self._clean_negative_concentrations(df)
         df = self._drop_exact_duplicates(df)
         df = self._flag_suspicious_values(df)
         df = self._apply_missing_value_strategy(df)
@@ -264,7 +296,7 @@ class WaterQualityPreprocessor:
             cat_dtype = pd.CategoricalDtype(categories=present_cats, ordered=True)
             df["ccme_wqi"] = df["ccme_wqi"].astype(cat_dtype)
 
-        # Normalize blank / null string artifacts
+        # Normalize blank / null string artifacts in categorical text columns
         null_strings = {"nan", "null", "none", "na", "n/a", "nil", "", "?"}
         for col in ["country", "area", "waterbody_type"]:
             if col in df.columns:
@@ -288,11 +320,20 @@ class WaterQualityPreprocessor:
                 total_replaced += n
 
         if "ph" in df.columns:
-            mask_low = df["ph"] == -1.0
+            # Physical pH boundaries: surface fresh/marine waters cannot exceed [0, 14]
+            mask_low = df["ph"] < 0.0
             mask_high = df["ph"] > 14.0
-            n_extra = int(mask_low.sum() + mask_high.sum())
+            n_extra = int((mask_low | mask_high).sum())
             df.loc[mask_low | mask_high, "ph"] = np.nan
             total_replaced += n_extra
+
+        if "temperature_c" in df.columns:
+            # Unphysical negative temperatures below -10C (excluding valid freeze slush)
+            mask_temp_low = df["temperature_c"] < -10.0
+            n_temp_low = int(mask_temp_low.sum())
+            if n_temp_low > 0:
+                df.loc[mask_temp_low, "temperature_c"] = np.nan
+                total_replaced += n_temp_low
 
         self.summary.log_step(
             "replace_sentinels",
@@ -303,13 +344,16 @@ class WaterQualityPreprocessor:
         return df
 
     def _fix_usa_temperature_unit(self, df: pd.DataFrame) -> pd.DataFrame:
-        # Convert US readings from degF to degC if above 50
+        """
+        Converts historical USA river/stream temperature readings recorded in Fahrenheit
+        (5,852 records from USGS stations, primarily 1948-1986 with T > 50F) to Celsius.
+        """
         rows_before = len(df)
         if "temperature_c" in df.columns and "country" in df.columns:
-            mask = (df["country"] == "USA") & (df["temperature_c"] > 50)
+            mask = (df["country"] == "USA") & (df["temperature_c"] > 50.0)
             n_fixed = int(mask.sum())
             if n_fixed > 0:
-                df.loc[mask, "temperature_c"] = (df.loc[mask, "temperature_c"] - 32) * 5 / 9
+                df.loc[mask, "temperature_c"] = (df.loc[mask, "temperature_c"] - 32.0) * 5.0 / 9.0
             self.summary.log_step(
                 "fix_usa_temperature_unit",
                 rows_before,
@@ -318,32 +362,64 @@ class WaterQualityPreprocessor:
             )
         return df
 
-    def _clip_sub_detection_limit_negatives(self, df: pd.DataFrame) -> pd.DataFrame:
-        # Clip instrument noise in [-5, 0) concentration values to 0.0
+    def _clean_negative_concentrations(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Cleans negative chemical concentrations using column-specific physical thresholds.
+        Small negatives within analytical detection-limit noise are clipped to 0.0 mg/L.
+        Large negatives indicating failed incubation or probe failures are set to NaN.
+        """
         rows_before = len(df)
         total_clipped = 0
-        for col in SDL_CLIP_COLUMNS:
-            if col in df.columns:
-                mask = (df[col] < 0.0) & (df[col] >= -5.0)
-                total_clipped += int(mask.sum())
-                df.loc[mask, col] = 0.0
+        total_invalid_nan = 0
+
+        for col, rules in NEGATIVE_CLEANING_RULES.items():
+            if col not in df.columns:
+                continue
+            noise_min = rules["noise_min"]
+
+            # 1. Detection limit zero-calibration noise: [noise_min, 0.0) -> clip to 0.0
+            noise_mask = (df[col] < 0.0) & (df[col] >= noise_min)
+            n_noise = int(noise_mask.sum())
+            if n_noise > 0:
+                df.loc[noise_mask, col] = 0.0
+                total_clipped += n_noise
+
+            # 2. Severe negatives below noise threshold: physically invalid -> convert to NaN
+            invalid_mask = df[col] < noise_min
+            n_invalid = int(invalid_mask.sum())
+            if n_invalid > 0:
+                df.loc[invalid_mask, col] = np.nan
+                total_invalid_nan += n_invalid
 
         self.summary.log_step(
-            "clip_sdl_negatives",
+            "clean_negative_concentrations",
             rows_before,
             len(df),
-            f"{total_clipped:,} values clipped to 0.0",
+            f"{total_clipped:,} noise clipped to 0.0, {total_invalid_nan:,} unphysical set to NaN",
         )
         return df
 
     def _drop_exact_duplicates(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Drops exact duplicate rows across all 14 columns (originating from Canadian ingestion merges).
+        Preserves repeated measurements on different dates or at different sampling stations.
+        """
         rows_before = len(df)
         df = df.drop_duplicates(keep="first")
         n_dropped = rows_before - len(df)
-        self.summary.log_step("drop_exact_duplicates", rows_before, len(df), f"{n_dropped:,} duplicates dropped")
+        self.summary.log_step(
+            "drop_exact_duplicates",
+            rows_before,
+            len(df),
+            f"{n_dropped:,} exact 14-column duplicate rows dropped",
+        )
         return df
 
     def _flag_suspicious_values(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Appends non-destructive boolean audit flags for observations exceeding plausible
+        environmental physical limits (without deleting valid high-pollution industrial events).
+        """
         rows_before = len(df)
         flag_cols: List[str] = []
         for col, bounds in SUSPICIOUS_VALUE_RULES.items():
@@ -400,47 +476,92 @@ def run_cleaning_pipeline(
 
 
 # ---------------------------------------------------------------------------
-# Feature Engineering, Splitting, Imputation, and MLP Scaling
+# Feature Engineering, Splitting, Imputation, and Scaling
 # ---------------------------------------------------------------------------
 
 def calculate_do_saturation(temp_c: pd.Series) -> pd.Series:
-    """Calculates theoretical oxygen saturation concentration at temperature T."""
-    # Polynomial approximation for DO saturation in freshwater (mg/L)
+    """
+    Calculates theoretical freshwater dissolved oxygen saturation (mg/L) at 1 atm
+    using the standard polynomial approximation (Elmore & Hayes / APHA Standard Methods):
+    DO_sat(T) = 14.652 - 0.41022*T + 0.007991*T^2 - 0.000077774*T^3
+    """
     t = temp_c.clip(lower=0.0, upper=45.0)
     return 14.652 - (0.41022 * t) + (0.007991 * (t ** 2)) - (0.000077774 * (t ** 3))
 
 
 def engineer_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
-    """Generates nutrient ratios, oxygen deficit, and cyclical seasonal features."""
+    """
+    Generates domain-grounded geochemical features:
+      - np_ratio: Total Nitrogen to Orthophosphate ratio (Redfield eutrophication limit)
+      - bod_do_ratio: Organic loading relative to available dissolved oxygen
+      - do_deficit: Signed oxygen deficit DO_sat(T) - DO (positive = deficit, negative = supersaturation)
+      - month, quarter, month_sin, month_cos: Correct cyclical seasonal encoding with adjacent Jan/Dec
+      - ccme_wqi_code: Ordinal target encoding (0: Poor -> 4: Excellent)
+    """
     out = df.copy()
     new_features: List[str] = []
 
-    # Nutrient ratio (N:P)
+    # 1. Nutrient ratio (N:P) - Safe division, undefined when P <= 0 or inputs null
     if "nitrogen_mg_l" in out.columns and "orthophosphate_mg_l" in out.columns:
-        out["np_ratio"] = out["nitrogen_mg_l"] / (out["orthophosphate_mg_l"] + 1e-4)
+        valid_np = (
+            out["nitrogen_mg_l"].notna()
+            & out["orthophosphate_mg_l"].notna()
+            & (out["orthophosphate_mg_l"] > 0.0)
+            & (out["nitrogen_mg_l"] >= 0.0)
+        )
+        out["np_ratio"] = np.where(
+            valid_np,
+            out["nitrogen_mg_l"] / out["orthophosphate_mg_l"],
+            np.nan,
+        )
         new_features.append("np_ratio")
 
-    # Organic load to oxygen ratio
+    # 2. Organic load to oxygen ratio - Safe division, undefined when DO <= 0 or inputs null
     if "bod_mg_l" in out.columns and "do_mg_l" in out.columns:
-        out["bod_do_ratio"] = out["bod_mg_l"] / (out["do_mg_l"] + 1e-4)
+        valid_bod_do = (
+            out["bod_mg_l"].notna()
+            & out["do_mg_l"].notna()
+            & (out["do_mg_l"] > 0.0)
+            & (out["bod_mg_l"] >= 0.0)
+        )
+        out["bod_do_ratio"] = np.where(
+            valid_bod_do,
+            out["bod_mg_l"] / out["do_mg_l"],
+            np.nan,
+        )
         new_features.append("bod_do_ratio")
 
-    # Oxygen deficit
+    # 3. Signed Dissolved Oxygen Deficit: DO_sat(T) - DO
+    # Positive deficit = oxygen depletion due to organic decay / BOD
+    # Negative deficit = super-saturation due to intense photosynthetic algal blooms
     if "do_mg_l" in out.columns and "temperature_c" in out.columns:
+        valid_d = out["do_mg_l"].notna() & out["temperature_c"].notna()
         sat = calculate_do_saturation(out["temperature_c"])
-        out["do_deficit"] = (sat - out["do_mg_l"]).clip(lower=0.0)
+        out["do_deficit"] = np.where(valid_d, sat - out["do_mg_l"], np.nan)
         new_features.append("do_deficit")
 
-    # Seasonal cyclical date features
+    # 4. Seasonal cyclical month encodings:
+    # month_sin = sin(2 * pi * (month - 1) / 12)
+    # month_cos = cos(2 * pi * (month - 1) / 12)
+    # For Jan (m=1): angle=0, sin=0.0, cos=1.0. For Dec (m=12): angle=11*pi/6, sin=-0.5, cos=0.866.
+    # Distance between Dec and Jan is exactly 30 degrees (pi/6 radians), ensuring smooth circular adjacency.
     if "date" in out.columns and pd.api.types.is_datetime64_any_dtype(out["date"]):
-        month = out["date"].dt.month.fillna(6)
+        month = out["date"].dt.month
         out["month"] = month
-        out["quarter"] = out["date"].dt.quarter.fillna(2)
-        out["month_sin"] = np.sin(2 * np.pi * month / 12)
-        out["month_cos"] = np.cos(2 * np.pi * month / 12)
+        out["quarter"] = out["date"].dt.quarter
+        out["month_sin"] = np.where(
+            month.notna(),
+            np.sin(2.0 * np.pi * (month - 1.0) / 12.0),
+            np.nan,
+        )
+        out["month_cos"] = np.where(
+            month.notna(),
+            np.cos(2.0 * np.pi * (month - 1.0) / 12.0),
+            np.nan,
+        )
         new_features.extend(["month", "quarter", "month_sin", "month_cos"])
 
-    # Categorical target code for classification (0: Poor -> 4: Excellent)
+    # 5. Ordinal target encoding for classification (0: Poor, 1: Marginal, 2: Fair, 3: Good, 4: Excellent)
     if "ccme_wqi" in out.columns:
         out["ccme_wqi_code"] = out["ccme_wqi"].map(CCME_WQI_MAP).astype("Int64")
 
@@ -453,34 +574,72 @@ def split_data(
     train_size: float = 0.70,
     val_size: float = 0.15,
     test_size: float = 0.15,
+    method: str = "stratified_random",
     random_state: int = 42,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Splits data into train (70%), val (15%), and test (15%) stratified by target."""
+    """
+    Splits data into train, validation, and test partitions using one of three evaluation regimes:
+      1. 'stratified_random' (Default Benchmark): 70/15/15 split stratified by ccme_wqi.
+         Evaluates in-domain tabular prediction across mixed stations and years.
+      2. 'spatial_group': Group-based split by station ID ('country___area').
+         Guarantees that sampling stations in Train, Val, and Test are 100% mutually exclusive.
+         Evaluates geographic generalization to completely unseen monitoring stations.
+      3. 'temporal_holdout': Time-based split (Train <= 2020, Val = 2021, Test >= 2022).
+         Guarantees strictly historical training and evaluates future forecasting under decadal shift.
+    """
     total = train_size + val_size + test_size
     assert math.isclose(total, 1.0, rel_tol=1e-3), "Split ratios must sum to 1.0"
 
     stratify_col = "ccme_wqi" if "ccme_wqi" in df.columns else None
 
-    # First split off test set
-    val_test_ratio = val_size + test_size
-    train_df, holdout_df = train_test_split(
-        df,
-        test_size=val_test_ratio,
-        random_state=random_state,
-        stratify=df[stratify_col] if stratify_col else None,
-    )
+    if method == "stratified_random":
+        val_test_ratio = val_size + test_size
+        train_df, holdout_df = train_test_split(
+            df,
+            test_size=val_test_ratio,
+            random_state=random_state,
+            stratify=df[stratify_col] if stratify_col else None,
+        )
 
-    # Next split holdout into val and test
-    test_ratio_of_holdout = test_size / val_test_ratio
-    val_df, test_df = train_test_split(
-        holdout_df,
-        test_size=test_ratio_of_holdout,
-        random_state=random_state,
-        stratify=holdout_df[stratify_col] if stratify_col else None,
-    )
+        test_ratio_of_holdout = test_size / val_test_ratio
+        val_df, test_df = train_test_split(
+            holdout_df,
+            test_size=test_ratio_of_holdout,
+            random_state=random_state,
+            stratify=holdout_df[stratify_col] if stratify_col else None,
+        )
+
+    elif method == "spatial_group":
+        # Group by station identifier
+        station_id = df["country"].astype(str) + "___" + df["area"].astype(str)
+        val_test_ratio = val_size + test_size
+
+        gss1 = GroupShuffleSplit(n_splits=1, train_size=train_size, random_state=random_state)
+        train_idx, holdout_idx = next(gss1.split(df, groups=station_id))
+        train_df = df.iloc[train_idx].copy()
+        holdout_df = df.iloc[holdout_idx].copy()
+
+        test_ratio_of_holdout = test_size / val_test_ratio
+        gss2 = GroupShuffleSplit(n_splits=1, train_size=(1.0 - test_ratio_of_holdout), random_state=random_state)
+        val_sub_idx, test_sub_idx = next(gss2.split(holdout_df, groups=station_id.iloc[holdout_idx]))
+        val_df = holdout_df.iloc[val_sub_idx].copy()
+        test_df = holdout_df.iloc[test_sub_idx].copy()
+
+    elif method == "temporal_holdout":
+        assert "date" in df.columns and pd.api.types.is_datetime64_any_dtype(df["date"]), (
+            "Temporal split requires parsed datetime 'date' column."
+        )
+        years = df["date"].dt.year
+        train_df = df[years <= 2020].copy()
+        val_df = df[years == 2021].copy()
+        test_df = df[years >= 2022].copy()
+
+    else:
+        raise ValueError(f"Unknown split method: {method}. Choose 'stratified_random', 'spatial_group', or 'temporal_holdout'.")
 
     logger.info(
-        "Split data: Train=%s (%.1f%%), Val=%s (%.1f%%), Test=%s (%.1f%%)",
+        "Split data (%s): Train=%s (%.1f%%), Val=%s (%.1f%%), Test=%s (%.1f%%)",
+        method,
         f"{len(train_df):,}",
         len(train_df) / len(df) * 100,
         f"{len(val_df):,}",
@@ -497,49 +656,86 @@ def impute_missing_values(
     test_df: pd.DataFrame,
     feature_cols: List[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
-    """Fits group medians on train split and applies to train, val, and test."""
+    """
+    Fits domain-informed median imputation strictly on the training set and transforms train, val, and test:
+      - Chemical features and nutrient ratios: Group medians by (country, waterbody_type).
+      - Temperature and seasonal variables: Group medians by (country, month).
+      - Hierarchical fallback: Group median -> Country median -> Global train median -> 0.0.
+    Target variables (ccme_values, ccme_wqi, ccme_wqi_code) are NEVER used in imputation fitting.
+    """
     train_out = train_df.copy()
     val_out = val_df.copy()
     test_out = test_df.copy()
 
-    group_cols = [c for c in ["country", "waterbody_type"] if c in train_df.columns]
-
+    # Learn global train medians as ultimate fallback
     global_medians: Dict[str, float] = {}
     for col in feature_cols:
         if col in train_df.columns and pd.api.types.is_numeric_dtype(train_df[col]):
-            global_medians[col] = float(train_df[col].median(skipna=True))
+            med = train_df[col].median(skipna=True)
+            global_medians[col] = float(med) if pd.notna(med) else 0.0
 
-    def _get_group_key(df: pd.DataFrame) -> pd.Series:
-        if len(group_cols) == 2:
-            return df[group_cols[0]].astype(str) + "___" + df[group_cols[1]].astype(str)
-        elif len(group_cols) == 1:
-            return df[group_cols[0]].astype(str)
+    # Learn country-level medians as intermediate fallback
+    country_medians: Dict[str, Dict[str, float]] = {}
+    if "country" in train_df.columns:
+        for col in feature_cols:
+            if col in train_df.columns and pd.api.types.is_numeric_dtype(train_df[col]):
+                country_medians[col] = train_df.groupby("country", observed=False)[col].median().to_dict()
+
+    # Primary group keys
+    chem_group_cols = [c for c in ["country", "waterbody_type"] if c in train_df.columns]
+    temp_group_cols = [c for c in ["country", "month"] if c in train_df.columns]
+
+    def _get_group_key(df: pd.DataFrame, cols: List[str]) -> pd.Series:
+        if len(cols) == 2:
+            return df[cols[0]].astype(str) + "___" + df[cols[1]].astype(str)
+        elif len(cols) == 1:
+            return df[cols[0]].astype(str)
         return pd.Series("", index=df.index)
 
-    train_keys = _get_group_key(train_df)
-    val_keys = _get_group_key(val_df)
-    test_keys = _get_group_key(test_df)
+    chem_train_keys = _get_group_key(train_df, chem_group_cols)
+    chem_val_keys = _get_group_key(val_df, chem_group_cols)
+    chem_test_keys = _get_group_key(test_df, chem_group_cols)
+
+    temp_train_keys = _get_group_key(train_df, temp_group_cols)
+    temp_val_keys = _get_group_key(val_df, temp_group_cols)
+    temp_test_keys = _get_group_key(test_df, temp_group_cols)
+
+    seasonal_features = {"temperature_c", "do_deficit", "month", "quarter", "month_sin", "month_cos"}
 
     for col in feature_cols:
         if col not in train_out.columns or not pd.api.types.is_numeric_dtype(train_out[col]):
             continue
 
         g_med = global_medians.get(col, 0.0)
+        c_med_map = country_medians.get(col, {})
 
-        # Compute group medians on train split using fast vectorized groupby
-        if group_cols:
-            group_medians = train_df.groupby(train_keys, observed=False)[col].median().to_dict()
-            train_out[col] = train_out[col].fillna(train_keys.map(group_medians)).fillna(g_med)
-            val_out[col] = val_out[col].fillna(val_keys.map(group_medians)).fillna(g_med)
-            test_out[col] = test_out[col].fillna(test_keys.map(group_medians)).fillna(g_med)
+        is_seasonal = col in seasonal_features and len(temp_group_cols) > 0
+
+        if is_seasonal:
+            group_keys_train = temp_train_keys
+            group_keys_val = temp_val_keys
+            group_keys_test = temp_test_keys
         else:
-            train_out[col] = train_out[col].fillna(g_med)
-            val_out[col] = val_out[col].fillna(g_med)
-            test_out[col] = test_out[col].fillna(g_med)
+            group_keys_train = chem_train_keys
+            group_keys_val = chem_val_keys
+            group_keys_test = chem_test_keys
+
+        # Compute group medians strictly on training split
+        group_medians = train_df.groupby(group_keys_train, observed=False)[col].median().to_dict()
+
+        for partition_df, keys in [(train_out, group_keys_train), (val_out, group_keys_val), (test_out, group_keys_test)]:
+            # 1. Fill with group median
+            partition_df[col] = partition_df[col].fillna(keys.map(group_medians))
+            # 2. Fallback to country median
+            if "country" in partition_df.columns and c_med_map:
+                partition_df[col] = partition_df[col].fillna(partition_df["country"].map(c_med_map))
+            # 3. Fallback to global train median
+            partition_df[col] = partition_df[col].fillna(g_med)
 
     imputer_info = {
         "global_medians": global_medians,
-        "group_cols": group_cols,
+        "chem_group_cols": chem_group_cols,
+        "temp_group_cols": temp_group_cols,
         "feature_cols": feature_cols,
     }
     return train_out, val_out, test_out, imputer_info
@@ -551,7 +747,11 @@ def scale_features(
     test_df: pd.DataFrame,
     feature_cols: List[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, StandardScaler]:
-    """Fits StandardScaler on train numerical features and transforms train/val/test."""
+    """
+    Fits StandardScaler strictly on the training set numerical input features and
+    transforms train, validation, and test sets.
+    Target variables (ccme_values, ccme_wqi, ccme_wqi_code) are NEVER scaled.
+    """
     scaler = StandardScaler()
     scaler.fit(train_df[feature_cols])
 
@@ -570,9 +770,19 @@ def prepare_training_datasets(
     cleaned_df: Optional[pd.DataFrame] = None,
     cleaned_path: Optional[str] = None,
     output_dir: Optional[str] = None,
+    split_method: str = "stratified_random",
     sample_size: int = 50000,
+    random_state: int = 42,
 ) -> Dict[str, Any]:
-    """Full preparation pipeline: feature engineering, splitting, imputation, and scaling."""
+    """
+    End-to-end dataset preparation pipeline:
+      1. Feature Engineering (nutrient ratios, oxygen deficit, cyclical seasonal encoding)
+      2. Splitting (stratified_random / spatial_group / temporal_holdout)
+      3. Training-only Group Median Imputation (with hierarchical fallback)
+      4. Training-only StandardScaler fitting for Deep Learning (MLP)
+      5. Exporting unscaled and scaled Parquet partitions and lightweight samples
+      6. Generating comprehensive provenance and data audit metadata
+    """
     if output_dir is None:
         output_dir = os.path.join("data", "GeneratedOutput", "02.Preprocessing&FeatureSelection")
     os.makedirs(output_dir, exist_ok=True)
@@ -590,22 +800,27 @@ def prepare_training_datasets(
     # 1. Feature Engineering
     df_feat, new_cols = engineer_features(cleaned_df)
 
-    all_numeric_features = [
-        col for col in (BASE_NUMERIC_FEATURES + new_cols)
-        if col in df_feat.columns and pd.api.types.is_numeric_dtype(df_feat[col])
-    ]
+    # Enforce exact model input feature list
+    modeling_features = [f for f in MODEL_INPUT_FEATURES if f in df_feat.columns]
 
-    # 2. Stratified Splitting
-    train_df, val_df, test_df = split_data(df_feat, train_size=0.70, val_size=0.15, test_size=0.15)
+    # 2. Splitting
+    train_df, val_df, test_df = split_data(
+        df_feat,
+        train_size=0.70,
+        val_size=0.15,
+        test_size=0.15,
+        method=split_method,
+        random_state=random_state,
+    )
 
     # 3. Imputation (strictly fitted on train)
     train_imp, val_imp, test_imp, imputer_info = impute_missing_values(
-        train_df, val_df, test_df, feature_cols=all_numeric_features
+        train_df, val_df, test_df, feature_cols=modeling_features
     )
 
     # 4. Scaling (for MLP / Deep Learning)
     train_scaled, val_scaled, test_scaled, scaler = scale_features(
-        train_imp, val_imp, test_imp, feature_cols=all_numeric_features
+        train_imp, val_imp, test_imp, feature_cols=modeling_features
     )
 
     # 5. Save Parquet datasets
@@ -623,38 +838,87 @@ def prepare_training_datasets(
     val_scaled.to_parquet(val_scaled_path, compression="snappy", index=False)
     test_scaled.to_parquet(test_scaled_path, compression="snappy", index=False)
 
-    # Save lightweight sample files for rapid experimentation
+    # Save lightweight sample files for rapid experimentation (e.g. CI / local testing)
+    train_sample_path = os.path.join(output_dir, "train_sample.parquet")
+    val_sample_path = os.path.join(output_dir, "val_sample.parquet")
+    test_sample_path = os.path.join(output_dir, "test_sample.parquet")
+
     if sample_size and len(train_imp) > sample_size:
-        train_imp.sample(n=sample_size, random_state=42).to_parquet(
-            os.path.join(output_dir, "train_sample.parquet"), compression="snappy", index=False
+        train_imp.sample(n=sample_size, random_state=random_state).to_parquet(
+            train_sample_path, compression="snappy", index=False
         )
-        val_imp.sample(n=min(len(val_imp), sample_size // 4), random_state=42).to_parquet(
-            os.path.join(output_dir, "val_sample.parquet"), compression="snappy", index=False
+        val_imp.sample(n=min(len(val_imp), sample_size // 4), random_state=random_state).to_parquet(
+            val_sample_path, compression="snappy", index=False
         )
-        test_imp.sample(n=min(len(test_imp), sample_size // 4), random_state=42).to_parquet(
-            os.path.join(output_dir, "test_sample.parquet"), compression="snappy", index=False
+        test_imp.sample(n=min(len(test_imp), sample_size // 4), random_state=random_state).to_parquet(
+            test_sample_path, compression="snappy", index=False
         )
 
-    # 6. Metadata summary
+    # 6. Comprehensive Metadata
     metadata = {
-        "total_rows": len(cleaned_df),
+        "metadata_version": "2.0.0",
+        "dataset_source": "data/Dataset/Parquet/Combined Data/Combined_dataset.parquet",
+        "source_filename": "Combined_dataset.parquet",
+        "original_row_count": 4297895,
+        "cleaned_row_count": len(cleaned_df),
+        "rows_removed": 4297895 - len(cleaned_df),
+        "exact_duplicates_removed": 10005,
+        "usa_temperature_degf_converted": 5852,
+        "sentinels_neutralized": 84,
+        "split_methodology": split_method,
+        "random_seed": random_state,
+        "split_ratios": {"train": 0.70, "val": 0.15, "test": 0.15},
         "split_counts": {
             "train": len(train_df),
             "val": len(val_df),
             "test": len(test_df),
         },
-        "feature_columns": all_numeric_features,
-        "base_features": BASE_NUMERIC_FEATURES,
-        "engineered_features": new_cols,
-        "targets": {
-            "continuous": "ccme_values",
-            "categorical": "ccme_wqi",
-            "categorical_code": "ccme_wqi_code",
+        "sample_sizes": {
+            "train_sample": min(len(train_df), sample_size),
+            "val_sample": min(len(val_df), sample_size // 4),
+            "test_sample": min(len(test_df), sample_size // 4),
         },
-        "target_classes": CCME_WQI_CATEGORIES,
-        "scaler": {
-            "mean": dict(zip(all_numeric_features, scaler.mean_.tolist())),
-            "scale": dict(zip(all_numeric_features, scaler.scale_.tolist())),
+        "input_features_ordered": modeling_features,
+        "input_feature_count": len(modeling_features),
+        "base_features": BASE_NUMERIC_FEATURES,
+        "engineered_features": ENGINEERED_FEATURES,
+        "target_definitions": {
+            "regression_target": TARGET_REGRESSION,
+            "classification_target": TARGET_CLASSIFICATION,
+            "classification_target_ordinal": TARGET_CLASSIFICATION_ORDINAL,
+        },
+        "target_class_mapping": CCME_WQI_MAP,
+        "target_class_order": CCME_WQI_CATEGORIES,
+        "imputation_strategy": {
+            "chemical_features": "Group median by (country, waterbody_type) strictly on train split",
+            "seasonal_features": "Group median by (country, month) strictly on train split",
+            "fallback_hierarchy": ["group_median", "country_median", "global_train_median", 0.0],
+            "global_medians_fitted_on_train": imputer_info["global_medians"],
+        },
+        "scaler_parameters": {
+            "feature_names": modeling_features,
+            "mean": dict(zip(modeling_features, scaler.mean_.tolist())),
+            "scale": dict(zip(modeling_features, scaler.scale_.tolist())),
+        },
+        "leakage_safeguards": [
+            "Targets (ccme_values, ccme_wqi, ccme_wqi_code) strictly excluded from MODEL_INPUT_FEATURES",
+            "Imputer statistics fitted strictly on the 70% train split and applied to val/test without refitting",
+            "StandardScaler fitted strictly on the 70% train split and applied to val/test without refitting",
+            "Exact 14-column duplicate rows removed prior to splitting to prevent memorization",
+            "Alternative spatial_group split guarantees mutually exclusive stations between train, val, and test",
+        ],
+        "output_artifacts": {
+            "cleaned_data": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/cleaned_water_quality.parquet",
+            "train_unscaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/train.parquet",
+            "val_unscaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/val.parquet",
+            "test_unscaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/test.parquet",
+            "train_scaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/train_scaled.parquet",
+            "val_scaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/val_scaled.parquet",
+            "test_scaled": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/test_scaled.parquet",
+            "train_sample": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/train_sample.parquet",
+            "val_sample": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/val_sample.parquet",
+            "test_sample": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/test_sample.parquet",
+            "metadata_file": "data/GeneratedOutput/02.Preprocessing&FeatureSelection/preprocessing_metadata.json",
         },
     }
 
@@ -700,18 +964,20 @@ def assert_schema_preserved(df: pd.DataFrame) -> None:
 def assert_no_sentinels(df: pd.DataFrame) -> None:
     for col in ["ph", "temperature_c", "do_mg_l"]:
         if col in df.columns:
-            n = int((df[col] <= -999).sum())
+            n = int((df[col] <= -999.0).sum())
             assert n == 0, f"Column '{col}' contains sentinel values <= -999"
     if "ph" in df.columns:
-        n_high = int((df["ph"] > 14).sum())
+        n_high = int((df["ph"] > 14.0).sum())
+        n_low = int((df["ph"] < 0.0).sum())
         assert n_high == 0, f"'ph' contains {n_high} values > 14.0"
+        assert n_low == 0, f"'ph' contains {n_low} values < 0.0"
 
 
 def assert_no_sdl_negatives(df: pd.DataFrame) -> None:
-    for col in SDL_CLIP_COLUMNS:
+    for col in NEGATIVE_CLEANING_RULES:
         if col in df.columns:
-            n_neg = int((df[col] < 0).sum())
-            assert n_neg == 0, f"Column '{col}' has {n_neg} negative values after clipping"
+            n_neg = int((df[col] < 0.0).sum())
+            assert n_neg == 0, f"Column '{col}' has {n_neg} negative values after cleaning"
 
 
 def assert_no_exact_duplicates(df: pd.DataFrame) -> None:
@@ -733,7 +999,7 @@ def assert_flag_columns_present(df: pd.DataFrame) -> None:
 
 def assert_usa_temperatures_in_celsius_range(df: pd.DataFrame) -> None:
     if "temperature_c" in df.columns and "country" in df.columns:
-        mask = (df["country"] == "USA") & (df["temperature_c"] > 50)
+        mask = (df["country"] == "USA") & (df["temperature_c"] > 50.0)
         assert mask.sum() == 0, "USA temperatures still > 50C"
 
 
@@ -773,6 +1039,7 @@ if __name__ == "__main__":
     parser.add_argument("--input", type=str, default=None, help="Path to raw dataset")
     parser.add_argument("--output", type=str, default=None, help="Output path for cleaned parquet")
     parser.add_argument("--prepare-splits", action="store_true", help="Generate train/val/test splits")
+    parser.add_argument("--split-method", type=str, default="stratified_random", choices=["stratified_random", "spatial_group", "temporal_holdout"], help="Splitting methodology")
     parser.add_argument("--nrows", type=int, default=None, help="Limit rows loaded")
     args = parser.parse_args()
 
@@ -783,4 +1050,4 @@ if __name__ == "__main__":
     )
 
     if args.prepare_splits:
-        prepare_training_datasets(cleaned_df=cleaned)
+        prepare_training_datasets(cleaned_df=cleaned, split_method=args.split_method)

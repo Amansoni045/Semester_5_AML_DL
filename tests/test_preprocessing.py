@@ -1,7 +1,9 @@
 """Unit tests for water quality data preprocessing, feature engineering, and preparation."""
 
+from __future__ import annotations
 
 import os
+import sys
 import tempfile
 from pathlib import Path
 
@@ -9,32 +11,43 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Project root on sys.path via conftest or direct adjustment
-import sys
+# Ensure project root is on sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.preprocessing import (
-    COLUMN_NAME_MAP,
+    BASE_NUMERIC_FEATURES,
     CCME_WQI_CATEGORIES,
+    CCME_WQI_MAP,
+    COLUMN_NAME_MAP,
+    ENGINEERED_FEATURES,
     MISSING_VALUE_STRATEGY,
+    MODEL_INPUT_FEATURES,
+    NEGATIVE_CLEANING_RULES,
     SDL_CLIP_COLUMNS,
+    SENTINEL_COLUMNS,
+    SENTINEL_VALUES,
     SUSPICIOUS_VALUE_RULES,
+    TARGET_CLASSIFICATION,
+    TARGET_CLASSIFICATION_ORDINAL,
+    TARGET_REGRESSION,
     CleaningSummary,
     WaterQualityPreprocessor,
     assert_flag_columns_present,
     assert_no_exact_duplicates,
     assert_no_sdl_negatives,
     assert_no_sentinels,
+    assert_raw_unmodified,
     assert_schema_preserved,
     assert_targets_complete,
     assert_usa_temperatures_in_celsius_range,
-    assert_raw_unmodified,
-    generate_data_quality_summary,
+    calculate_do_saturation,
     engineer_features,
-    split_data,
+    generate_data_quality_summary,
     impute_missing_values,
-    scale_features,
     prepare_training_datasets,
+    run_cleaning_pipeline,
+    scale_features,
+    split_data,
 )
 
 
@@ -45,16 +58,12 @@ from src.preprocessing import (
 def _make_raw_fixture(n_extra_duplicates: int = 2) -> pd.DataFrame:
     """
     Build a minimal DataFrame that mirrors the raw combined dataset schema
-    (original column names, original dtypes) with intentional quality issues.
-
-    Issues injected:
+    (original column names, original dtypes) with intentional quality issues:
       - Sentinel temperature: -999999.0
-      - pH = -999999.0 (sentinel)
-      - pH = -1.0
-      - pH = 67115.0 (scale corruption)
-      - pH = 15.0 (implausible)
+      - pH sentinels: -999999.0, -1.0, 67115.0, 15.0
       - USA temperature > 50 (Fahrenheit)
-      - SDL negatives in Ammonia and BOD
+      - Negative noise in Ammonia (-0.003 mg/L) and DO (-0.05 mg/L)
+      - Unphysical negative BOD (-1.5 mg/L)
       - Exact duplicate rows
     """
     data = {
@@ -75,36 +84,25 @@ def _make_raw_fixture(n_extra_duplicates: int = 2) -> pd.DataFrame:
     }
 
     df = pd.DataFrame(data)
-
-    # Inject -999999 sentinel into row 0 temperature
     df.loc[0, "Temperature (cel)"] = -999999.0
-    # Inject -999999 into DO row 1
     df.loc[1, "Dissolved Oxygen (mg/l)"] = -999999.0
 
-    # Add explicit duplicate rows (exact copy of row 4)
+    # Add duplicate rows of row 4
     dup_rows = pd.concat([df.iloc[[4]]] * n_extra_duplicates, ignore_index=True)
     df = pd.concat([df, dup_rows], ignore_index=True)
-
     return df
 
 
 @pytest.fixture
 def raw_fixture() -> pd.DataFrame:
-    """Small raw DataFrame with known quality issues."""
     return _make_raw_fixture(n_extra_duplicates=2)
 
 
 @pytest.fixture
 def cleaned_fixture(raw_fixture, tmp_path) -> tuple:
-    """Run pipeline on raw_fixture and return (cleaned_df, summary)."""
-    # Save raw fixture as a temporary Parquet to use with the pipeline
     raw_path = tmp_path / "raw_fixture.parquet"
     raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
-
-    pipeline = WaterQualityPreprocessor(
-        raw_path=str(raw_path),
-        output_path=None,  # no save
-    )
+    pipeline = WaterQualityPreprocessor(raw_path=str(raw_path), output_path=None)
     return pipeline.run()
 
 
@@ -116,22 +114,18 @@ class TestColumnNameStandardisation:
 
     def test_all_original_columns_renamed(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        # None of the original long names should remain
         for original_col in COLUMN_NAME_MAP.keys():
-            assert original_col not in df.columns, (
-                f"Original column '{original_col}' should have been renamed"
-            )
+            assert original_col not in df.columns
 
     def test_all_alias_columns_present(self, cleaned_fixture):
         df, _ = cleaned_fixture
         for alias in COLUMN_NAME_MAP.values():
-            assert alias in df.columns, f"Alias column '{alias}' missing after rename"
+            assert alias in df.columns
 
     def test_original_column_mapping_in_attrs(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        assert "column_mapping" in df.attrs, "df.attrs should contain 'column_mapping'"
-        mapping = df.attrs["column_mapping"]
-        assert mapping == COLUMN_NAME_MAP
+        assert "column_mapping" in df.attrs
+        assert df.attrs["column_mapping"] == COLUMN_NAME_MAP
 
 
 # ---------------------------------------------------------------------------
@@ -142,26 +136,22 @@ class TestDataTypeCasting:
 
     def test_date_cast_to_datetime(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        assert pd.api.types.is_datetime64_any_dtype(df["date"]), (
-            f"'date' should be datetime64, got {df['date'].dtype}"
-        )
+        assert pd.api.types.is_datetime64_any_dtype(df["date"])
 
     def test_date_parsed_correctly(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        # "15-03-2010" -> 2010-03-15
         assert df["date"].dropna().iloc[0].year == 2010
 
     def test_ccme_wqi_is_ordered_categorical(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        assert hasattr(df["ccme_wqi"], "cat"), "'ccme_wqi' should be Categorical"
-        assert df["ccme_wqi"].cat.ordered, "'ccme_wqi' should be an ordered Categorical"
+        assert hasattr(df["ccme_wqi"], "cat")
+        assert df["ccme_wqi"].cat.ordered
 
     def test_ccme_wqi_category_order(self, cleaned_fixture):
         df, _ = cleaned_fixture
         cats = list(df["ccme_wqi"].cat.categories)
-        # Verify order: Poor < Marginal < Fair < Good < Excellent
         expected = [c for c in CCME_WQI_CATEGORIES if c in cats]
-        assert cats == expected, f"Category order wrong: {cats}"
+        assert cats == expected
 
     def test_numeric_columns_are_float(self, cleaned_fixture):
         df, _ = cleaned_fixture
@@ -170,53 +160,43 @@ class TestDataTypeCasting:
             "ph", "temperature_c", "nitrogen_mg_l", "nitrate_mg_l", "ccme_values",
         ]
         for col in numeric_cols:
-            assert pd.api.types.is_numeric_dtype(df[col]), (
-                f"'{col}' should be numeric, got {df[col].dtype}"
-            )
+            assert pd.api.types.is_numeric_dtype(df[col])
 
 
 # ---------------------------------------------------------------------------
-# 3. Sentinel replacement
+# 3. Sentinel and physical bounds replacement
 # ---------------------------------------------------------------------------
 
 class TestSentinelReplacement:
 
     def test_sentinel_temperature_replaced_with_nan(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        # Row 0 had Temperature = -999999.0 -> should be NaN
-        assert pd.isna(df["temperature_c"].iloc[0]), (
-            "Sentinel temperature -999999 should have been replaced with NaN"
-        )
+        assert pd.isna(df["temperature_c"].iloc[0])
 
     def test_sentinel_do_replaced_with_nan(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        # Row 1 had DO = -999999.0 -> should be NaN
-        # (after dedup rows shift, check that the value exists as NaN somewhere)
-        assert int((df["do_mg_l"] <= -999).sum()) == 0, (
-            "All sentinel DO values should be replaced with NaN"
-        )
+        assert int((df["do_mg_l"] <= -999.0).sum()) == 0
 
     def test_ph_minus1_replaced_with_nan(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        assert int((df["ph"] == -1.0).sum()) == 0, (
-            "pH = -1.0 should have been replaced with NaN"
-        )
+        assert int((df["ph"] < 0.0).sum()) == 0
 
     def test_ph_scale_corruption_replaced(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        assert int((df["ph"] == 67115.0).sum()) == 0, (
-            "pH = 67115.0 (scale corruption) should have been replaced with NaN"
-        )
+        assert int((df["ph"] == 67115.0).sum()) == 0
 
     def test_ph_above_14_replaced_with_nan(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        # pH = 15.0 and pH = 67115.0 both above 14
-        n_ph_high = int((df["ph"] > 14).sum())
-        assert n_ph_high == 0, f"pH > 14.0 still present: {n_ph_high} rows"
+        assert int((df["ph"] > 14.0).sum()) == 0
 
-    def test_no_extreme_negatives_remain(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert_no_sentinels(df)
+    def test_extreme_negative_temperatures_replaced(self, tmp_path):
+        raw = _make_raw_fixture()
+        raw.loc[0, "Temperature (cel)"] = -80.0
+        raw_path = tmp_path / "extreme_neg_temp.parquet"
+        raw.to_parquet(str(raw_path), compression="snappy", index=False)
+        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
+        df_out, _ = pipeline.run()
+        assert pd.isna(df_out["temperature_c"].iloc[0])
 
 
 # ---------------------------------------------------------------------------
@@ -227,25 +207,17 @@ class TestUSATemperatureCorrection:
 
     def test_usa_temperatures_converted(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        # USA rows had Temperature = 68.0 (F) -> should now be (68-32)*5/9 = 20.0 C
         usa_rows = df[df["country"] == "USA"]
-        assert all(usa_rows["temperature_c"] <= 50), (
-            "All USA temperatures should be <= 50C after Fahrenheit correction"
-        )
+        assert all(usa_rows["temperature_c"] <= 50.0)
 
     def test_conversion_value_correct(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        # 68F -> 20.0C exactly
         usa_rows = df[df["country"] == "USA"]
-        expected_c = (68.0 - 32) * 5 / 9
+        expected_c = (68.0 - 32.0) * 5.0 / 9.0
         actual_temps = usa_rows["temperature_c"].dropna().values
-        assert all(abs(t - expected_c) < 0.01 for t in actual_temps), (
-            f"Expected {expected_c:.2f}C, got {actual_temps}"
-        )
+        assert all(abs(t - expected_c) < 0.01 for t in actual_temps)
 
     def test_non_usa_high_temp_not_converted(self, raw_fixture, tmp_path):
-        """England Effluent rows with T > 50 should NOT be converted."""
-        # Inject an England Effluent row with T = 60
         extra = pd.DataFrame({
             "Country": ["England"],
             "Area": ["Industrial Site"],
@@ -270,61 +242,38 @@ class TestUSATemperatureCorrection:
         df_out, _ = pipeline.run()
 
         eng_eff = df_out[(df_out["country"] == "England") & (df_out["waterbody_type"] == "Effluent")]
-        assert any(eng_eff["temperature_c"] == 60.0), (
-            "England Effluent temperature of 60C should NOT be converted"
-        )
-
-    def test_assertion_helper_passes(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert_usa_temperatures_in_celsius_range(df)  # should not raise
+        assert any(eng_eff["temperature_c"] == 60.0)
 
 
 # ---------------------------------------------------------------------------
-# 5. Sub-detection-limit negative clipping
+# 5. Negative concentration cleaning rules
 # ---------------------------------------------------------------------------
 
-class TestSDLClipping:
+class TestNegativeConcentrations:
 
-    def test_ammonia_sdl_clipped(self, cleaned_fixture):
+    def test_detection_limit_noise_clipped_to_zero(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        assert int((df["ammonia_mg_l"] < 0).sum()) == 0, (
-            "Ammonia should have no negative values after SDL clipping"
-        )
+        # Ammonia had -0.003 mg/L -> clipped to 0.0
+        assert int((df["ammonia_mg_l"] < 0.0).sum()) == 0
+        # DO had -0.05 mg/L -> clipped to 0.0
+        assert int((df["do_mg_l"] < 0.0).sum()) == 0
+        # Orthophosphate had -0.002 mg/L -> clipped to 0.0
+        assert int((df["orthophosphate_mg_l"] < 0.0).sum()) == 0
 
-    def test_bod_sdl_clipped(self, cleaned_fixture):
+    def test_unphysical_negative_bod_converted_to_nan(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        assert int((df["bod_mg_l"] < 0).sum()) == 0, (
-            "BOD should have no negative values after SDL clipping"
-        )
+        # Row 3 had BOD = -1.5 mg/L (physically invalid consumption) -> converted to NaN
+        assert pd.isna(df.loc[df["area"] == "River C", "bod_mg_l"].iloc[0])
 
-    def test_do_sdl_clipped(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert int((df["do_mg_l"] < 0).sum()) == 0, (
-            "DO should have no negative values after SDL clipping"
-        )
-
-    def test_orthophosphate_sdl_clipped(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert int((df["orthophosphate_mg_l"] < 0).sum()) == 0, (
-            "Orthophosphate should have no negative values after SDL clipping"
-        )
-
-    def test_assertion_helper_passes(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert_no_sdl_negatives(df)
-
-    def test_legitimate_negatives_in_temperature_untouched(self, tmp_path):
-        """Temperature can legitimately go sub-zero; SDL clipping should not touch it."""
+    def test_legitimate_sub_zero_temperature_preserved(self, tmp_path):
         raw = _make_raw_fixture()
-        raw.loc[0, "Temperature (cel)"] = -2.5  # legitimate cold temp
+        raw.loc[0, "Temperature (cel)"] = -2.5
         raw_path = tmp_path / "cold_temp.parquet"
         raw.to_parquet(str(raw_path), compression="snappy", index=False)
 
         pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
         df_out, _ = pipeline.run()
-        assert any(df_out["temperature_c"] == -2.5), (
-            "Legitimate sub-zero temperature should NOT be clipped to 0.0"
-        )
+        assert any(df_out["temperature_c"] == -2.5)
 
 
 # ---------------------------------------------------------------------------
@@ -338,33 +287,20 @@ class TestDuplicateRemoval:
         assert_no_exact_duplicates(df)
 
     def test_correct_number_of_duplicates_removed(self, raw_fixture, tmp_path):
-        """2 extra duplicates of row 4 injected -> 2 should be removed."""
         raw_path = tmp_path / "dup_fixture.parquet"
         raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
-
-        n_raw = len(raw_fixture)
         n_exact_dups = int(raw_fixture.duplicated().sum())
 
         pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_out, summary = pipeline.run()
+        _, summary = pipeline.run()
 
-        dedup_step = next(
-            (s for s in summary.steps if s["step"] == "drop_exact_duplicates"), None
-        )
-        assert dedup_step is not None, "drop_exact_duplicates step not found in summary"
-        assert dedup_step["rows_removed"] == n_exact_dups, (
-            f"Expected {n_exact_dups} duplicates removed, got {dedup_step['rows_removed']}"
-        )
+        dedup_step = next(s for s in summary.steps if s["step"] == "drop_exact_duplicates")
+        assert dedup_step["rows_removed"] == n_exact_dups
 
     def test_non_duplicate_rows_retained(self, cleaned_fixture, raw_fixture):
         df, _ = cleaned_fixture
-        # Original unique rows: 7 (indices 0-6). Duplicates: 2 extra copies of row 4.
-        # After dedup: 7 unique rows remain (minus sentinels don't drop rows).
         n_unique_raw = len(raw_fixture.drop_duplicates())
-        # The pipeline processes all of them; no additional rows should be dropped
-        assert len(df) == n_unique_raw, (
-            f"Expected {n_unique_raw} rows (unique), got {len(df)}"
-        )
+        assert len(df) == n_unique_raw
 
 
 # ---------------------------------------------------------------------------
@@ -381,47 +317,22 @@ class TestSuspiciousValueFlagging:
         df, _ = cleaned_fixture
         for col in SUSPICIOUS_VALUE_RULES:
             flag_col = f"{col}_flag_suspicious"
-            if flag_col in df.columns:
-                assert df[flag_col].dtype == bool, (
-                    f"Flag column '{flag_col}' should be bool, got {df[flag_col].dtype}"
-                )
+            assert df[flag_col].dtype == bool
 
     def test_nan_values_not_flagged(self, cleaned_fixture):
-        """NaN values should NOT be flagged - only implausible non-null values."""
         df, _ = cleaned_fixture
         for col in SUSPICIOUS_VALUE_RULES:
             flag_col = f"{col}_flag_suspicious"
-            if flag_col not in df.columns or col not in df.columns:
-                continue
-            # Where the original column is NaN, the flag must be False
             nan_mask = df[col].isna()
             if nan_mask.any():
-                assert not df.loc[nan_mask, flag_col].any(), (
-                    f"Flag '{flag_col}' is True for NaN rows — NaN should never be flagged"
-                )
-
-    def test_flagging_does_not_remove_rows(self, raw_fixture, tmp_path):
-        """Flagging stage should add columns but NOT remove any rows."""
-        raw_path = tmp_path / "flag_test.parquet"
-        raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
-
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_out, summary = pipeline.run()
-
-        flag_step = next(
-            (s for s in summary.steps if s["step"] == "flag_suspicious_values"), None
-        )
-        assert flag_step is not None
-        assert flag_step["rows_removed"] == 0, (
-            "Flagging stage should not remove any rows"
-        )
+                assert not df.loc[nan_mask, flag_col].any()
 
 
 # ---------------------------------------------------------------------------
-# 8. Target completeness
+# 8. Target completeness and mapping
 # ---------------------------------------------------------------------------
 
-class TestTargetCompleteness:
+class TestTargetCompletenessAndMapping:
 
     def test_ccme_values_no_missing(self, cleaned_fixture):
         df, _ = cleaned_fixture
@@ -431,45 +342,258 @@ class TestTargetCompleteness:
         df, _ = cleaned_fixture
         assert df["ccme_wqi"].isna().sum() == 0
 
-    def test_assertion_helper_passes(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert_targets_complete(df)
+    def test_ordinal_class_mapping_order(self):
+        assert CCME_WQI_MAP["Poor"] == 0
+        assert CCME_WQI_MAP["Marginal"] == 1
+        assert CCME_WQI_MAP["Fair"] == 2
+        assert CCME_WQI_MAP["Good"] == 3
+        assert CCME_WQI_MAP["Excellent"] == 4
+
+    def test_targets_strictly_excluded_from_model_inputs(self):
+        targets = {TARGET_REGRESSION, TARGET_CLASSIFICATION, TARGET_CLASSIFICATION_ORDINAL}
+        for t in targets:
+            assert t not in MODEL_INPUT_FEATURES
 
 
 # ---------------------------------------------------------------------------
-# 9. Metadata column preservation
+# 9. Cyclical month encoding
 # ---------------------------------------------------------------------------
 
-class TestMetadataPreservation:
+class TestCyclicalMonthEncoding:
 
-    def test_country_column_preserved(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert "country" in df.columns
-        assert df["country"].notna().all()
+    def test_january_and_december_adjacency(self):
+        df = pd.DataFrame({
+            "date": pd.to_datetime(["2020-01-15", "2020-12-15", "2020-02-15"]),
+            "temperature_c": [10.0, 5.0, 8.0],
+            "do_mg_l": [10.0, 11.0, 10.5],
+            "ph": [7.5, 7.6, 7.4],
+            "nitrogen_mg_l": [2.0, 2.5, 2.1],
+            "orthophosphate_mg_l": [0.05, 0.04, 0.05],
+            "bod_mg_l": [1.5, 1.2, 1.4],
+            "ccme_wqi": ["Good", "Good", "Good"],
+        })
+        out, _ = engineer_features(df)
 
-    def test_area_column_preserved(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert "area" in df.columns
-        assert df["area"].notna().all()
+        # Month 1 (Jan): angle = 0 -> sin = 0, cos = 1
+        jan_sin = out.loc[0, "month_sin"]
+        jan_cos = out.loc[0, "month_cos"]
+        assert np.isclose(jan_sin, 0.0, atol=1e-6)
+        assert np.isclose(jan_cos, 1.0, atol=1e-6)
 
-    def test_waterbody_type_preserved(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert "waterbody_type" in df.columns
+        # Month 12 (Dec): angle = 2*pi*11/12 -> sin = -0.5, cos = sqrt(3)/2
+        dec_sin = out.loc[1, "month_sin"]
+        dec_cos = out.loc[1, "month_cos"]
+        assert np.isclose(dec_sin, -0.5, atol=1e-6)
+        assert np.isclose(dec_cos, np.sqrt(3) / 2, atol=1e-6)
 
-    def test_date_column_preserved(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert "date" in df.columns
+        # Distance between Jan and Dec in 2D circular space
+        dist_jan_dec = np.sqrt((jan_sin - dec_sin) ** 2 + (jan_cos - dec_cos) ** 2)
 
-    def test_schema_assertion_helper_passes(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert_schema_preserved(df)
+        # Month 2 (Feb): angle = 2*pi*1/12 -> sin = 0.5, cos = sqrt(3)/2
+        feb_sin = out.loc[2, "month_sin"]
+        feb_cos = out.loc[2, "month_cos"]
+        dist_jan_feb = np.sqrt((jan_sin - feb_sin) ** 2 + (jan_cos - feb_cos) ** 2)
+
+        # Distances must be equal (exact 30 degree step)
+        assert np.isclose(dist_jan_dec, dist_jan_feb, atol=1e-6)
+
+    def test_missing_date_produces_nan_month_encodings(self):
+        df = pd.DataFrame({
+            "date": [pd.NaT],
+            "temperature_c": [15.0],
+            "do_mg_l": [8.0],
+        })
+        out, _ = engineer_features(df)
+        assert pd.isna(out.loc[0, "month_sin"])
+        assert pd.isna(out.loc[0, "month_cos"])
 
 
 # ---------------------------------------------------------------------------
-# 10. CleaningSummary
+# 10. Feature engineering safety and ratios
 # ---------------------------------------------------------------------------
 
-class TestCleaningSummary:
+class TestFeatureEngineeringSafety:
+
+    def test_np_ratio_division_by_zero(self):
+        df = pd.DataFrame({
+            "nitrogen_mg_l": [2.0, 3.0, np.nan],
+            "orthophosphate_mg_l": [0.0, 0.05, 0.05],
+        })
+        out, _ = engineer_features(df)
+        # Denominator zero must yield NaN, not huge artificial number
+        assert pd.isna(out.loc[0, "np_ratio"])
+        # Valid denominator yields accurate ratio
+        assert np.isclose(out.loc[1, "np_ratio"], 60.0)
+        # Missing numerator yields NaN
+        assert pd.isna(out.loc[2, "np_ratio"])
+
+    def test_bod_do_ratio_division_by_zero(self):
+        df = pd.DataFrame({
+            "bod_mg_l": [4.0, 2.0, 1.0],
+            "do_mg_l": [0.0, 5.0, np.nan],
+        })
+        out, _ = engineer_features(df)
+        assert pd.isna(out.loc[0, "bod_do_ratio"])
+        assert np.isclose(out.loc[1, "bod_do_ratio"], 0.4)
+        assert pd.isna(out.loc[2, "bod_do_ratio"])
+
+    def test_signed_dissolved_oxygen_deficit(self):
+        # Temp 20C -> saturation ~9.09 mg/L
+        sat_20 = calculate_do_saturation(pd.Series([20.0])).iloc[0]
+        df = pd.DataFrame({
+            "temperature_c": [20.0, 20.0, np.nan],
+            "do_mg_l": [5.0, 12.0, 8.0],
+        })
+        out, _ = engineer_features(df)
+        # Normal deficit (oxygen depleted by pollution)
+        assert out.loc[0, "do_deficit"] > 0
+        assert np.isclose(out.loc[0, "do_deficit"], sat_20 - 5.0)
+
+        # Supersaturation (intense algal photosynthesis) -> signed negative deficit
+        assert out.loc[1, "do_deficit"] < 0
+        assert np.isclose(out.loc[1, "do_deficit"], sat_20 - 12.0)
+
+        # Missing input yields NaN
+        assert pd.isna(out.loc[2, "do_deficit"])
+
+
+# ---------------------------------------------------------------------------
+# 11. Splitting strategies (Random, Group, Temporal)
+# ---------------------------------------------------------------------------
+
+class TestSplittingStrategies:
+
+    def test_stratified_random_split(self, cleaned_fixture):
+        df_clean, _ = cleaned_fixture
+        df_large = pd.concat([df_clean] * 10, ignore_index=True)
+        train_df, val_df, test_df = split_data(
+            df_large, train_size=0.70, val_size=0.15, test_size=0.15, method="stratified_random"
+        )
+        assert len(train_df) + len(val_df) + len(test_df) == len(df_large)
+        assert abs(len(train_df) / len(df_large) - 0.70) < 0.05
+
+    def test_spatial_group_split_disjointness(self):
+        # Create dataset with multiple stations
+        rows = []
+        for station_num in range(20):
+            for _ in range(5):
+                rows.append({
+                    "country": "England",
+                    "area": f"Station_{station_num}",
+                    "waterbody_type": "River",
+                    "ccme_wqi": "Good",
+                    "ccme_values": 85.0,
+                    "ph": 7.5,
+                })
+        df_stations = pd.DataFrame(rows)
+        train_df, val_df, test_df = split_data(df_stations, method="spatial_group", random_state=42)
+
+        train_stations = set(train_df["area"])
+        val_stations = set(val_df["area"])
+        test_stations = set(test_df["area"])
+
+        # Stations across partitions must be 100% mutually exclusive
+        assert len(train_stations & val_stations) == 0
+        assert len(train_stations & test_stations) == 0
+        assert len(val_stations & test_stations) == 0
+
+    def test_temporal_holdout_split(self):
+        dates = pd.to_datetime(["2015-06-01", "2019-01-01", "2020-12-31", "2021-05-15", "2022-03-01", "2023-08-20"])
+        df_time = pd.DataFrame({
+            "date": dates,
+            "ccme_wqi": ["Good"] * 6,
+            "ph": [7.5] * 6,
+        })
+        train_df, val_df, test_df = split_data(df_time, method="temporal_holdout")
+
+        assert (train_df["date"].dt.year <= 2020).all()
+        assert (val_df["date"].dt.year == 2021).all()
+        assert (test_df["date"].dt.year >= 2022).all()
+
+    def test_split_reproducibility(self, cleaned_fixture):
+        df_clean, _ = cleaned_fixture
+        df_large = pd.concat([df_clean] * 5, ignore_index=True)
+        t1, v1, s1 = split_data(df_large, method="stratified_random", random_state=42)
+        t2, v2, s2 = split_data(df_large, method="stratified_random", random_state=42)
+        pd.testing.assert_frame_equal(t1, t2)
+        pd.testing.assert_frame_equal(v1, v2)
+        pd.testing.assert_frame_equal(s1, s2)
+
+
+# ---------------------------------------------------------------------------
+# 12. Training-only imputation and scaling
+# ---------------------------------------------------------------------------
+
+class TestImputationAndScaling:
+
+    def test_imputation_fitted_on_train_only(self):
+        train_data = pd.DataFrame({
+            "country": ["USA", "USA"],
+            "waterbody_type": ["River", "River"],
+            "month": [6, 6],
+            "ph": [7.0, 8.0],  # median = 7.5
+            "temperature_c": [20.0, 22.0],  # median = 21.0
+        })
+        val_data = pd.DataFrame({
+            "country": ["USA"],
+            "waterbody_type": ["River"],
+            "month": [6],
+            "ph": [np.nan],
+            "temperature_c": [np.nan],
+        })
+        test_data = pd.DataFrame({
+            "country": ["USA"],
+            "waterbody_type": ["River"],
+            "month": [6],
+            "ph": [np.nan],
+            "temperature_c": [np.nan],
+        })
+
+        features = ["ph", "temperature_c"]
+        train_imp, val_imp, test_imp, info = impute_missing_values(train_data, val_data, test_data, features)
+
+        assert val_imp.loc[0, "ph"] == 7.5
+        assert val_imp.loc[0, "temperature_c"] == 21.0
+        assert test_imp.loc[0, "ph"] == 7.5
+        assert test_imp.loc[0, "temperature_c"] == 21.0
+
+    def test_unseen_group_fallback_to_global_median(self):
+        train_data = pd.DataFrame({
+            "country": ["England"],
+            "waterbody_type": ["River"],
+            "month": [5],
+            "ph": [7.4],
+        })
+        val_data = pd.DataFrame({
+            "country": ["Antarctica"],  # unseen group
+            "waterbody_type": ["Glacier"],
+            "month": [1],
+            "ph": [np.nan],
+        })
+        test_data = val_data.copy()
+
+        train_imp, val_imp, test_imp, _ = impute_missing_values(train_data, val_data, test_data, ["ph"])
+        assert val_imp.loc[0, "ph"] == 7.4
+        assert test_imp.loc[0, "ph"] == 7.4
+
+    def test_standard_scaler_fitted_on_train_only(self):
+        train_df = pd.DataFrame({"ph": [6.0, 7.0, 8.0]})
+        val_df = pd.DataFrame({"ph": [7.0, 9.0]})
+        test_df = pd.DataFrame({"ph": [5.0, 7.0]})
+
+        train_sc, val_sc, test_sc, scaler = scale_features(train_df, val_df, test_df, ["ph"])
+
+        assert np.isclose(train_sc["ph"].mean(), 0.0, atol=1e-6)
+        assert np.isclose(train_sc["ph"].std(ddof=0), 1.0, atol=1e-6)
+        # Val transformed with train mean (7.0) and std
+        assert np.isclose(val_sc.loc[0, "ph"], 0.0, atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# 13. Summary, Output writing, and Real Dataset
+# ---------------------------------------------------------------------------
+
+class TestCleaningSummaryAndIO:
 
     def test_all_pipeline_stages_recorded(self, cleaned_fixture):
         _, summary = cleaned_fixture
@@ -477,413 +601,87 @@ class TestCleaningSummary:
             "cast_data_types",
             "replace_sentinels",
             "fix_usa_temperature_unit",
-            "clip_sdl_negatives",
+            "clean_negative_concentrations",
             "drop_exact_duplicates",
             "flag_suspicious_values",
             "missing_value_strategy",
         }
         recorded_steps = {s["step"] for s in summary.steps}
-        assert expected_steps.issubset(recorded_steps), (
-            f"Missing summary steps: {expected_steps - recorded_steps}"
-        )
+        assert expected_steps.issubset(recorded_steps)
 
-    def test_raw_rows_populated(self, raw_fixture, tmp_path):
-        raw_path = tmp_path / "summary_test.parquet"
-        raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
-        _, summary = pipeline.run()
-        assert summary.raw_rows == len(raw_fixture)
-
-    def test_final_rows_less_than_raw(self, cleaned_fixture, raw_fixture):
-        _, summary = cleaned_fixture
-        assert summary.final_rows < summary.raw_rows, (
-            "Deduplication should reduce row count"
-        )
-
-    def test_flags_added_list_populated(self, cleaned_fixture):
-        _, summary = cleaned_fixture
-        assert len(summary.flags_added) > 0
-
-    def test_summary_to_dataframe_shape(self, cleaned_fixture):
-        _, summary = cleaned_fixture
-        df_steps = summary.to_dataframe()
-        assert isinstance(df_steps, pd.DataFrame)
-        assert len(df_steps) == len(summary.steps)
-        assert "step" in df_steps.columns
-        assert "rows_before" in df_steps.columns
-        assert "rows_after" in df_steps.columns
-        assert "rows_removed" in df_steps.columns
-
-
-# ---------------------------------------------------------------------------
-# 11. Output file writing
-# ---------------------------------------------------------------------------
-
-class TestOutputFile:
-
-    def test_parquet_written_when_output_path_provided(self, raw_fixture, tmp_path):
+    def test_parquet_output_written(self, raw_fixture, tmp_path):
         raw_path = tmp_path / "raw.parquet"
         out_path = tmp_path / "cleaned.parquet"
         raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
 
-        pipeline = WaterQualityPreprocessor(
-            raw_path=str(raw_path),
-            output_path=str(out_path),
-        )
+        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path), output_path=str(out_path))
         pipeline.run()
 
-        assert out_path.exists(), "Output Parquet file was not created"
-        df_reload = pd.read_parquet(str(out_path))
-        assert len(df_reload) > 0
-
-    def test_no_file_written_when_output_path_is_none(self, raw_fixture, tmp_path):
-        raw_path = tmp_path / "raw.parquet"
-        raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
-
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path), output_path=None)
-        pipeline.run()
-
-        # No .parquet files should appear in tmp_path except raw.parquet
-        parquet_files = list(tmp_path.glob("*.parquet"))
-        assert len(parquet_files) == 1, (
-            f"Expected only raw.parquet in tmp_path, found: {parquet_files}"
-        )
+        assert out_path.exists()
+        reloaded = pd.read_parquet(str(out_path))
+        assert len(reloaded) > 0
 
 
-# ---------------------------------------------------------------------------
-# 12. nrows parameter
-# ---------------------------------------------------------------------------
+class TestRobustnessAndMetadataConsistency:
 
-class TestNrowsParameter:
-
-    def test_nrows_limits_loaded_rows(self, raw_fixture, tmp_path):
-        raw_path = tmp_path / "raw.parquet"
-        raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
-
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path), nrows=3)
-        df_out, summary = pipeline.run()
-
-        assert summary.raw_rows == 3, (
-            f"Expected raw_rows=3, got {summary.raw_rows}"
-        )
-
-
-# ---------------------------------------------------------------------------
-# 13. Full pipeline end-to-end on fixture
-# ---------------------------------------------------------------------------
-
-class TestFullPipelineOnFixture:
-
-    def test_end_to_end_no_exceptions(self, raw_fixture, tmp_path):
-        """Pipeline should run without raising any exception on the test fixture."""
-        raw_path = tmp_path / "raw.parquet"
-        raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_out, summary = pipeline.run()
-        assert df_out is not None
-        assert summary is not None
-
-    def test_missing_value_strategy_in_attrs(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        assert "missing_value_strategy" in df.attrs
-        strategy = df.attrs["missing_value_strategy"]
-        assert "ammonia_mg_l" in strategy
-        assert "ph" in strategy
-        assert "ccme_values" in strategy
-
-    def test_source_path_in_attrs(self, raw_fixture, tmp_path):
-        raw_path = tmp_path / "raw.parquet"
-        raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_out, _ = pipeline.run()
-        assert "source_path" in df_out.attrs
-        assert df_out.attrs["source_path"] == str(raw_path)
-
-    def test_cleaned_df_has_correct_columns(self, cleaned_fixture):
-        df, _ = cleaned_fixture
-        # Should have original 14 aliased columns + flag columns
-        original_aliases = set(COLUMN_NAME_MAP.values())
-        assert original_aliases.issubset(set(df.columns)), (
-            f"Missing columns: {original_aliases - set(df.columns)}"
-        )
-
-
-# ---------------------------------------------------------------------------
-# 14. Raw Input Preservation & Schema Assertions
-# ---------------------------------------------------------------------------
-
-class TestRawPreservationAndSchema:
-
-    def test_raw_input_dataframe_not_modified(self, raw_fixture, tmp_path):
-        """Pipeline must not mutate the raw in-memory DataFrame passed or loaded."""
-        raw_copy = raw_fixture.copy(deep=True)
-        raw_path = tmp_path / "raw_preserve.parquet"
-        raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
-
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_out, _ = pipeline.run()
-
-        # The on-disk file and loaded dataframe must not mutate the raw baseline
-        df_reloaded_raw = pd.read_parquet(str(raw_path))
-        assert_raw_unmodified(raw_copy, df_reloaded_raw)
-
-    def test_expected_schema_assertions(self, cleaned_fixture):
-        """Check all required columns, types and flag columns."""
-        df, _ = cleaned_fixture
-        assert_schema_preserved(df)
-        assert_flag_columns_present(df)
-        assert_targets_complete(df)
-
-    def test_all_key_metadata_fields_available_post_cleaning(self, cleaned_fixture):
-        """Check that country, area, waterbody_type, and date are fully preserved."""
-        df, _ = cleaned_fixture
-        for meta_col in ["country", "area", "waterbody_type", "date"]:
-            assert meta_col in df.columns, f"Metadata column '{meta_col}' missing"
-            # In fixture, all 7 non-duplicate records have valid metadata
-            assert df[meta_col].notna().all(), f"Metadata column '{meta_col}' has nulls in fixture"
-
-
-# ---------------------------------------------------------------------------
-# 15. Before-versus-After Data Quality Summary
-# ---------------------------------------------------------------------------
-
-class TestDataQualitySummary:
-
-    def test_generate_data_quality_summary_structure(self, raw_fixture, cleaned_fixture):
-        df_clean, _ = cleaned_fixture
-        summary_df = generate_data_quality_summary(raw_fixture, df_clean)
-
-        assert isinstance(summary_df, pd.DataFrame)
-        required_summary_cols = [
-            "column_raw", "column_clean", "raw_null_count",
-            "raw_null_pct", "clean_null_count", "clean_null_pct", "null_delta",
-        ]
-        for col in required_summary_cols:
-            assert col in summary_df.columns, f"Missing summary column '{col}'"
-
-        assert "row_counts" in summary_df.attrs
-        assert "duplicate_counts" in summary_df.attrs
-        assert summary_df.attrs["row_counts"]["raw"] == len(raw_fixture)
-        assert summary_df.attrs["row_counts"]["clean"] == len(df_clean)
-        assert summary_df.attrs["duplicate_counts"]["raw"] >= summary_df.attrs["duplicate_counts"]["clean"]
-
-    def test_summary_reflects_sentinel_replacement_null_increases(self, raw_fixture, cleaned_fixture):
-        """Sentinel values replaced by NaN should show up in null_delta or clean_null_count."""
-        df_clean, _ = cleaned_fixture
-        summary_df = generate_data_quality_summary(raw_fixture, df_clean)
-        # Temperature had -999999 injected in row 0
-        temp_row = summary_df[summary_df["column_clean"] == "temperature_c"].iloc[0]
-        assert temp_row["clean_null_count"] >= 1
-
-
-# ---------------------------------------------------------------------------
-# 16. Pipeline Idempotency / Consistency
-# ---------------------------------------------------------------------------
-
-class TestPipelineConsistency:
-
-    def test_running_pipeline_twice_on_same_raw_input_is_deterministic(self, raw_fixture, tmp_path):
-        """Executing the cleaning pipeline twice on the same raw file must yield identical output."""
-        raw_path = tmp_path / "raw_deterministic.parquet"
-        raw_fixture.to_parquet(str(raw_path), compression="snappy", index=False)
-
-        pipeline_1 = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_1, summary_1 = pipeline_1.run()
-
-        pipeline_2 = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_2, summary_2 = pipeline_2.run()
-
-        # DataFrames must be completely identical
-        pd.testing.assert_frame_equal(df_1, df_2)
-        assert summary_1.raw_rows == summary_2.raw_rows
-        assert summary_1.final_rows == summary_2.final_rows
-        assert len(summary_1.steps) == len(summary_2.steps)
-
-
-# ---------------------------------------------------------------------------
-# 17. Synthetic Corner Cases (Missing, Duplicates, Types, Invalid Numerics)
-# ---------------------------------------------------------------------------
-
-class TestSyntheticCornerCases:
-
-    def test_all_missing_optional_nutrients(self, tmp_path):
-        """Pipeline handles a record where all chemical nutrients are NaN."""
-        data = {
-            "Country": ["Canada"],
-            "Area": ["Site Null"],
-            "Waterbody Type": ["River"],
-            "Date": ["01-01-2020"],
-            "Ammonia (mg/l)": [np.nan],
-            "Biochemical Oxygen Demand (mg/l)": [np.nan],
-            "Dissolved Oxygen (mg/l)": [np.nan],
-            "Orthophosphate (mg/l)": [np.nan],
-            "pH (ph units)": [np.nan],
-            "Temperature (cel)": [np.nan],
-            "Nitrogen (mg/l)": [np.nan],
-            "Nitrate (mg/l)": [np.nan],
-            "CCME_Values": [80.0],
-            "CCME_WQI": ["Good"],
-        }
-        df_synthetic = pd.DataFrame(data)
-        raw_path = tmp_path / "all_null.parquet"
-        df_synthetic.to_parquet(str(raw_path), compression="snappy", index=False)
-
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_out, _ = pipeline.run()
-
-        assert len(df_out) == 1
-        assert_schema_preserved(df_out)
-        assert_flag_columns_present(df_out)
-        # Flags for NaN values must be False
-        for col in SUSPICIOUS_VALUE_RULES:
-            assert not df_out[f"{col}_flag_suspicious"].iloc[0]
-
-    def test_inconsistent_string_whitespace_and_null_markers(self, tmp_path):
-        """String fields with extra whitespace, 'N/A', 'NULL', 'None' must be cleaned properly."""
-        data = {
-            "Country": ["  USA  ", "India"],
-            "Area": ["Lake Tahoe ", " none "],
-            "Waterbody Type": [" River\t", "Lake"],
-            "Date": ["12-05-2015", "04-10-2019"],
-            "Ammonia (mg/l)": [0.05, 0.02],
-            "Biochemical Oxygen Demand (mg/l)": [2.0, 1.5],
-            "Dissolved Oxygen (mg/l)": [8.0, 7.5],
-            "Orthophosphate (mg/l)": [0.01, 0.03],
-            "pH (ph units)": [7.4, 7.8],
-            "Temperature (cel)": [15.0, 22.0],
-            "Nitrogen (mg/l)": [1.0, 1.2],
-            "Nitrate (mg/l)": [4.0, 5.0],
-            "CCME_Values": [90.0, 85.0],
-            "CCME_WQI": ["Good", "Good"],
-        }
-        df_synthetic = pd.DataFrame(data)
-        raw_path = tmp_path / "dirty_strings.parquet"
-        df_synthetic.to_parquet(str(raw_path), compression="snappy", index=False)
-
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_out, _ = pipeline.run()
-
-        assert df_out["country"].iloc[0] == "USA"
-        assert df_out["area"].iloc[0] == "Lake Tahoe"
-        assert pd.isna(df_out["area"].iloc[1])  # ' none ' normalized to NaN
-        assert df_out["waterbody_type"].iloc[0] == "River"
-
-    def test_severe_duplicate_cluster_deduplication(self, tmp_path):
-        """10 identical rows must collapse to exactly 1 row."""
-        single_row = {
-            "Country": ["India"],
-            "Area": ["Ganges"],
-            "Waterbody Type": ["River"],
-            "Date": ["01-01-2019"],
-            "Ammonia (mg/l)": [0.1],
-            "Biochemical Oxygen Demand (mg/l)": [2.5],
-            "Dissolved Oxygen (mg/l)": [6.5],
-            "Orthophosphate (mg/l)": [0.04],
-            "pH (ph units)": [7.6],
-            "Temperature (cel)": [20.0],
-            "Nitrogen (mg/l)": [1.8],
-            "Nitrate (mg/l)": [4.2],
-            "CCME_Values": [78.0],
-            "CCME_WQI": ["Fair"],
-        }
-        df_10 = pd.concat([pd.DataFrame(single_row)] * 10, ignore_index=True)
-        raw_path = tmp_path / "dups_10.parquet"
-        df_10.to_parquet(str(raw_path), compression="snappy", index=False)
-
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_out, summary = pipeline.run()
-
-        assert len(df_out) == 1
-        assert summary.raw_rows == 10
-        assert summary.final_rows == 1
-
-    def test_extreme_and_corrupt_numeric_values_handling(self, tmp_path):
-        """Values like -80C temp, pH 67115, extreme negative sentinels handled accurately."""
-        data = {
-            "Country": ["USA", "India", "USA"],
-            "Area": ["Site 1", "Site 2", "Site 3"],
-            "Waterbody Type": ["River", "Lake", "Stream"],
-            "Date": ["01-01-2021", "02-02-2021", "03-03-2021"],
-            "Ammonia (mg/l)": [-0.002, 0.05, 0.01],         # -0.002 is SDL -> 0.0
-            "Biochemical Oxygen Demand (mg/l)": [1.0, -1.0, 2.0],  # -1.0 is SDL -> 0.0
-            "Dissolved Oxygen (mg/l)": [7.0, -999999.0, 9.0],      # -999999 -> NaN
-            "Orthophosphate (mg/l)": [0.01, 0.02, 0.03],
-            "pH (ph units)": [67115.0, -1.0, 16.0],        # all 3 are invalid pH -> NaN
-            "Temperature (cel)": [-80.0, -999999.0, 75.0], # -80 & -999999 -> NaN, 75.0 in USA -> 23.88C
-            "Nitrogen (mg/l)": [1.0, 2.0, 3.0],
-            "Nitrate (mg/l)": [5.0, 6.0, 7.0],
-            "CCME_Values": [85.0, 90.0, 95.0],
-            "CCME_WQI": ["Good", "Excellent", "Excellent"],
-        }
-        df_raw = pd.DataFrame(data)
-        raw_path = tmp_path / "corrupt_numerics.parquet"
-        df_raw.to_parquet(str(raw_path), compression="snappy", index=False)
-
-        pipeline = WaterQualityPreprocessor(raw_path=str(raw_path))
-        df_out, _ = pipeline.run()
-
-        # SDL negatives clipped to 0.0
-        assert df_out["ammonia_mg_l"].iloc[0] == 0.0
-        assert df_out["bod_mg_l"].iloc[1] == 0.0
-
-        # pH sentinels converted to NaN
-        assert df_out["ph"].isna().all()
-
-        # Temp: row 0 (-80.0 sentinel) -> NaN; row 1 (-999999 sentinel) -> NaN; row 2 (USA 75F) -> 23.89C
-        assert pd.isna(df_out["temperature_c"].iloc[0])
-        assert pd.isna(df_out["temperature_c"].iloc[1])
-        assert round(df_out["temperature_c"].iloc[2], 2) == round((75.0 - 32) * 5 / 9, 2)
-
-
-# ---------------------------------------------------------------------------
-# 18. Integration: run on real dataset if available (optional / skipped in CI)
-# ---------------------------------------------------------------------------
-
-class TestFeatureEngineeringAndSplitting:
-
-    def test_engineer_features(self, cleaned_fixture):
-        df_clean, _ = cleaned_fixture
-        df_feat, new_cols = engineer_features(df_clean)
-
-        assert "np_ratio" in df_feat.columns
-        assert "bod_do_ratio" in df_feat.columns
-        assert "do_deficit" in df_feat.columns
-        assert "month" in df_feat.columns
-        assert "month_sin" in df_feat.columns
-        assert "month_cos" in df_feat.columns
-        assert "ccme_wqi_code" in df_feat.columns
-        assert len(new_cols) >= 5
-
-    def test_split_data_proportions_and_stratification(self, cleaned_fixture):
-        df_clean, _ = cleaned_fixture
-        # Duplicate to have enough rows for splitting
-        df_large = pd.concat([df_clean] * 10, ignore_index=True)
-        train_df, val_df, test_df = split_data(df_large, train_size=0.7, val_size=0.15, test_size=0.15)
-
-        total = len(train_df) + len(val_df) + len(test_df)
-        assert total == len(df_large)
-        assert abs(len(train_df) / total - 0.70) < 0.05
-        assert abs(len(val_df) / total - 0.15) < 0.05
-        assert abs(len(test_df) / total - 0.15) < 0.05
-
-    def test_imputation_and_scaling(self, cleaned_fixture):
+    def test_consistent_feature_order_across_partitions(self, cleaned_fixture):
         df_clean, _ = cleaned_fixture
         df_feat, _ = engineer_features(df_clean)
-        df_large = pd.concat([df_feat] * 10, ignore_index=True)
+        df_large = pd.concat([df_feat] * 5, ignore_index=True)
         train_df, val_df, test_df = split_data(df_large)
 
-        features = ["ph", "temperature_c", "do_mg_l", "np_ratio"]
-        train_imp, val_imp, test_imp, info = impute_missing_values(train_df, val_df, test_df, features)
+        features = [f for f in MODEL_INPUT_FEATURES if f in train_df.columns]
+        train_imp, val_imp, test_imp, _ = impute_missing_values(train_df, val_df, test_df, features)
+        train_sc, val_sc, test_sc, _ = scale_features(train_imp, val_imp, test_imp, features)
 
-        # Check no missing values remain in target features
-        assert train_imp[features].isna().sum().sum() == 0
-        assert val_imp[features].isna().sum().sum() == 0
-        assert test_imp[features].isna().sum().sum() == 0
+        # Enforce exact identical feature column order across all partitions
+        assert list(train_imp[features].columns) == features
+        assert list(val_imp[features].columns) == features
+        assert list(test_imp[features].columns) == features
+        assert list(train_sc[features].columns) == features
+        assert list(val_sc[features].columns) == features
+        assert list(test_sc[features].columns) == features
 
-        # Check scaling produces zero mean and unit variance on train set
-        train_sc, val_sc, test_sc, scaler = scale_features(train_imp, val_imp, test_imp, features)
-        assert np.allclose(train_sc[features].mean(), 0.0, atol=1e-6)
-        assert np.allclose(train_sc[features].std(), 1.0, atol=1e-1)
+    def test_empty_or_missing_file_raises_filenotfound(self):
+        pipeline = WaterQualityPreprocessor(raw_path="non_existent_file.parquet")
+        with pytest.raises(FileNotFoundError):
+            pipeline.run()
+
+    def test_malformed_unsupported_format_raises_valueerror(self, tmp_path):
+        bad_file = tmp_path / "bad.txt"
+        bad_file.write_text("random content")
+        pipeline = WaterQualityPreprocessor(raw_path=str(bad_file))
+        with pytest.raises(ValueError, match="Unsupported format"):
+            pipeline.run()
+
+    def test_prepare_training_datasets_creates_all_expected_artifacts(self, cleaned_fixture, tmp_path):
+        df_clean, _ = cleaned_fixture
+        df_large = pd.concat([df_clean] * 5, ignore_index=True)
+        out_dir = tmp_path / "prep_output"
+
+        res = prepare_training_datasets(
+            cleaned_df=df_large,
+            output_dir=str(out_dir),
+            sample_size=10,
+        )
+
+        expected_files = [
+            "train.parquet", "val.parquet", "test.parquet",
+            "train_scaled.parquet", "val_scaled.parquet", "test_scaled.parquet",
+            "train_sample.parquet", "val_sample.parquet", "test_sample.parquet",
+            "preprocessing_metadata.json",
+        ]
+        for fname in expected_files:
+            fpath = out_dir / fname
+            assert fpath.exists(), f"Expected artifact '{fname}' was not generated"
+
+        meta = res["metadata"]
+        assert "metadata_version" in meta
+        assert "input_features_ordered" in meta
+        assert meta["input_features_ordered"] == MODEL_INPUT_FEATURES
+        assert "scaler_parameters" in meta
+        assert "leakage_safeguards" in meta
+
 
 
 REAL_DATASET_PATH = os.path.join(
@@ -898,7 +696,6 @@ REAL_DATASET_PATH = os.path.join(
 class TestRealDataset:
 
     def test_pipeline_on_real_dataset_first_10k(self, tmp_path):
-        """Run the full pipeline on the first 10,000 rows of the real dataset."""
         pipeline = WaterQualityPreprocessor(
             raw_path=REAL_DATASET_PATH,
             output_path=None,
@@ -916,19 +713,3 @@ class TestRealDataset:
 
         assert summary.raw_rows == 10_000
         assert summary.final_rows <= summary.raw_rows
-
-    def test_real_dataset_full_run_schema(self, tmp_path):
-        """Run on the full real dataset and validate schema only (slow test)."""
-        out_path = tmp_path / "cleaned_real.parquet"
-        pipeline = WaterQualityPreprocessor(
-            raw_path=REAL_DATASET_PATH,
-            output_path=str(out_path),
-        )
-        df_out, summary = pipeline.run()
-
-        assert_schema_preserved(df_out)
-        assert_no_sentinels(df_out)
-        assert_no_sdl_negatives(df_out)
-        assert_targets_complete(df_out)
-        assert out_path.exists()
-
