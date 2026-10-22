@@ -226,6 +226,10 @@ __marimo__/
 ~$*
 .DS_Store
 
+# Raw source Parquet files (remain local)
+data/Dataset/Parquet/**/*.parquet
+!data/Dataset/Parquet/**/.gitkeep
+
 # Generated datasets (large binary files exceeding GitHub 100MB limit; reproduced via scripts/notebooks)
 data/GeneratedOutput/**/*.parquet
 !data/GeneratedOutput/**/*_sample.parquet

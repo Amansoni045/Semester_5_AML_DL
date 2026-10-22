@@ -938,6 +938,12 @@ def prepare_training_datasets(
         },
         "target_class_mapping": CCME_WQI_MAP,
         "target_class_order": CCME_WQI_CATEGORIES,
+        "target_class_counts": {
+            "cleaned_total": {str(k): int(v) for k, v in cleaned_df["ccme_wqi"].value_counts().items()},
+            "train": {str(k): int(v) for k, v in train_df["ccme_wqi"].value_counts().items()},
+            "val": {str(k): int(v) for k, v in val_df["ccme_wqi"].value_counts().items()},
+            "test": {str(k): int(v) for k, v in test_df["ccme_wqi"].value_counts().items()},
+        },
         "imputation_strategy": {
             "chemical_features": "Group median by (country, waterbody_type) strictly on train split",
             "seasonal_features": "Group median by (country, month) strictly on train split",

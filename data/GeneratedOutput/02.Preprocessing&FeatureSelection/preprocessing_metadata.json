@@ -81,6 +81,36 @@
     "Good",
     "Excellent"
   ],
+  "target_class_counts": {
+    "cleaned_total": {
+      "Excellent": 2146706,
+      "Good": 1367271,
+      "Marginal": 328785,
+      "Fair": 318146,
+      "Poor": 126982
+    },
+    "train": {
+      "Excellent": 1502694,
+      "Good": 957090,
+      "Marginal": 230150,
+      "Fair": 222702,
+      "Poor": 88887
+    },
+    "val": {
+      "Excellent": 322006,
+      "Good": 205090,
+      "Marginal": 49317,
+      "Fair": 47722,
+      "Poor": 19048
+    },
+    "test": {
+      "Excellent": 322006,
+      "Good": 205091,
+      "Marginal": 49318,
+      "Fair": 47722,
+      "Poor": 19047
+    }
+  },
   "imputation_strategy": {
     "chemical_features": "Group median by (country, waterbody_type) strictly on train split",
     "seasonal_features": "Group median by (country, month) strictly on train split",
