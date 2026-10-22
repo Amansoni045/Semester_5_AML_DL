@@ -1,52 +1,9 @@
-"""
-preprocessing.py
-================
-Reusable data-cleaning pipeline for the Water Quality Prediction ML project.
-
-All decisions are grounded in the findings from ``notebooks/01_dataset_audit.ipynb``
-and the domain knowledge documented in ``AGENT.md``.
-
-Pipeline stages (in execution order)
---------------------------------------
-1.  Standardise column names  — snake_case aliases with original mapping preserved.
-2.  Parse / cast data types   — Date -> datetime64, CCME_WQI -> ordered Categorical.
-3.  Replace sentinel values   — hardware error codes (-999999, -596, -99.9, -80)
-                                and the 67115 pH scale-corruption anomaly -> NaN.
-4.  Fix USA temperature unit  — 5,852 US readings recorded in F converted to C.
-5.  Clip sub-detection-limit negatives — tiny negatives caused by instrument
-                                          baseline offsets -> 0.0.
-6.  Drop exact duplicates     — 10,005 confirmed exact-duplicate rows removed and
-                                 logged; raw files are never modified.
-7.  Flag suspicious outliers  — physically implausible values are FLAGGED (boolean
-                                 column per feature), NOT deleted.
-8.  Missing-value strategy    — column-specific, documented, MAR/MCAR-aware logic.
-                                 No automatic mean/median imputation across the board.
-9.  Preserve metadata         — Country, Area, Waterbody Type, Date, site identifiers
-                                 are carried through unchanged (only dtype-cast).
-10. Save cleaned dataset      — written to a configurable path as Parquet/Snappy.
-                                 Raw source files are NEVER overwritten.
-
-Usage
------
-    from src.preprocessing import WaterQualityPreprocessor
-
-    pipeline = WaterQualityPreprocessor(
-        raw_path="data/Dataset/Parquet/Combined Data/Combined_dataset.parquet",
-        output_path="data/GeneratedOutput/02.Preprocessing/cleaned_dataset.parquet",
-    )
-    cleaned_df, summary = pipeline.run()
-
-Or from the command line:
-
-    python -m src.preprocessing \\
-        --input  "data/Dataset/Parquet/Combined Data/Combined_dataset.parquet" \\
-        --output data/GeneratedOutput/02.Preprocessing/cleaned_dataset.parquet
-"""
-
 from __future__ import annotations
 
 import argparse
+import json
 import logging
+import math
 import os
 import sys
 import time
@@ -56,24 +13,17 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
-logger = logging.getLogger("WaterQualityPreprocessor")
+logger = logging.getLogger("preprocessing")
 
-
-# ---------------------------------------------------------------------------
-# Constants - grounded in audit findings & domain knowledge
-# ---------------------------------------------------------------------------
-
-# Original column names exactly as they appear in the raw Parquet file.
+# Column name mappings
 RAW_COLUMNS_ORDERED: List[str] = [
     "Country",
     "Area",
@@ -91,83 +41,43 @@ RAW_COLUMNS_ORDERED: List[str] = [
     "CCME_WQI",
 ]
 
-# Mapping from original column name -> snake_case alias used internally.
-# The original names are PRESERVED in the column_mapping dict and as attributes
-# of the returned DataFrame (.attrs["column_mapping"]).
 COLUMN_NAME_MAP: Dict[str, str] = {
-    "Country":                              "country",
-    "Area":                                 "area",
-    "Waterbody Type":                       "waterbody_type",
-    "Date":                                 "date",
-    "Ammonia (mg/l)":                       "ammonia_mg_l",
-    "Biochemical Oxygen Demand (mg/l)":     "bod_mg_l",
-    "Dissolved Oxygen (mg/l)":              "do_mg_l",
-    "Orthophosphate (mg/l)":               "orthophosphate_mg_l",
-    "pH (ph units)":                        "ph",
-    "Temperature (cel)":                    "temperature_c",
-    "Nitrogen (mg/l)":                      "nitrogen_mg_l",
-    "Nitrate (mg/l)":                       "nitrate_mg_l",
-    "CCME_Values":                          "ccme_values",
-    "CCME_WQI":                             "ccme_wqi",
+    "Country": "country",
+    "Area": "area",
+    "Waterbody Type": "waterbody_type",
+    "Date": "date",
+    "Ammonia (mg/l)": "ammonia_mg_l",
+    "Biochemical Oxygen Demand (mg/l)": "bod_mg_l",
+    "Dissolved Oxygen (mg/l)": "do_mg_l",
+    "Orthophosphate (mg/l)": "orthophosphate_mg_l",
+    "pH (ph units)": "ph",
+    "Temperature (cel)": "temperature_c",
+    "Nitrogen (mg/l)": "nitrogen_mg_l",
+    "Nitrate (mg/l)": "nitrate_mg_l",
+    "CCME_Values": "ccme_values",
+    "CCME_WQI": "ccme_wqi",
 }
 
-# Reverse mapping - alias -> original
 COLUMN_NAME_MAP_REVERSE: Dict[str, str] = {v: k for k, v in COLUMN_NAME_MAP.items()}
 
-# ---------------------------------------------------------------------------
-# Sentinel / error-code values identified during the data audit
-#   Source: notebooks/01_dataset_audit.ipynb, Section 7 - Suspicious Values
-#   Temperature (cel): 80x -999999.0, 1x -596.0, 1x -99.9, 1x -80.0
-#   pH (ph units):      3x -999999.0, 1x -1.0
-#   DO (mg/l):          1x -999999.0
-# ---------------------------------------------------------------------------
+# Sensor error sentinels found during data audit
 SENTINEL_VALUES: List[float] = [-999999.0, -9999.0, -999.0, -596.0, -99.9, -80.0]
-
-# Numeric columns that may carry sentinel codes
 SENTINEL_COLUMNS: List[str] = ["ph", "temperature_c", "do_mg_l"]
 
-# ---------------------------------------------------------------------------
-# Physically implausible value rules - FLAGGING only, not deletion
-#
-# Rationale for each rule:
-#   ph:
-#     - Natural freshwater: 6.5-9.5; absolute bounds: 0-14.
-#     - Audit found pH values up to 67115 (India) and 14-9948 range (India, Canada):
-#       instrument scale-corruption or unit mismatches -> flagged and NaN'd.
-#   temperature_c:
-#     - Surface freshwater range: -2 to 40C. Effluent can reach ~50C.
-#     - 5,983 USA records > 50C appear to be in Fahrenheit (see Stage 4).
-#     - Values > 98C are physically impossible for surface water -> flagged.
-#   Chemical concentrations:
-#     - Extreme high values (BOD > 534, Ammonia = 200) occur in Effluent/
-#       highly polluted rivers - plausible but flagged for downstream awareness.
-# ---------------------------------------------------------------------------
+# Plausible domain bounds used for quality flagging
 SUSPICIOUS_VALUE_RULES: Dict[str, Dict[str, float]] = {
-    "ph":                  {"hard_min": 0.0,  "hard_max": 14.0},
-    "temperature_c":       {"hard_min": -5.0, "hard_max": 98.0},
-    "ammonia_mg_l":        {"hard_min": 0.0,  "hard_max": 500.0},
-    "bod_mg_l":            {"hard_min": 0.0,  "hard_max": 1000.0},
-    "do_mg_l":             {"hard_min": 0.0,  "hard_max": 30.0},
-    "orthophosphate_mg_l": {"hard_min": 0.0,  "hard_max": 200.0},
-    "nitrogen_mg_l":       {"hard_min": 0.0,  "hard_max": 500.0},
-    "nitrate_mg_l":        {"hard_min": 0.0,  "hard_max": 1000.0},
-    "ccme_values":         {"hard_min": 0.0,  "hard_max": 100.0},
+    "ph": {"hard_min": 0.0, "hard_max": 14.0},
+    "temperature_c": {"hard_min": -5.0, "hard_max": 98.0},
+    "ammonia_mg_l": {"hard_min": 0.0, "hard_max": 500.0},
+    "bod_mg_l": {"hard_min": 0.0, "hard_max": 1000.0},
+    "do_mg_l": {"hard_min": 0.0, "hard_max": 30.0},
+    "orthophosphate_mg_l": {"hard_min": 0.0, "hard_max": 200.0},
+    "nitrogen_mg_l": {"hard_min": 0.0, "hard_max": 500.0},
+    "nitrate_mg_l": {"hard_min": 0.0, "hard_max": 1000.0},
+    "ccme_values": {"hard_min": 0.0, "hard_max": 100.0},
 }
 
-# ---------------------------------------------------------------------------
-# Sub-detection-limit (SDL) clipping
-#
-# Audit finding: small negative concentrations in chemical parameters are caused
-# by instrument baseline calibration noise below the analytical detection limit.
-# Clipping to 0.0 is standard laboratory practice.
-#
-#   ammonia_mg_l         min observed: -0.005  -> clip to 0.0
-#   bod_mg_l             min observed: -2.0    -> clip to 0.0
-#   orthophosphate_mg_l  min observed: -0.004  -> clip to 0.0
-#   do_mg_l              min (excl sentinel): -0.05 -> clip to 0.0
-#
-# NOT clipped: ph (negatives -> sentinel), temperature_c (legitimate sub-zero exists)
-# ---------------------------------------------------------------------------
+# Sub-detection limit negative clipping
 SDL_CLIP_COLUMNS: List[str] = [
     "ammonia_mg_l",
     "bod_mg_l",
@@ -177,80 +87,41 @@ SDL_CLIP_COLUMNS: List[str] = [
     "nitrate_mg_l",
 ]
 
-# CCME WQI ordered categories (classification target)
 CCME_WQI_CATEGORIES: List[str] = ["Poor", "Marginal", "Fair", "Good", "Excellent"]
+CCME_WQI_MAP: Dict[str, int] = {cat: idx for idx, cat in enumerate(CCME_WQI_CATEGORIES)}
 
-# ---------------------------------------------------------------------------
-# Missing-value strategy - documented per column
-#
-# Strategy is DECLARED here; imputation is out-of-scope for this module
-# (no imputation in the cleaning commit; imputation must be fitted only on the
-# training split to prevent leakage).
-# ---------------------------------------------------------------------------
 MISSING_VALUE_STRATEGY: Dict[str, str] = {
-    "ammonia_mg_l": (
-        "MAR - synchronised batch dropout with Orthophosphate, Nitrogen, Nitrate "
-        "(all share identical 34.2% missingness). Strategy: train baseline models on "
-        "complete-case subset (2.41M rows). Full-dataset models: KNN imputation within "
-        "country x waterbody_type groups, fitted ONLY on the training split."
-    ),
-    "orthophosphate_mg_l": (
-        "MAR - same synchronised 34.2% batch as Ammonia/Nitrogen/Nitrate. "
-        "Key eutrophication driver (r = -0.66 with CCME). "
-        "Strategy: KNN within country x waterbody_type on training split."
-    ),
-    "nitrogen_mg_l": (
-        "MAR - same synchronised 34.2% batch. "
-        "Strategy: KNN within country x waterbody_type on training split. "
-        "Alternative: iterative imputer conditioned on co-measured nutrients."
-    ),
-    "nitrate_mg_l": (
-        "MAR - synchronised batch, 1,466,431 rows (34.1%) missing. Slightly fewer than "
-        "Ammonia/N/PO4 due to separate recording. Strategy: KNN on training split."
-    ),
-    "bod_mg_l": (
-        "MAR - 1,466,334 rows (34.1%) missing. Direct organic-pollution indicator. "
-        "Strategy: KNN within country x waterbody_type on training split."
-    ),
-    "do_mg_l": (
-        "Moderate missingness (26.6%, 1,140,980 rows). Likely continuous-probe gap. "
-        "DO strongly correlated with Temperature (Henry's Law). "
-        "Strategy: physics-informed imputation (DO ~ f(Temperature, Salinity)) "
-        "or KNN with temperature and pH as predictors. Fitted on training split only."
-    ),
-    "ph": (
-        "Moderate missingness (28.0%, 1,201,075 rows after sentinel removal). "
-        "Sensors deployed intermittently. Do NOT impute with global median - pH varies "
-        "meaningfully by waterbody chemistry. "
-        "Strategy: KNN within country x waterbody_type on training split."
-    ),
-    "temperature_c": (
-        "Low missingness (<0.2%, 6,558 rows) after sentinel removal. "
-        "Strategy: linear interpolation within time-ordered site records, "
-        "or median by (country, month) on training split."
-    ),
-    "ccme_values": (
-        "Complete (0% missing) - no imputation needed. "
-        "This is the regression target; imputing it would introduce target leakage."
-    ),
-    "ccme_wqi": (
-        "Complete (0% missing) - no imputation needed. "
-        "This is the classification target; imputing it would introduce target leakage."
-    ),
-    "country":        "Complete - no imputation needed.",
-    "area":           "Complete - no imputation needed.",
-    "waterbody_type": "Complete - no imputation needed.",
-    "date":           "Complete - no imputation needed.",
+    "ammonia_mg_l": "Group median imputation by (country, waterbody_type) on train split.",
+    "orthophosphate_mg_l": "Group median imputation by (country, waterbody_type) on train split.",
+    "nitrogen_mg_l": "Group median imputation by (country, waterbody_type) on train split.",
+    "nitrate_mg_l": "Group median imputation by (country, waterbody_type) on train split.",
+    "bod_mg_l": "Group median imputation by (country, waterbody_type) on train split.",
+    "do_mg_l": "Group median or temperature-informed oxygen saturation imputation on train split.",
+    "ph": "Group median imputation by (country, waterbody_type) on train split.",
+    "temperature_c": "Group median imputation by (country, month) on train split.",
+    "ccme_values": "Complete (target) - no imputation.",
+    "ccme_wqi": "Complete (target) - no imputation.",
+    "country": "Complete - no imputation.",
+    "area": "Complete - no imputation.",
+    "waterbody_type": "Complete - no imputation.",
+    "date": "Complete - parsed to datetime.",
 }
 
+BASE_NUMERIC_FEATURES: List[str] = [
+    "ph",
+    "temperature_c",
+    "do_mg_l",
+    "bod_mg_l",
+    "ammonia_mg_l",
+    "orthophosphate_mg_l",
+    "nitrogen_mg_l",
+    "nitrate_mg_l",
+]
 
-# ---------------------------------------------------------------------------
-# Cleaning summary dataclass
-# ---------------------------------------------------------------------------
 
 @dataclass
 class CleaningSummary:
-    """Immutable record of every operation and its row-count impact."""
+    """Summary record of data cleaning pipeline steps."""
 
     raw_rows: int = 0
     raw_cols: int = 0
@@ -268,7 +139,6 @@ class CleaningSummary:
         rows_after: int,
         notes: str = "",
     ) -> None:
-        """Record one cleaning operation."""
         removed = rows_before - rows_after
         self.steps.append({
             "step": name,
@@ -278,65 +148,42 @@ class CleaningSummary:
             "rows_removed_pct": round(removed / rows_before * 100, 4) if rows_before else 0.0,
             "notes": notes,
         })
-        sign = "-" if removed > 0 else "+"
         logger.info(
-            "  [%s]  %s -> %s rows  (%s%s rows, %.4f%%)  %s",
+            "Step [%s]: %s -> %s rows (%s%s rows) %s",
             name,
             f"{rows_before:,}",
             f"{rows_after:,}",
-            sign,
+            "-" if removed > 0 else "+",
             f"{abs(removed):,}",
-            abs(removed) / rows_before * 100 if rows_before else 0.0,
             notes,
         )
 
     def to_dataframe(self) -> pd.DataFrame:
-        """Return steps as a tidy DataFrame for notebook display."""
         return pd.DataFrame(self.steps)
 
     def print_summary(self) -> None:
-        """Print a concise, human-readable cleaning report."""
         total_removed = self.raw_rows - self.final_rows
         pct_removed = total_removed / self.raw_rows * 100 if self.raw_rows else 0.0
-        print("\n" + "=" * 70)
-        print("WATER QUALITY CLEANING PIPELINE - SUMMARY")
-        print("=" * 70)
-        print(f"  Raw dataset    : {self.raw_rows:>10,} rows x {self.raw_cols} columns")
-        print(f"  Cleaned dataset: {self.final_rows:>10,} rows x {self.final_cols} columns")
-        print(f"  Rows removed   : {total_removed:>10,} ({pct_removed:.4f}%)")
-        print(f"  Flag columns   : {len(self.flags_added)}")
-        print(f"  Runtime        : {self.elapsed_seconds:.1f}s")
+        print("\n" + "=" * 65)
+        print("Data Cleaning Pipeline Summary")
+        print("=" * 65)
+        print(f"Raw shape     : {self.raw_rows:,} rows x {self.raw_cols} cols")
+        print(f"Cleaned shape : {self.final_rows:,} rows x {self.final_cols} cols")
+        print(f"Rows dropped  : {total_removed:,} ({pct_removed:.3f}%)")
+        print(f"Flags added   : {len(self.flags_added)}")
+        print(f"Time taken    : {self.elapsed_seconds:.1f}s")
         if self.output_path:
-            print(f"  Output path    : {self.output_path}")
-        print("-" * 70)
+            print(f"Saved to      : {self.output_path}")
+        print("-" * 65)
         for s in self.steps:
-            row_delta = s["rows_removed"]
-            sign = "-" if row_delta > 0 else " "
-            print(
-                f"  {s['step']:<40}  "
-                f"{s['rows_before']:>10,} -> {s['rows_after']:>10,}  "
-                f"({sign}{abs(row_delta):,})"
-            )
-        print("=" * 70 + "\n")
+            delta = s["rows_removed"]
+            sign = "-" if delta > 0 else " "
+            print(f"  {s['step']:<30} {s['rows_before']:>9,} -> {s['rows_after']:>9,} ({sign}{abs(delta):,})")
+        print("=" * 65 + "\n")
 
-
-# ---------------------------------------------------------------------------
-# Main Preprocessor Class
-# ---------------------------------------------------------------------------
 
 class WaterQualityPreprocessor:
-    """
-    Reusable, documented cleaning pipeline for the combined water-quality dataset.
-
-    Parameters
-    ----------
-    raw_path : str
-        Absolute or relative path to the raw dataset (Parquet or CSV).
-    output_path : str, optional
-        Where to write the cleaned Parquet file.  If None, file is NOT written.
-    nrows : int, optional
-        Limit the number of rows loaded (for fast development iteration).
-    """
+    """Cleans raw water quality records and prepares clean tabular data."""
 
     def __init__(
         self,
@@ -349,25 +196,11 @@ class WaterQualityPreprocessor:
         self.nrows = nrows
         self.summary = CleaningSummary()
 
-    # ------------------------------------------------------------------
-    # Public entry point
-    # ------------------------------------------------------------------
-
     def run(self) -> Tuple[pd.DataFrame, CleaningSummary]:
-        """
-        Execute the full cleaning pipeline.
-
-        Returns
-        -------
-        Tuple[pd.DataFrame, CleaningSummary]
-        """
         t0 = time.time()
-        logger.info("=" * 70)
-        logger.info("WATER QUALITY CLEANING PIPELINE - STARTING")
-        logger.info("=" * 70)
+        logger.info("Starting water quality cleaning pipeline")
 
         df = self._load()
-
         self.summary.raw_rows = len(df)
         self.summary.raw_cols = df.shape[1]
 
@@ -384,7 +217,6 @@ class WaterQualityPreprocessor:
         self.summary.final_cols = df.shape[1]
         self.summary.elapsed_seconds = round(time.time() - t0, 2)
 
-        # Attach metadata to DataFrame
         df.attrs["column_mapping"] = COLUMN_NAME_MAP
         df.attrs["missing_value_strategy"] = MISSING_VALUE_STRATEGY
         df.attrs["cleaning_summary"] = self.summary.to_dataframe().to_dict("records")
@@ -395,26 +227,14 @@ class WaterQualityPreprocessor:
             self.summary.output_path = self.output_path
 
         self.summary.print_summary()
-
-        logger.info("CLEANING PIPELINE COMPLETED SUCCESSFULLY")
-        logger.info("=" * 70)
-
         return df, self.summary
 
-    # ------------------------------------------------------------------
-    # Stage 1 - Load
-    # ------------------------------------------------------------------
-
     def _load(self) -> pd.DataFrame:
-        """Load the raw dataset without any modification."""
         path = self.raw_path
         if not os.path.exists(path):
             raise FileNotFoundError(f"Raw dataset not found: {path}")
 
         ext = Path(path).suffix.lower()
-        t0 = time.time()
-        logger.info("Loading raw dataset: %s", path)
-
         if ext == ".parquet":
             if self.nrows is not None:
                 import pyarrow.parquet as pq
@@ -426,439 +246,149 @@ class WaterQualityPreprocessor:
         else:
             raise ValueError(f"Unsupported format '{ext}'. Expected .parquet or .csv.")
 
-        elapsed = time.time() - t0
-        mem_mb = df.memory_usage(deep=True).sum() / 1024 / 1024
-        logger.info(
-            "Loaded %s rows x %s cols in %.2fs (%.1f MB RAM)",
-            f"{df.shape[0]:,}", df.shape[1], elapsed, mem_mb,
-        )
+        logger.info("Loaded %s rows x %s cols from %s", f"{len(df):,}", df.shape[1], path)
         return df
-
-    # ------------------------------------------------------------------
-    # Stage 2 - Column name standardisation
-    # ------------------------------------------------------------------
 
     def _standardise_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Rename raw columns to snake_case aliases.
-
-        The original-to-alias mapping is stored in COLUMN_NAME_MAP and also
-        attached to the returned DataFrame's .attrs["column_mapping"].
-        Only columns present in the raw file are renamed; extras are left as-is.
-        """
-        logger.info("Stage 1 - Standardising column names")
         existing_map = {k: v for k, v in COLUMN_NAME_MAP.items() if k in df.columns}
-        df = df.rename(columns=existing_map)
-        logger.info("  Renamed %d columns. New columns: %s", len(existing_map), list(df.columns))
-        return df
-
-    # ------------------------------------------------------------------
-    # Stage 3 - Data type casting
-    # ------------------------------------------------------------------
+        return df.rename(columns=existing_map)
 
     def _cast_data_types(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Cast columns to semantically appropriate dtypes.
-
-        - date       : string 'DD-MM-YYYY' -> datetime64[ns] (dayfirst=True)
-        - ccme_wqi   : object -> ordered Categorical (Poor < Marginal < Fair < Good < Excellent)
-        - Numeric cols: already float64 from Parquet; validated but not re-cast.
-        - String cols : strip whitespace and normalise blank strings to NaN.
-        """
-        logger.info("Stage 2 - Casting data types")
         rows_before = len(df)
 
-        # --- Date ---
         if "date" in df.columns:
-            n_before = df["date"].notna().sum()
             df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="coerce")
-            n_after = df["date"].notna().sum()
-            n_failed = int(n_before - n_after)
-            if n_failed > 0:
-                logger.warning(
-                    "  date: %d values could not be parsed to datetime -> NaT.", n_failed
-                )
-            logger.info("  date: cast to datetime64[ns]  (parsed %s / %s)", f"{n_after:,}", f"{n_before:,}")
 
-        # --- CCME_WQI -> ordered Categorical ---
         if "ccme_wqi" in df.columns:
             present_cats = [c for c in CCME_WQI_CATEGORIES if c in df["ccme_wqi"].values]
             cat_dtype = pd.CategoricalDtype(categories=present_cats, ordered=True)
             df["ccme_wqi"] = df["ccme_wqi"].astype(cat_dtype)
-            logger.info("  ccme_wqi: cast to ordered Categorical  %s", present_cats)
 
-        # --- String columns: strip whitespace, normalise blank -> NaN ---
-        NULL_LIKE = {"nan", "null", "none", "na", "n/a", "nil", "", "?"}
-        str_cols = ["country", "area", "waterbody_type"]
-        for col in str_cols:
-            if col not in df.columns:
-                continue
-            df[col] = df[col].astype(str).str.strip()
-            mask_blank = df[col].str.lower().isin(NULL_LIKE)
-            n_blank = int(mask_blank.sum())
-            if n_blank > 0:
-                df.loc[mask_blank, col] = np.nan
-                logger.info("  %s: %d blank/null-like strings -> NaN", col, n_blank)
+        # Normalize blank / null string artifacts
+        null_strings = {"nan", "null", "none", "na", "n/a", "nil", "", "?"}
+        for col in ["country", "area", "waterbody_type"]:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.strip()
+                df.loc[df[col].str.lower().isin(null_strings), col] = np.nan
 
-        self.summary.log_step("cast_data_types", rows_before, len(df), "No rows removed")
+        self.summary.log_step("cast_data_types", rows_before, len(df), "Casting dtypes")
         return df
 
-    # ------------------------------------------------------------------
-    # Stage 4 - Sentinel / error-code replacement
-    # ------------------------------------------------------------------
-
     def _replace_sentinels(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Replace known hardware telemetry error codes with NaN.
-
-        Sentinel values identified in the audit:
-          -999999.0  (hardware default for instrument failure) - Temperature, pH, DO
-          -596.0, -99.9, -80.0  (anomalous negative temps in USA data)
-          -1.0  (one pH reading)
-          pH > 14.0  (absolute physical impossibility; includes 67115.0 and India batch)
-
-        NO rows are dropped here; only cell values are replaced with NaN.
-        """
-        logger.info("Stage 3 - Replacing sentinel / error-code values with NaN")
         rows_before = len(df)
         total_replaced = 0
 
         for col in SENTINEL_COLUMNS:
             if col not in df.columns:
                 continue
+            mask = (df[col] <= -999.0) | df[col].isin(SENTINEL_VALUES)
+            n = int(mask.sum())
+            if n > 0:
+                df.loc[mask, col] = np.nan
+                total_replaced += n
 
-            # Rule 1: extreme negatives (hardware failure codes <= -999)
-            mask_extreme_neg = df[col] <= -999.0
-            # Rule 2: explicit listed sentinels
-            mask_explicit = df[col].isin(SENTINEL_VALUES)
-            combined = mask_extreme_neg | mask_explicit
-
-            n_replaced = int(combined.sum())
-            if n_replaced > 0:
-                df.loc[combined, col] = np.nan
-                total_replaced += n_replaced
-                logger.info("  %s: replaced %d sentinel values with NaN", col, n_replaced)
-
-        # pH-specific rules
         if "ph" in df.columns:
-            # pH = -1.0 (one occurrence - plausible misentry)
-            mask_minus1 = df["ph"] == -1.0
-            n_minus1 = int(mask_minus1.sum())
-            if n_minus1:
-                df.loc[mask_minus1, "ph"] = np.nan
-                total_replaced += n_minus1
-                logger.info("  ph: replaced %d value(s) of -1.0 with NaN", n_minus1)
-
-            # pH > 14.0 (physically impossible)
-            mask_ph_high = df["ph"] > 14.0
-            n_ph_high = int(mask_ph_high.sum())
-            if n_ph_high:
-                sample_vals = (
-                    df.loc[mask_ph_high, "ph"].value_counts().head(5).to_dict()
-                )
-                df.loc[mask_ph_high, "ph"] = np.nan
-                total_replaced += n_ph_high
-                logger.info(
-                    "  ph: replaced %d physically impossible values (> 14.0) with NaN. "
-                    "Sample: %s", n_ph_high, sample_vals
-                )
+            mask_low = df["ph"] == -1.0
+            mask_high = df["ph"] > 14.0
+            n_extra = int(mask_low.sum() + mask_high.sum())
+            df.loc[mask_low | mask_high, "ph"] = np.nan
+            total_replaced += n_extra
 
         self.summary.log_step(
             "replace_sentinels",
             rows_before,
             len(df),
-            f"{total_replaced:,} cells replaced with NaN (no rows dropped)",
+            f"{total_replaced:,} sentinels set to NaN",
         )
         return df
-
-    # ------------------------------------------------------------------
-    # Stage 5 - USA temperature unit correction
-    # ------------------------------------------------------------------
 
     def _fix_usa_temperature_unit(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Correct USA temperature readings recorded in degF instead of degC.
-
-        Evidence (from audit):
-          5,852 USA rows (0.31%) have Temperature > 50C - physically impossible
-          for surface water in continental USA (max expected ~35C in summer).
-          When converted from F: (F - 32) * 5/9, all fall in [10, 36]C - normal.
-          99.7% of USA rows already have values in Celsius range.
-          England Effluent records with T > 50C are RETAINED (industrial discharge).
-
-        Conversion applied only to: country == 'USA' AND temperature_c > 50.
-        """
-        logger.info("Stage 4 - Correcting USA temperatures recorded in degF")
+        # Convert US readings from degF to degC if above 50
         rows_before = len(df)
-
-        if "temperature_c" not in df.columns or "country" not in df.columns:
-            logger.warning("  temperature_c or country column missing - skipping.")
-            return df
-
-        mask_usa_f = (df["country"] == "USA") & (df["temperature_c"] > 50)
-        n_corrected = int(mask_usa_f.sum())
-
-        if n_corrected > 0:
-            df.loc[mask_usa_f, "temperature_c"] = (
-                (df.loc[mask_usa_f, "temperature_c"] - 32) * 5 / 9
+        if "temperature_c" in df.columns and "country" in df.columns:
+            mask = (df["country"] == "USA") & (df["temperature_c"] > 50)
+            n_fixed = int(mask.sum())
+            if n_fixed > 0:
+                df.loc[mask, "temperature_c"] = (df.loc[mask, "temperature_c"] - 32) * 5 / 9
+            self.summary.log_step(
+                "fix_usa_temperature_unit",
+                rows_before,
+                len(df),
+                f"{n_fixed:,} US degF values converted to degC",
             )
-            corrected_min = df.loc[mask_usa_f, "temperature_c"].min()
-            corrected_max = df.loc[mask_usa_f, "temperature_c"].max()
-            logger.info(
-                "  Converted %d USA temperature values from degF -> degC.  "
-                "Post-conversion range: [%.2f, %.2f] degC",
-                n_corrected, corrected_min, corrected_max,
-            )
-
-        self.summary.log_step(
-            "fix_usa_temperature_unit",
-            rows_before,
-            len(df),
-            f"{n_corrected:,} USA degF readings converted to degC",
-        )
         return df
 
-    # ------------------------------------------------------------------
-    # Stage 6 - Sub-detection-limit negative clipping
-    # ------------------------------------------------------------------
-
     def _clip_sub_detection_limit_negatives(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Clip small negative concentrations to 0.0.
-
-        Physical justification:
-          Chemical concentrations cannot be negative. Small negatives (-0.005 to -2.0)
-          arise when instrument readings fall below the analytical detection limit and
-          baseline noise pulls the measurement slightly negative. Standard laboratory
-          practice is to report these as 0.0.
-
-        Scope: only SDL_CLIP_COLUMNS; only values in range [-5.0, 0.0).
-        Values <= -5.0 would be suspicious and are left for the sentinel/flag stages.
-        """
-        logger.info("Stage 5 - Clipping sub-detection-limit negative concentrations -> 0.0")
+        # Clip instrument noise in [-5, 0) concentration values to 0.0
         rows_before = len(df)
         total_clipped = 0
-
         for col in SDL_CLIP_COLUMNS:
-            if col not in df.columns:
-                continue
-            # Only clip values in the SDL range [-5, 0)
-            mask_sdl = (df[col] < 0.0) & (df[col] >= -5.0)
-            n_clipped = int(mask_sdl.sum())
-            if n_clipped > 0:
-                df.loc[mask_sdl, col] = 0.0
-                total_clipped += n_clipped
-                logger.info("  %s: %d SDL negatives clipped to 0.0", col, n_clipped)
+            if col in df.columns:
+                mask = (df[col] < 0.0) & (df[col] >= -5.0)
+                total_clipped += int(mask.sum())
+                df.loc[mask, col] = 0.0
 
         self.summary.log_step(
             "clip_sdl_negatives",
             rows_before,
             len(df),
-            f"{total_clipped:,} sub-detection-limit negatives clipped to 0.0",
+            f"{total_clipped:,} values clipped to 0.0",
         )
         return df
-
-    # ------------------------------------------------------------------
-    # Stage 7 - Exact duplicate removal
-    # ------------------------------------------------------------------
 
     def _drop_exact_duplicates(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Remove exact duplicate records, keeping the first occurrence.
-
-        Justification:
-          The audit confirmed 10,005 rows identical across ALL 14 columns
-          (Country='Canada', verified with paired index inspection). These are
-          ingestion artifacts from combining country files, not legitimate repeated
-          measurements. Keeping duplicates would:
-            - Inflate training set size
-            - Bias class distributions
-            - Risk train/test contamination if the same record appears in both
-
-          One copy of each unique measurement is always retained. Metadata columns
-          (Country, Area, Date) are part of the key, so legitimate repeated
-          measurements at the same site on different dates are NOT affected.
-        """
-        logger.info("Stage 6 - Dropping exact duplicate records")
         rows_before = len(df)
-
         df = df.drop_duplicates(keep="first")
-        rows_after = len(df)
-        n_dropped = rows_before - rows_after
-
-        self.summary.log_step(
-            "drop_exact_duplicates",
-            rows_before,
-            rows_after,
-            f"Dropped {n_dropped:,} exact duplicates (all columns identical, keep='first')",
-        )
+        n_dropped = rows_before - len(df)
+        self.summary.log_step("drop_exact_duplicates", rows_before, len(df), f"{n_dropped:,} duplicates dropped")
         return df
 
-    # ------------------------------------------------------------------
-    # Stage 8 - Flag suspicious / physically implausible values
-    # ------------------------------------------------------------------
-
     def _flag_suspicious_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Add boolean flag columns for physically implausible values.
-
-        FLAGS are additive - they do NOT remove any rows. Downstream modelling
-        steps can use these flags to:
-          1. Exclude flagged rows from training.
-          2. Build separate models for normal vs extreme ranges.
-          3. Report data-quality metrics per country/site.
-
-        Flag column naming: {original_col}_flag_suspicious
-
-        Rules applied (from SUSPICIOUS_VALUE_RULES):
-          - Value < hard_min OR value > hard_max -> flagged True
-          - NaN values are NOT flagged (accounted for in missingness strategy)
-        """
-        logger.info("Stage 7 - Flagging physically suspicious values")
         rows_before = len(df)
         flag_cols: List[str] = []
-
         for col, bounds in SUSPICIOUS_VALUE_RULES.items():
             if col not in df.columns:
                 continue
-            hard_min = bounds["hard_min"]
-            hard_max = bounds["hard_max"]
             flag_col = f"{col}_flag_suspicious"
-            # Flag non-null values outside the hard bounds
-            mask = (
-                df[col].notna()
-                & ((df[col] < hard_min) | (df[col] > hard_max))
-            )
+            mask = df[col].notna() & ((df[col] < bounds["hard_min"]) | (df[col] > bounds["hard_max"]))
             df[flag_col] = mask
-            n_flagged = int(mask.sum())
             flag_cols.append(flag_col)
-            if n_flagged > 0:
-                logger.info(
-                    "  %s: %d rows flagged as suspicious (outside [%s, %s])  ->  %s",
-                    col, n_flagged, hard_min, hard_max, flag_col,
-                )
 
         self.summary.flags_added = flag_cols
-        self.summary.log_step(
-            "flag_suspicious_values",
-            rows_before,
-            len(df),
-            f"{len(flag_cols)} flag columns added; no rows dropped",
-        )
+        self.summary.log_step("flag_suspicious_values", rows_before, len(df), f"{len(flag_cols)} flag columns added")
         return df
-
-    # ------------------------------------------------------------------
-    # Stage 9 - Missing-value strategy (documentation & snapshot)
-    # ------------------------------------------------------------------
 
     def _apply_missing_value_strategy(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Attach the documented missing-value strategy and log a missingness snapshot.
-
-        No imputation is performed here - per project specification, imputation
-        must be fitted ONLY on the training split to prevent leakage.
-        The strategy document (MISSING_VALUE_STRATEGY) is attached to df.attrs.
-
-        Validation assertions:
-          - Metadata columns (country, area, waterbody_type, date) remain complete.
-          - Target columns (ccme_values, ccme_wqi) remain complete.
-        """
-        logger.info("Stage 8 - Missing-value snapshot & strategy validation")
         rows_before = len(df)
-        n = len(df)
+        for col in ["country", "waterbody_type", "ccme_values", "ccme_wqi"]:
+            if col in df.columns:
+                n_miss = int(df[col].isna().sum())
+                if n_miss > 0:
+                    logger.warning("Column '%s' has %d missing values", col, n_miss)
 
-        logger.info("  Post-cleaning missingness snapshot:")
-        for col in df.columns:
-            if col.endswith("_flag_suspicious"):
-                continue
-            n_missing = int(df[col].isna().sum())
-            pct = n_missing / n * 100 if n else 0.0
-            if n_missing > 0:
-                strategy = MISSING_VALUE_STRATEGY.get(col, "No strategy documented.")
-                strategy_short = strategy[:80] + "..." if len(strategy) > 80 else strategy
-                logger.info(
-                    "    %-35s  %9s missing  (%6.2f%%)  -> %s",
-                    col, f"{n_missing:,}", pct, strategy_short,
-                )
-
-        # Validation: critical columns must be complete (targets and key grouping keys).
-        # 'area' is EXCLUDED here — a small number of monitoring sites have no name
-        # recorded (184 rows in the real dataset), which is a source data limitation
-        # and does not prevent modelling; we log a warning instead.
-        MUST_BE_COMPLETE = ["country", "waterbody_type", "ccme_values", "ccme_wqi"]
-        for col in MUST_BE_COMPLETE:
-            if col not in df.columns:
-                continue
-            n_missing = int(df[col].isna().sum())
-            if n_missing > 0:
-                logger.error(
-                    "  VALIDATION FAILED: '%s' has %d missing values - expected 0.",
-                    col, n_missing,
-                )
-
-        # Advisory warning for area (site identifier can be sparse in source data)
-        if "area" in df.columns:
-            n_area_missing = int(df["area"].isna().sum())
-            if n_area_missing > 0:
-                logger.warning(
-                    "  ADVISORY: 'area' has %d missing values (%.4f%%). "
-                    "This is a known source-data limitation - site names not always recorded.",
-                    n_area_missing, n_area_missing / n * 100,
-                )
-
-        self.summary.log_step(
-            "missing_value_strategy",
-            rows_before,
-            len(df),
-            "No rows removed - strategy documented; imputation deferred to train-split stage",
-        )
+        self.summary.log_step("missing_value_strategy", rows_before, len(df), "Strategy logged")
         return df
 
-    # ------------------------------------------------------------------
-    # Save
-    # ------------------------------------------------------------------
-
     def _save(self, df: pd.DataFrame) -> None:
-        """Save the cleaned DataFrame as Parquet with Snappy compression."""
         out = Path(self.output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         df.to_parquet(str(out), compression="snappy", index=False)
-        size_mb = out.stat().st_size / 1024 / 1024
-        logger.info("Cleaned dataset saved -> %s  (%.2f MB)", out, size_mb)
+        logger.info("Saved cleaned dataset to %s (%.2f MB)", out, out.stat().st_size / (1024 * 1024))
 
-
-# ---------------------------------------------------------------------------
-# Convenience function
-# ---------------------------------------------------------------------------
 
 def run_cleaning_pipeline(
     raw_path: Optional[str] = None,
     output_path: Optional[str] = None,
     nrows: Optional[int] = None,
 ) -> Tuple[pd.DataFrame, CleaningSummary]:
-    """
-    One-call entry point for the cleaning pipeline.
-
-    Parameters
-    ----------
-    raw_path : str, optional
-        Path to raw dataset. If None, auto-discovers under data/.
-    output_path : str, optional
-        Where to save the cleaned Parquet. If None, result is not saved to disk.
-    nrows : int, optional
-        Row limit for development / testing.
-
-    Returns
-    -------
-    Tuple[pd.DataFrame, CleaningSummary]
-    """
+    """Runs data cleaning on the combined dataset."""
     if raw_path is None:
         raw_path = os.path.join(
             "data", "Dataset", "Parquet", "Combined Data", "Combined_dataset.parquet"
         )
     if output_path is None:
         output_path = os.path.join(
-            "data", "GeneratedOutput", "02.Preprocessing", "cleaned_dataset.parquet"
+            "data", "GeneratedOutput", "02.Preprocessing&FeatureSelection", "cleaned_water_quality.parquet"
         )
 
     pipeline = WaterQualityPreprocessor(
@@ -870,14 +400,285 @@ def run_cleaning_pipeline(
 
 
 # ---------------------------------------------------------------------------
-# Schema / assertion helpers (reusable in tests and notebooks)
+# Feature Engineering, Splitting, Imputation, and MLP Scaling
+# ---------------------------------------------------------------------------
+
+def calculate_do_saturation(temp_c: pd.Series) -> pd.Series:
+    """Calculates theoretical oxygen saturation concentration at temperature T."""
+    # Polynomial approximation for DO saturation in freshwater (mg/L)
+    t = temp_c.clip(lower=0.0, upper=45.0)
+    return 14.652 - (0.41022 * t) + (0.007991 * (t ** 2)) - (0.000077774 * (t ** 3))
+
+
+def engineer_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
+    """Generates nutrient ratios, oxygen deficit, and cyclical seasonal features."""
+    out = df.copy()
+    new_features: List[str] = []
+
+    # Nutrient ratio (N:P)
+    if "nitrogen_mg_l" in out.columns and "orthophosphate_mg_l" in out.columns:
+        out["np_ratio"] = out["nitrogen_mg_l"] / (out["orthophosphate_mg_l"] + 1e-4)
+        new_features.append("np_ratio")
+
+    # Organic load to oxygen ratio
+    if "bod_mg_l" in out.columns and "do_mg_l" in out.columns:
+        out["bod_do_ratio"] = out["bod_mg_l"] / (out["do_mg_l"] + 1e-4)
+        new_features.append("bod_do_ratio")
+
+    # Oxygen deficit
+    if "do_mg_l" in out.columns and "temperature_c" in out.columns:
+        sat = calculate_do_saturation(out["temperature_c"])
+        out["do_deficit"] = (sat - out["do_mg_l"]).clip(lower=0.0)
+        new_features.append("do_deficit")
+
+    # Seasonal cyclical date features
+    if "date" in out.columns and pd.api.types.is_datetime64_any_dtype(out["date"]):
+        month = out["date"].dt.month.fillna(6)
+        out["month"] = month
+        out["quarter"] = out["date"].dt.quarter.fillna(2)
+        out["month_sin"] = np.sin(2 * np.pi * month / 12)
+        out["month_cos"] = np.cos(2 * np.pi * month / 12)
+        new_features.extend(["month", "quarter", "month_sin", "month_cos"])
+
+    # Categorical target code for classification (0: Poor -> 4: Excellent)
+    if "ccme_wqi" in out.columns:
+        out["ccme_wqi_code"] = out["ccme_wqi"].map(CCME_WQI_MAP).astype("Int64")
+
+    logger.info("Engineered %d new features: %s", len(new_features), new_features)
+    return out, new_features
+
+
+def split_data(
+    df: pd.DataFrame,
+    train_size: float = 0.70,
+    val_size: float = 0.15,
+    test_size: float = 0.15,
+    random_state: int = 42,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Splits data into train (70%), val (15%), and test (15%) stratified by target."""
+    total = train_size + val_size + test_size
+    assert math.isclose(total, 1.0, rel_tol=1e-3), "Split ratios must sum to 1.0"
+
+    stratify_col = "ccme_wqi" if "ccme_wqi" in df.columns else None
+
+    # First split off test set
+    val_test_ratio = val_size + test_size
+    train_df, holdout_df = train_test_split(
+        df,
+        test_size=val_test_ratio,
+        random_state=random_state,
+        stratify=df[stratify_col] if stratify_col else None,
+    )
+
+    # Next split holdout into val and test
+    test_ratio_of_holdout = test_size / val_test_ratio
+    val_df, test_df = train_test_split(
+        holdout_df,
+        test_size=test_ratio_of_holdout,
+        random_state=random_state,
+        stratify=holdout_df[stratify_col] if stratify_col else None,
+    )
+
+    logger.info(
+        "Split data: Train=%s (%.1f%%), Val=%s (%.1f%%), Test=%s (%.1f%%)",
+        f"{len(train_df):,}",
+        len(train_df) / len(df) * 100,
+        f"{len(val_df):,}",
+        len(val_df) / len(df) * 100,
+        f"{len(test_df):,}",
+        len(test_df) / len(df) * 100,
+    )
+    return train_df.copy(), val_df.copy(), test_df.copy()
+
+
+def impute_missing_values(
+    train_df: pd.DataFrame,
+    val_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    feature_cols: List[str],
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
+    """Fits group medians on train split and applies to train, val, and test."""
+    train_out = train_df.copy()
+    val_out = val_df.copy()
+    test_out = test_df.copy()
+
+    group_cols = [c for c in ["country", "waterbody_type"] if c in train_df.columns]
+
+    global_medians: Dict[str, float] = {}
+    for col in feature_cols:
+        if col in train_df.columns and pd.api.types.is_numeric_dtype(train_df[col]):
+            global_medians[col] = float(train_df[col].median(skipna=True))
+
+    def _get_group_key(df: pd.DataFrame) -> pd.Series:
+        if len(group_cols) == 2:
+            return df[group_cols[0]].astype(str) + "___" + df[group_cols[1]].astype(str)
+        elif len(group_cols) == 1:
+            return df[group_cols[0]].astype(str)
+        return pd.Series("", index=df.index)
+
+    train_keys = _get_group_key(train_df)
+    val_keys = _get_group_key(val_df)
+    test_keys = _get_group_key(test_df)
+
+    for col in feature_cols:
+        if col not in train_out.columns or not pd.api.types.is_numeric_dtype(train_out[col]):
+            continue
+
+        g_med = global_medians.get(col, 0.0)
+
+        # Compute group medians on train split using fast vectorized groupby
+        if group_cols:
+            group_medians = train_df.groupby(train_keys, observed=False)[col].median().to_dict()
+            train_out[col] = train_out[col].fillna(train_keys.map(group_medians)).fillna(g_med)
+            val_out[col] = val_out[col].fillna(val_keys.map(group_medians)).fillna(g_med)
+            test_out[col] = test_out[col].fillna(test_keys.map(group_medians)).fillna(g_med)
+        else:
+            train_out[col] = train_out[col].fillna(g_med)
+            val_out[col] = val_out[col].fillna(g_med)
+            test_out[col] = test_out[col].fillna(g_med)
+
+    imputer_info = {
+        "global_medians": global_medians,
+        "group_cols": group_cols,
+        "feature_cols": feature_cols,
+    }
+    return train_out, val_out, test_out, imputer_info
+
+
+def scale_features(
+    train_df: pd.DataFrame,
+    val_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    feature_cols: List[str],
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, StandardScaler]:
+    """Fits StandardScaler on train numerical features and transforms train/val/test."""
+    scaler = StandardScaler()
+    scaler.fit(train_df[feature_cols])
+
+    train_scaled = train_df.copy()
+    val_scaled = val_df.copy()
+    test_scaled = test_df.copy()
+
+    train_scaled[feature_cols] = scaler.transform(train_df[feature_cols])
+    val_scaled[feature_cols] = scaler.transform(val_df[feature_cols])
+    test_scaled[feature_cols] = scaler.transform(test_df[feature_cols])
+
+    return train_scaled, val_scaled, test_scaled, scaler
+
+
+def prepare_training_datasets(
+    cleaned_df: Optional[pd.DataFrame] = None,
+    cleaned_path: Optional[str] = None,
+    output_dir: Optional[str] = None,
+    sample_size: int = 50000,
+) -> Dict[str, Any]:
+    """Full preparation pipeline: feature engineering, splitting, imputation, and scaling."""
+    if output_dir is None:
+        output_dir = os.path.join("data", "GeneratedOutput", "02.Preprocessing&FeatureSelection")
+    os.makedirs(output_dir, exist_ok=True)
+
+    if cleaned_df is None:
+        if cleaned_path is None:
+            cleaned_path = os.path.join(output_dir, "cleaned_water_quality.parquet")
+        if os.path.exists(cleaned_path):
+            logger.info("Loading cleaned data from %s", cleaned_path)
+            cleaned_df = pd.read_parquet(cleaned_path)
+        else:
+            logger.info("Running cleaning pipeline first...")
+            cleaned_df, _ = run_cleaning_pipeline(output_path=cleaned_path)
+
+    # 1. Feature Engineering
+    df_feat, new_cols = engineer_features(cleaned_df)
+
+    all_numeric_features = [
+        col for col in (BASE_NUMERIC_FEATURES + new_cols)
+        if col in df_feat.columns and pd.api.types.is_numeric_dtype(df_feat[col])
+    ]
+
+    # 2. Stratified Splitting
+    train_df, val_df, test_df = split_data(df_feat, train_size=0.70, val_size=0.15, test_size=0.15)
+
+    # 3. Imputation (strictly fitted on train)
+    train_imp, val_imp, test_imp, imputer_info = impute_missing_values(
+        train_df, val_df, test_df, feature_cols=all_numeric_features
+    )
+
+    # 4. Scaling (for MLP / Deep Learning)
+    train_scaled, val_scaled, test_scaled, scaler = scale_features(
+        train_imp, val_imp, test_imp, feature_cols=all_numeric_features
+    )
+
+    # 5. Save Parquet datasets
+    train_path = os.path.join(output_dir, "train.parquet")
+    val_path = os.path.join(output_dir, "val.parquet")
+    test_path = os.path.join(output_dir, "test.parquet")
+    train_scaled_path = os.path.join(output_dir, "train_scaled.parquet")
+    val_scaled_path = os.path.join(output_dir, "val_scaled.parquet")
+    test_scaled_path = os.path.join(output_dir, "test_scaled.parquet")
+
+    train_imp.to_parquet(train_path, compression="snappy", index=False)
+    val_imp.to_parquet(val_path, compression="snappy", index=False)
+    test_imp.to_parquet(test_path, compression="snappy", index=False)
+    train_scaled.to_parquet(train_scaled_path, compression="snappy", index=False)
+    val_scaled.to_parquet(val_scaled_path, compression="snappy", index=False)
+    test_scaled.to_parquet(test_scaled_path, compression="snappy", index=False)
+
+    # Save lightweight sample files for rapid experimentation
+    if sample_size and len(train_imp) > sample_size:
+        train_imp.sample(n=sample_size, random_state=42).to_parquet(
+            os.path.join(output_dir, "train_sample.parquet"), compression="snappy", index=False
+        )
+        val_imp.sample(n=min(len(val_imp), sample_size // 4), random_state=42).to_parquet(
+            os.path.join(output_dir, "val_sample.parquet"), compression="snappy", index=False
+        )
+        test_imp.sample(n=min(len(test_imp), sample_size // 4), random_state=42).to_parquet(
+            os.path.join(output_dir, "test_sample.parquet"), compression="snappy", index=False
+        )
+
+    # 6. Metadata summary
+    metadata = {
+        "total_rows": len(cleaned_df),
+        "split_counts": {
+            "train": len(train_df),
+            "val": len(val_df),
+            "test": len(test_df),
+        },
+        "feature_columns": all_numeric_features,
+        "base_features": BASE_NUMERIC_FEATURES,
+        "engineered_features": new_cols,
+        "targets": {
+            "continuous": "ccme_values",
+            "categorical": "ccme_wqi",
+            "categorical_code": "ccme_wqi_code",
+        },
+        "target_classes": CCME_WQI_CATEGORIES,
+        "scaler": {
+            "mean": dict(zip(all_numeric_features, scaler.mean_.tolist())),
+            "scale": dict(zip(all_numeric_features, scaler.scale_.tolist())),
+        },
+    }
+
+    meta_path = os.path.join(output_dir, "preprocessing_metadata.json")
+    with open(meta_path, "w") as f:
+        json.dump(metadata, f, indent=2)
+
+    logger.info("Successfully generated all training datasets in %s", output_dir)
+    return {
+        "train": train_imp,
+        "val": val_imp,
+        "test": test_imp,
+        "train_scaled": train_scaled,
+        "val_scaled": val_scaled,
+        "test_scaled": test_scaled,
+        "metadata": metadata,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Validation helpers (used in tests and validation scripts)
 # ---------------------------------------------------------------------------
 
 def assert_schema_preserved(df: pd.DataFrame) -> None:
-    """
-    Raise AssertionError if the cleaned DataFrame is missing required columns
-    or has incorrect dtypes.
-    """
     required_numeric = [
         "ammonia_mg_l", "bod_mg_l", "do_mg_l", "orthophosphate_mg_l",
         "ph", "temperature_c", "nitrogen_mg_l", "nitrate_mg_l", "ccme_values",
@@ -886,125 +687,64 @@ def assert_schema_preserved(df: pd.DataFrame) -> None:
 
     for col in required_numeric:
         assert col in df.columns, f"Missing numeric column: {col}"
-        assert pd.api.types.is_numeric_dtype(df[col]), (
-            f"Column '{col}' should be numeric, got {df[col].dtype}"
-        )
+        assert pd.api.types.is_numeric_dtype(df[col]), f"Column '{col}' should be numeric"
 
     for col in required_meta:
         assert col in df.columns, f"Missing metadata column: {col}"
 
-    assert pd.api.types.is_datetime64_any_dtype(df["date"]), (
-        f"'date' should be datetime64, got {df['date'].dtype}"
-    )
-    assert hasattr(df["ccme_wqi"], "cat"), (
-        f"'ccme_wqi' should be Categorical, got {df['ccme_wqi'].dtype}"
-    )
+    assert pd.api.types.is_datetime64_any_dtype(df["date"]), "'date' should be datetime64"
+    assert hasattr(df["ccme_wqi"], "cat"), "'ccme_wqi' should be Categorical"
     assert df["ccme_wqi"].cat.ordered, "'ccme_wqi' Categorical must be ordered"
 
 
 def assert_no_sentinels(df: pd.DataFrame) -> None:
-    """Raise AssertionError if any sentinel values remain after cleaning."""
     for col in ["ph", "temperature_c", "do_mg_l"]:
-        if col not in df.columns:
-            continue
-        n_sentinels = int((df[col] <= -999).sum())
-        assert n_sentinels == 0, (
-            f"Column '{col}' still contains {n_sentinels:,} sentinel values <= -999"
-        )
+        if col in df.columns:
+            n = int((df[col] <= -999).sum())
+            assert n == 0, f"Column '{col}' contains sentinel values <= -999"
     if "ph" in df.columns:
-        n_ph_high = int((df["ph"] > 14).sum())
-        assert n_ph_high == 0, f"'ph' still has {n_ph_high:,} values > 14.0"
+        n_high = int((df["ph"] > 14).sum())
+        assert n_high == 0, f"'ph' contains {n_high} values > 14.0"
 
 
 def assert_no_sdl_negatives(df: pd.DataFrame) -> None:
-    """Raise AssertionError if any SDL negatives remain in concentration columns."""
     for col in SDL_CLIP_COLUMNS:
-        if col not in df.columns:
-            continue
-        n_neg = int((df[col] < 0).sum())
-        assert n_neg == 0, (
-            f"Column '{col}' still has {n_neg:,} negative values after SDL clipping"
-        )
+        if col in df.columns:
+            n_neg = int((df[col] < 0).sum())
+            assert n_neg == 0, f"Column '{col}' has {n_neg} negative values after clipping"
 
 
 def assert_no_exact_duplicates(df: pd.DataFrame) -> None:
-    """Raise AssertionError if exact duplicate rows are present."""
-    n_dups = int(df.duplicated().sum())
-    assert n_dups == 0, f"DataFrame still contains {n_dups:,} exact duplicate rows"
+    assert df.duplicated().sum() == 0, "DataFrame contains duplicate rows"
 
 
 def assert_targets_complete(df: pd.DataFrame) -> None:
-    """Raise AssertionError if target columns contain NaN (leakage risk)."""
     for col in ["ccme_values", "ccme_wqi"]:
-        if col not in df.columns:
-            continue
-        n_missing = int(df[col].isna().sum())
-        assert n_missing == 0, (
-            f"Target column '{col}' has {n_missing:,} missing values - check pipeline"
-        )
+        if col in df.columns:
+            assert df[col].isna().sum() == 0, f"Target '{col}' has missing values"
 
 
 def assert_flag_columns_present(df: pd.DataFrame) -> None:
-    """Raise AssertionError if expected suspicious-value flag columns are absent."""
     for col in SUSPICIOUS_VALUE_RULES:
         flag_col = f"{col}_flag_suspicious"
-        assert flag_col in df.columns, (
-            f"Expected flag column '{flag_col}' not found in DataFrame"
-        )
-        assert df[flag_col].dtype == bool, (
-            f"Flag column '{flag_col}' should be bool, got {df[flag_col].dtype}"
-        )
+        assert flag_col in df.columns, f"Expected flag column '{flag_col}' missing"
+        assert df[flag_col].dtype == bool, f"Flag column '{flag_col}' should be bool"
 
 
 def assert_usa_temperatures_in_celsius_range(df: pd.DataFrame) -> None:
-    """Raise AssertionError if USA temperatures remain above 50C post-correction."""
-    if "temperature_c" not in df.columns or "country" not in df.columns:
-        return
-    mask = (df["country"] == "USA") & (df["temperature_c"] > 50)
-    n = int(mask.sum())
-    assert n == 0, (
-        f"{n:,} USA temperature values still > 50C after Fahrenheit correction"
-    )
+    if "temperature_c" in df.columns and "country" in df.columns:
+        mask = (df["country"] == "USA") & (df["temperature_c"] > 50)
+        assert mask.sum() == 0, "USA temperatures still > 50C"
 
 
-def assert_raw_unmodified(
-    raw_df_before: pd.DataFrame,
-    raw_df_after: pd.DataFrame,
-) -> None:
-    """
-    Raise AssertionError if the in-memory raw DataFrame was mutated by the pipeline.
-
-    Validates that cleaning operations operate on a copy or do not modify the
-    original input object, protecting upstream callers against in-place corruption.
-    """
-    assert raw_df_before.shape == raw_df_after.shape, (
-        f"Raw DataFrame shape changed: {raw_df_before.shape} -> {raw_df_after.shape}"
-    )
-    assert list(raw_df_before.columns) == list(raw_df_after.columns), (
-        "Raw DataFrame column names were modified"
-    )
+def assert_raw_unmodified(raw_df_before: pd.DataFrame, raw_df_after: pd.DataFrame) -> None:
+    assert raw_df_before.shape == raw_df_after.shape
     pd.testing.assert_frame_equal(raw_df_before, raw_df_after)
 
 
-def generate_data_quality_summary(
-    df_raw: pd.DataFrame,
-    df_clean: pd.DataFrame,
-) -> pd.DataFrame:
-    """
-    Compute a side-by-side data quality summary comparing raw vs cleaned DataFrames.
-
-    Returns a DataFrame indexed by feature/column name detailing:
-      - Raw Null Count & Null %
-      - Clean Null Count & Null %
-      - Change in Null Count (Net Nulls Introduced / Resolved)
-      - Row Counts (Raw vs Clean)
-      - Exact Duplicate Counts (Raw vs Clean)
-    """
+def generate_data_quality_summary(df_raw: pd.DataFrame, df_clean: pd.DataFrame) -> pd.DataFrame:
     rows_raw = len(df_raw)
     rows_clean = len(df_clean)
-    dups_raw = int(df_raw.duplicated().sum())
-    dups_clean = int(df_clean.duplicated().sum())
-
     records = []
     for raw_col, clean_col in COLUMN_NAME_MAP.items():
         if raw_col in df_raw.columns and clean_col in df_clean.columns:
@@ -1019,39 +759,28 @@ def generate_data_quality_summary(
                 "clean_null_pct": round(c_null / rows_clean * 100, 3) if rows_clean else 0.0,
                 "null_delta": c_null - r_null,
             })
-
     summary_df = pd.DataFrame(records)
     summary_df.attrs["row_counts"] = {"raw": rows_raw, "clean": rows_clean, "removed": rows_raw - rows_clean}
-    summary_df.attrs["duplicate_counts"] = {"raw": dups_raw, "clean": dups_clean, "removed": dups_raw - dups_clean}
+    summary_df.attrs["duplicate_counts"] = {
+        "raw": int(df_raw.duplicated().sum()),
+        "clean": int(df_clean.duplicated().sum()),
+    }
     return summary_df
 
 
-
-# ---------------------------------------------------------------------------
-# CLI entry point
-# ---------------------------------------------------------------------------
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Water Quality Cleaning Pipeline",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--input", type=str, default=None,
-        help="Path to raw dataset (Parquet or CSV). Defaults to auto-discovery.",
-    )
-    parser.add_argument(
-        "--output", type=str, default=None,
-        help="Path for cleaned Parquet output.",
-    )
-    parser.add_argument(
-        "--nrows", type=int, default=None,
-        help="Limit rows loaded (useful for testing).",
-    )
+    parser = argparse.ArgumentParser(description="Water Quality Preprocessing and Dataset Preparation")
+    parser.add_argument("--input", type=str, default=None, help="Path to raw dataset")
+    parser.add_argument("--output", type=str, default=None, help="Output path for cleaned parquet")
+    parser.add_argument("--prepare-splits", action="store_true", help="Generate train/val/test splits")
+    parser.add_argument("--nrows", type=int, default=None, help="Limit rows loaded")
     args = parser.parse_args()
 
-    run_cleaning_pipeline(
+    cleaned, _ = run_cleaning_pipeline(
         raw_path=args.input,
         output_path=args.output,
         nrows=args.nrows,
     )
+
+    if args.prepare_splits:
+        prepare_training_datasets(cleaned_df=cleaned)

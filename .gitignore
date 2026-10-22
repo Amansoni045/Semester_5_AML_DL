@@ -217,16 +217,22 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Raw CSV and Excel files ignored (only Parquet files are tracked)
+# Raw CSV and Excel files ignored
 **/Dataset/CSV/*
 !**/Dataset/CSV/.gitkeep
 *.csv
 *.xlsx
 *.xls
+~$*
 .DS_Store
+
+# Generated datasets (large binary files exceeding GitHub 100MB limit; reproduced via scripts/notebooks)
+data/GeneratedOutput/**/*.parquet
+!data/GeneratedOutput/**/*_sample.parquet
 
 # Code directory ignored (write custom code locally)
 data/Code/
 data/Code/**
 **/Code/
 code/
+

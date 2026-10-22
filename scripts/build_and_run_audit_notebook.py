@@ -1,9 +1,4 @@
-"""
-build_and_run_audit_notebook.py
-===============================
-Constructs and executes `notebooks/01_dataset_audit.ipynb` with complete markdown,
-code cells, embedded figures, and output validation.
-"""
+"""Generates and executes the initial dataset inspection audit notebook."""
 
 import os
 import sys
@@ -11,8 +6,8 @@ import nbformat as nbf
 from nbclient import NotebookClient
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-NOTEBOOK_DIR = os.path.join(PROJECT_ROOT, "notebooks")
-NOTEBOOK_PATH = os.path.join(NOTEBOOK_DIR, "01_dataset_audit.ipynb")
+NOTEBOOK_DIR = os.path.join(PROJECT_ROOT, "notebooks", "01.EDA")
+NOTEBOOK_PATH = os.path.join(NOTEBOOK_DIR, "00_initial_dataset_audit.ipynb")
 
 def create_notebook():
     os.makedirs(NOTEBOOK_DIR, exist_ok=True)

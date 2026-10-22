@@ -1,10 +1,5 @@
 """
-Water Quality Prediction ML Project — Source Package.
-
-Modules
--------
-data_audit      : Dataset inspection, quality auditing, and visualization utilities.
-preprocessing   : Reusable data-cleaning pipeline (Role 3 — Data Preprocessing).
+Water Quality Prediction ML Project source package.
 """
 
 from .data_audit import (
@@ -27,13 +22,18 @@ from .preprocessing import (
     WaterQualityPreprocessor,
     CleaningSummary,
     run_cleaning_pipeline,
+    engineer_features,
+    split_data,
+    impute_missing_values,
+    scale_features,
+    prepare_training_datasets,
+    BASE_NUMERIC_FEATURES,
     COLUMN_NAME_MAP,
     COLUMN_NAME_MAP_REVERSE,
     MISSING_VALUE_STRATEGY,
     SUSPICIOUS_VALUE_RULES,
     SDL_CLIP_COLUMNS,
     CCME_WQI_CATEGORIES,
-    # Assertion / validation helpers
     assert_schema_preserved,
     assert_no_sentinels,
     assert_no_sdl_negatives,
@@ -64,6 +64,12 @@ __all__ = [
     "WaterQualityPreprocessor",
     "CleaningSummary",
     "run_cleaning_pipeline",
+    "engineer_features",
+    "split_data",
+    "impute_missing_values",
+    "scale_features",
+    "prepare_training_datasets",
+    "BASE_NUMERIC_FEATURES",
     "COLUMN_NAME_MAP",
     "COLUMN_NAME_MAP_REVERSE",
     "MISSING_VALUE_STRATEGY",
@@ -80,4 +86,3 @@ __all__ = [
     "assert_raw_unmodified",
     "generate_data_quality_summary",
 ]
-

@@ -77,58 +77,58 @@ We use the Canadian Council of Ministers of the Environment Water Quality Index 
 
 ```
 Semester_5_AML_DL/
-├── AGENT.md                                      # Master AI instructions for the entire project
-├── README.md                                     # Main public README linking all resources
-├── requirements.txt                              # Root dependencies (without pinned versions)
+├── AGENT.md                                      # Master guide for the entire project
+├── README.md                                     # Main project guide
+├── requirements.txt                              # Root dependencies
 ├── scripts/
-│   ├── setup_environment.sh                      # Environment setup script (.venv, pip, requirements, ipykernel)
-│   └── run_eda_pipeline.py                       # Python master runner (auto-bootstraps .venv, runs 6 NBs, parquet audit)
+│   ├── setup_environment.sh                      # Environment setup script (.venv)
+│   ├── run_eda_pipeline.py                       # Automated EDA runner
+│   └── build_and_run_audit_notebook.py           # Audit notebook builder
 ├── data/
 │   ├── Dataset/
 │   │   ├── Parquet/
 │   │   │   ├── Combined Data/
 │   │   │   │   └── Combined_dataset.parquet      # 4,297,895 records × 14 columns (Snappy)
-│   │   │   └── Country-Wise Data/
-│   │   │       ├── Australia_dataset.parquet     # 87 rows
-│   │   │       ├── Canada_dataset.parquet        # 3,995 rows
-│   │   │       ├── China_dataset.parquet         # 45,997 rows
-│   │   │       ├── England_dataset.parquet       # 2,129,198 rows
-│   │   │       ├── India_dataset.parquet         # 3,633 rows
-│   │   │       ├── Ireland_dataset.parquet       # 235,019 rows
-│   │   │       └── USA_dataset.parquet           # 1,879,966 rows
-│   │   └── CSV/                                  # Local raw CSVs (ignored by .gitignore)
+│   │   │   └── Country-Wise Data/                # Country-specific parquet files
+│   │   └── CSV/                                  # Raw CSV archive (ignored by git)
 │   ├── Data Collection Sources/
-│   │   ├── DataCollectionSources.parquet         # 153 official provenance records (Snappy)
-│   │   └── DataCollectionSources.xlsx            # Raw Excel reference (ignored by .gitignore)
 │   └── GeneratedOutput/
-│       └── 01.EDA/                               # All 6 analytical Parquet outputs from EDA
-├── nootbooks/
-│   └── 01.EDA/                                   # All 6 fully executed EDA Jupyter notebooks
+│       ├── 01.EDA/                               # EDA summary parquets
+│       ├── 02.Preprocessing&FeatureSelection/    # Cleaned and training-ready datasets (train, val, test, scaled)
+│       ├── 03.ModelTraining/                     # Tree baselines & MLP checkpoints
+│       └── 04.ModelEvaluation/                   # Metric tables & SHAP artifacts
+├── notebooks/
+│   ├── 01.EDA/                                   # EDA notebooks (00 through 06)
+│   ├── 02.Preprocessing&FeatureSelection/        # Preprocessing & feature engineering notebook
+│   ├── 03.ModelTraining/                         # Baseline tree & DL training notebooks
+│   └── 04.ModelEvaluation/                       # Evaluation & explainability notebooks
+├── reports/
+│   ├── dataset_audit_report.md
+│   └── figures/
 └── docs/
-    ├── EDA_REPORT.md                             # Single comprehensive EDA scientific report
-    └── environment_setup.md                      # Virtual environment (.venv) setup guide
+    ├── EDA_REPORT.md
+    ├── PREPROCESSING_SPECIFICATION.md
+    └── environment_setup.md
 ```
 
 ---
 
-## 6. Golden Rules for AI Operations
+## 6. Golden Rules for Pipeline Operations
 
 1. **Parquet with Snappy Only**:
    - Always read and write `.parquet` files using **`compression='snappy'`**.
-   - Ensures universal compatibility with the VS Code **Parquetly** extension, DuckDB, Polars, and PyArrow.
+   - Ensures universal compatibility with DuckDB, Polars, and PyArrow.
    - Never commit `.csv` or `.xlsx` files into Git.
 2. **Data Leakage Safeguards**:
    - Do not allow models to predict `CCME_Values` from the exact constituent inputs without acknowledging mathematical leakage.
    - Impute missing data **strictly within the training split** (never compute global medians across test sets).
    - Scale inputs specifically for the MLP using parameters derived only from `train`.
-3. **Data Splitting Architecture (Handoff from Role 2 to Role 3)**:
+3. **Data Splitting Architecture**:
    - Target Split: **70% Train, 15% Validation, 15% Test**.
-   - Must be stratified across `Country`, `Waterbody Type`, and `CCME_WQI` to maintain identical class ratios and prevent station-level memorization.
+   - Stratified across `ccme_wqi` to preserve class ratios and geographic representation.
 4. **Notebooks & Output Conventions**:
-   - Keep notebooks in numbered stage folders under `nootbooks/` (e.g. `nootbooks/01.EDA/`, `nootbooks/02.Preprocessing/`, etc.).
+   - Keep notebooks in numbered stage folders under `notebooks/`.
    - Save corresponding generated data under `data/GeneratedOutput/<stage>/`.
-5. **Continuous Documentation Updates**:
-   - Whenever any phase or role completes a task, update `AGENT.md` and document results in `docs/`.
 
 ---
 
@@ -137,16 +137,12 @@ Semester_5_AML_DL/
 | Date | Phase / Role | Key Milestone | Artifacts Produced | Status |
 |---|---|---|---|---|
 | 2026-10-19 | Role 2 (Collection) | Aggregated 4.29M rows across 7 countries; computed exact CCME WQI | `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet` | **Completed** |
-| 2026-10-19 | Role 2 (Collection) | Re-encoded all Parquet files with Snappy compression for Parquetly viewer | All Parquet files in `data/` | **Completed** |
-| 2026-10-19 | Role 2 (EDA) | Profiled 4.3M rows; discovered sentinels (-999999, pH 67115) & missingness mechanisms | Profiling execution logs | **Completed** |
-| 2026-10-19 | Role 2 (EDA) | Built & executed all 6 Pure EDA Notebooks with embedded plots | `nootbooks/01.EDA/*.ipynb` (6 notebooks) | **Completed** |
-| 2026-10-19 | Role 2 (EDA) | Exported 6 analytical summary Parquet datasets | `data/GeneratedOutput/01.EDA/*.parquet` (6 files) | **Completed** |
-| 2026-10-19 | Role 2 (EDA) | Compiled single unified EDA scientific report | `docs/EDA_REPORT.md` | **Completed** |
+| 2026-10-19 | Role 2 (EDA) | Profiled 4.3M rows; discovered sentinels (-999999, pH 67115) & missingness mechanisms | Profiling logs & summary parquets | **Completed** |
+| 2026-10-19 | Role 2 (EDA) | Built & executed pure EDA Notebooks with embedded plots | `notebooks/01.EDA/*.ipynb` (00 to 06) | **Completed** |
 | 2026-10-19 | Role 6 (Setup) | Created root `requirements.txt` and virtual environment setup guide | `requirements.txt`, `docs/environment_setup.md` | **Completed** |
-| 2026-10-21 | Role 2 / Pipeline | Automated dataset inspection, data quality audit, and visual diagnostics | `src/data_audit.py`, `notebooks/01_dataset_audit.ipynb`, `reports/dataset_audit_report.md` | **Completed** |
-| 2026-10-21 | **Role 3 (Preprocessing)** | Implemented reusable cleaning pipeline; 9-stage documented pipeline with sentinel removal, USA °F→°C correction, SDL clipping, exact dedup (10,005 rows), suspicious-value flagging, and per-column imputation strategy docs | `src/preprocessing.py`, `tests/test_preprocessing.py`, `data/GeneratedOutput/02.Preprocessing/cleaned_dataset.parquet` | **Completed** |
-| 2026-10-22 | **Role 3 (Hardening)** | Hardened cleaning pipeline: added raw immutability assertions, before-vs-after quality summaries, idempotency/consistency test suites, synthetic corner cases (63 passing tests), and operational specification document | `src/preprocessing.py`, `tests/test_preprocessing.py`, `docs/PREPROCESSING_SPECIFICATION.md` | **Completed** |
-| Next | **Role 3 (Feature Engineering)** | Impute missing values on training split, scale inputs for MLP, engineer features, create 70/15/15 stratified train/val/test splits | `nootbooks/02.Preprocessing/`, `data/GeneratedOutput/02.Preprocessing/` | **Up Next** |
-| Next | **Role 4 (AML Models)** | Train and tune Random Forest and XGBoost baselines; evaluate MAE/RMSE/R2 and Macro F1 | `nootbooks/03.AML_Models/` | Queued |
-| Next | **Role 5 (Deep Learning)** | Train regularized dual-head MLP; evaluate calibration, uncertainty, and SHAP explainability | `nootbooks/04.Deep_Learning/` | Queued |
+| 2026-10-21 | Role 2 (Audit) | Automated dataset inspection, data quality audit, and visual diagnostics | `src/data_audit.py`, `notebooks/01.EDA/00_initial_dataset_audit.ipynb` | **Completed** |
+| 2026-10-22 | **Role 3 (Preprocessing & Feature Engineering)** | Full data cleaning, feature engineering (N:P ratio, BOD:DO ratio, DO deficit, cyclical season), stratified 70/15/15 split, train-only group median imputation, and MLP StandardScaler | `src/preprocessing.py`, `tests/test_preprocessing.py`, `notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing_and_feature_engineering.ipynb`, `data/GeneratedOutput/02.Preprocessing&FeatureSelection/` (`train.parquet`, `val.parquet`, `test.parquet`, scaled files) | **Completed** |
+| Next | **Role 4 (AML Models)** | Train and tune Random Forest and XGBoost baselines; evaluate MAE/RMSE/R2 and Macro F1 | `notebooks/03.ModelTraining/` | **Up Next** |
+| Next | **Role 5 (Deep Learning)** | Train regularized dual-head MLP; evaluate calibration, uncertainty, and SHAP explainability | `notebooks/03.ModelTraining/`, `notebooks/04.ModelEvaluation/` | Queued |
 | Next | **Role 6 (Integration)** | Compile final comparative benchmark report, presentation slide deck, and viva prep | `docs/FINAL_REPORT.md` | Queued |
+

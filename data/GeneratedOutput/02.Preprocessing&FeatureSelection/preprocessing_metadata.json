@@ -1,0 +1,92 @@
+{
+  "total_rows": 4287890,
+  "split_counts": {
+    "train": 3001523,
+    "val": 643183,
+    "test": 643184
+  },
+  "feature_columns": [
+    "ph",
+    "temperature_c",
+    "do_mg_l",
+    "bod_mg_l",
+    "ammonia_mg_l",
+    "orthophosphate_mg_l",
+    "nitrogen_mg_l",
+    "nitrate_mg_l",
+    "np_ratio",
+    "bod_do_ratio",
+    "do_deficit",
+    "month",
+    "quarter",
+    "month_sin",
+    "month_cos"
+  ],
+  "base_features": [
+    "ph",
+    "temperature_c",
+    "do_mg_l",
+    "bod_mg_l",
+    "ammonia_mg_l",
+    "orthophosphate_mg_l",
+    "nitrogen_mg_l",
+    "nitrate_mg_l"
+  ],
+  "engineered_features": [
+    "np_ratio",
+    "bod_do_ratio",
+    "do_deficit",
+    "month",
+    "quarter",
+    "month_sin",
+    "month_cos"
+  ],
+  "targets": {
+    "continuous": "ccme_values",
+    "categorical": "ccme_wqi",
+    "categorical_code": "ccme_wqi_code"
+  },
+  "target_classes": [
+    "Poor",
+    "Marginal",
+    "Fair",
+    "Good",
+    "Excellent"
+  ],
+  "scaler": {
+    "mean": {
+      "ph": 7.720375275973079,
+      "temperature_c": 13.70772500200108,
+      "do_mg_l": 9.363171655289289,
+      "bod_mg_l": 4.1488114834282035,
+      "ammonia_mg_l": 0.7911190630241295,
+      "orthophosphate_mg_l": 0.5053106098779504,
+      "nitrogen_mg_l": 4.807258021880423,
+      "nitrate_mg_l": 4.679695498271872,
+      "np_ratio": 50.62977226029255,
+      "bod_do_ratio": 2.0494911064382384,
+      "do_deficit": 1.077351503060861,
+      "month": 6.487737725148199,
+      "quarter": 2.501686643747191,
+      "month_sin": -0.017712098607638276,
+      "month_cos": -0.024329832642089513
+    },
+    "scale": {
+      "ph": 0.3967740119699942,
+      "temperature_c": 6.665851233271183,
+      "do_mg_l": 1.9502396931250108,
+      "bod_mg_l": 13.398198764958689,
+      "ammonia_mg_l": 4.626020941044595,
+      "orthophosphate_mg_l": 1.7208142136403293,
+      "nitrogen_mg_l": 5.062592998864918,
+      "nitrate_mg_l": 4.950902623917017,
+      "np_ratio": 431.53421143004016,
+      "bod_do_ratio": 427.3239475715944,
+      "do_deficit": 1.422853809192932,
+      "month": 3.3821752205494957,
+      "quarter": 1.1063420312752754,
+      "month_sin": 0.7107973567798483,
+      "month_cos": 0.7027527718915823
+    }
+  }
+}

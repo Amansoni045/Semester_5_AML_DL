@@ -1,38 +1,5 @@
-"""
-tests/test_preprocessing.py
-============================
-Unit tests for src/preprocessing.py
+"""Unit tests for water quality data preprocessing, feature engineering, and preparation."""
 
-Test coverage:
-  1. test_column_name_standardisation     — snake_case alias mapping, all 14 cols renamed
-  2. test_original_column_mapping_preserved — COLUMN_NAME_MAP stored in attrs
-  3. test_date_cast                        — string 'DD-MM-YYYY' -> datetime64
-  4. test_ccme_wqi_ordered_categorical     — ordered Categorical dtype & order
-  5. test_sentinel_replacement             — -999999, pH -1, pH 67115 -> NaN
-  6. test_usa_temperature_correction       — F -> C for USA rows > 50
-  7. test_non_usa_temperature_untouched    — England Effluent T > 50 NOT converted
-  8. test_sdl_clipping                     — tiny negatives -> 0.0
-  9. test_sdl_leaves_legitimate_negatives  — temperature stays negative
-  10. test_exact_duplicates_dropped        — duplicate rows removed
-  11. test_exact_duplicates_count          — correct number removed
-  12. test_flag_columns_created            — all SUSPICIOUS_VALUE_RULES flagged
-  13. test_flag_dtype_is_bool              — flags are boolean columns
-  14. test_flag_not_nan                    — NaN rows are NOT flagged
-  15. test_targets_remain_complete         — ccme_values, ccme_wqi have no NaN
-  16. test_metadata_columns_intact         — country, area, waterbody_type, date preserved
-  17. test_schema_assertion_helper         — assert_schema_preserved passes
-  18. test_no_sentinels_assertion_helper   — assert_no_sentinels passes
-  19. test_no_sdl_assertion_helper         — assert_no_sdl_negatives passes
-  20. test_no_duplicates_assertion_helper  — assert_no_exact_duplicates passes
-  21. test_targets_complete_assertion      — assert_targets_complete passes
-  22. test_flag_assertion_helper           — assert_flag_columns_present passes
-  23. test_usa_temp_assertion_helper       — assert_usa_temperatures_in_celsius_range
-  24. test_cleaning_summary_step_count     — CleaningSummary records all pipeline stages
-  25. test_cleaning_summary_row_counts     — raw_rows / final_rows populated correctly
-  26. test_output_parquet_written          — file saved if output_path provided
-  27. test_nrows_limit                     — nrows parameter restricts loaded rows
-  28. test_full_pipeline_on_fixture        — end-to-end run on the small test fixture
-"""
 
 import os
 import tempfile
@@ -63,6 +30,11 @@ from src.preprocessing import (
     assert_usa_temperatures_in_celsius_range,
     assert_raw_unmodified,
     generate_data_quality_summary,
+    engineer_features,
+    split_data,
+    impute_missing_values,
+    scale_features,
+    prepare_training_datasets,
 )
 
 
@@ -866,6 +838,53 @@ class TestSyntheticCornerCases:
 # ---------------------------------------------------------------------------
 # 18. Integration: run on real dataset if available (optional / skipped in CI)
 # ---------------------------------------------------------------------------
+
+class TestFeatureEngineeringAndSplitting:
+
+    def test_engineer_features(self, cleaned_fixture):
+        df_clean, _ = cleaned_fixture
+        df_feat, new_cols = engineer_features(df_clean)
+
+        assert "np_ratio" in df_feat.columns
+        assert "bod_do_ratio" in df_feat.columns
+        assert "do_deficit" in df_feat.columns
+        assert "month" in df_feat.columns
+        assert "month_sin" in df_feat.columns
+        assert "month_cos" in df_feat.columns
+        assert "ccme_wqi_code" in df_feat.columns
+        assert len(new_cols) >= 5
+
+    def test_split_data_proportions_and_stratification(self, cleaned_fixture):
+        df_clean, _ = cleaned_fixture
+        # Duplicate to have enough rows for splitting
+        df_large = pd.concat([df_clean] * 10, ignore_index=True)
+        train_df, val_df, test_df = split_data(df_large, train_size=0.7, val_size=0.15, test_size=0.15)
+
+        total = len(train_df) + len(val_df) + len(test_df)
+        assert total == len(df_large)
+        assert abs(len(train_df) / total - 0.70) < 0.05
+        assert abs(len(val_df) / total - 0.15) < 0.05
+        assert abs(len(test_df) / total - 0.15) < 0.05
+
+    def test_imputation_and_scaling(self, cleaned_fixture):
+        df_clean, _ = cleaned_fixture
+        df_feat, _ = engineer_features(df_clean)
+        df_large = pd.concat([df_feat] * 10, ignore_index=True)
+        train_df, val_df, test_df = split_data(df_large)
+
+        features = ["ph", "temperature_c", "do_mg_l", "np_ratio"]
+        train_imp, val_imp, test_imp, info = impute_missing_values(train_df, val_df, test_df, features)
+
+        # Check no missing values remain in target features
+        assert train_imp[features].isna().sum().sum() == 0
+        assert val_imp[features].isna().sum().sum() == 0
+        assert test_imp[features].isna().sum().sum() == 0
+
+        # Check scaling produces zero mean and unit variance on train set
+        train_sc, val_sc, test_sc, scaler = scale_features(train_imp, val_imp, test_imp, features)
+        assert np.allclose(train_sc[features].mean(), 0.0, atol=1e-6)
+        assert np.allclose(train_sc[features].std(), 1.0, atol=1e-1)
+
 
 REAL_DATASET_PATH = os.path.join(
     os.path.dirname(__file__),

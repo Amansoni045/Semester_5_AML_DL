@@ -1,19 +1,5 @@
 """
-data_audit.py
-=============
-Reusable module for automated dataset inspection, data quality auditing,
-and diagnostic visualization for the Water Quality Prediction ML project.
-
-Features:
-- Dynamic dataset file discovery (no hardcoded path assumptions).
-- Memory-efficient loading with pandas (CSV and Parquet).
-- Full structural audit (rows, columns, dtypes, unique values, duplicates).
-- Missingness profiling (counts, percentages, co-occurrence correlation).
-- Advanced anomaly and outlier detection (sentinels like -999999, negative concentrations,
-  domain boundary violations, Tukey's IQR rule, Z-scores) WITHOUT modifying raw data.
-- Target distribution profiling for continuous (regression) and categorical (classification) targets.
-- Publication-quality visualization generation (missingness, distributions, targets, correlations).
-- Markdown audit report generation for reproducible tracking and documentation.
+Automated dataset inspection and quality auditing utilities.
 """
 
 import os
@@ -29,16 +15,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
-logger = logging.getLogger("DataAudit")
+logger = logging.getLogger("data_audit")
 
-# Physical & Geochemical Domain Plausibility Bounds
-# Used for auditing suspicious records without deleting or modifying raw data
+# Plausible domain bounds for anomaly flagging
 DOMAIN_BOUNDS = {
     "pH (ph units)": {"min": 0.0, "max": 14.0, "warning_min": 3.0, "warning_max": 11.0},
     "Dissolved Oxygen (mg/l)": {"min": 0.0, "max": 30.0, "warning_min": 0.0, "warning_max": 20.0},
@@ -54,33 +38,12 @@ DOMAIN_BOUNDS = {
 KNOWN_SENTINELS = [-999999.0, -9999.0, -999.0, 9999.0, 999999.0, 67115.0]
 
 
-# -----------------------------------------------------------------------------
-# 1. Dataset File Discovery & Inspection
-# -----------------------------------------------------------------------------
-
 def find_dataset_path(
     search_dirs: Optional[List[str]] = None,
     preferred_name_patterns: Optional[List[str]] = None,
     extensions: Tuple[str, ...] = (".csv", ".parquet"),
 ) -> Tuple[str, List[Dict[str, Any]]]:
-    """
-    Dynamically scans directories to identify dataset candidates without
-    assuming hardcoded paths or filenames.
-
-    Parameters
-    ----------
-    search_dirs : Optional[List[str]]
-        Directories to search. Defaults to relative data directories.
-    preferred_name_patterns : Optional[List[str]]
-        Filename substrings to prioritize (e.g. ['combined', 'dataset']).
-    extensions : Tuple[str, ...]
-        File extensions to look for.
-
-    Returns
-    -------
-    Tuple[str, List[Dict[str, Any]]]
-        Selected primary filepath and a list of all discovered dataset candidates.
-    """
+    """Finds water quality dataset files in common data paths."""
     if search_dirs is None:
         search_dirs = [
             "data",
@@ -89,6 +52,7 @@ def find_dataset_path(
             "data/Dataset",
             "data/Dataset/Parquet/Combined Data",
             "data/Dataset/CSV",
+            "data/Dataset/CSV/Combined Data",
         ]
 
     if preferred_name_patterns is None:

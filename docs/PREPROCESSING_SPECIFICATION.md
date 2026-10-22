@@ -1,9 +1,9 @@
 # Water Quality Prediction ML Project — Data Cleaning & Preprocessing Specification
 
-> **Module**: [`src/preprocessing.py`](file:///Users/chaitanyakumar/Desktop/Semester_5_AML_DL/src/preprocessing.py)  
-> **Test Suite**: [`tests/test_preprocessing.py`](file:///Users/chaitanyakumar/Desktop/Semester_5_AML_DL/tests/test_preprocessing.py)  
+> **Module**: [`src/preprocessing.py`](../src/preprocessing.py)  
+> **Test Suite**: [`tests/test_preprocessing.py`](../tests/test_preprocessing.py)  
 > **Audited Dataset Source**: `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet`  
-> **Cleaned Dataset Target**: `data/GeneratedOutput/02.Preprocessing/cleaned_dataset.parquet`  
+> **Cleaned Dataset Target**: `data/GeneratedOutput/02.Preprocessing&FeatureSelection/cleaned_water_quality.parquet`  
 > **Last Updated**: 2026-10-22  
 
 ---
@@ -144,12 +144,12 @@ Execution results on the full 4.29M-row dataset:
 # Execute cleaning pipeline on the default combined dataset
 python -m src.preprocessing \
     --input "data/Dataset/Parquet/Combined Data/Combined_dataset.parquet" \
-    --output "data/GeneratedOutput/02.Preprocessing/cleaned_dataset.parquet"
+    --output "data/GeneratedOutput/02.Preprocessing&FeatureSelection/cleaned_water_quality.parquet"
 
 # Fast trial on first 50,000 rows
 python -m src.preprocessing \
     --input "data/Dataset/Parquet/Combined Data/Combined_dataset.parquet" \
-    --output "data/GeneratedOutput/02.Preprocessing/cleaned_sample.parquet" \
+    --output "data/GeneratedOutput/02.Preprocessing&FeatureSelection/cleaned_sample.parquet" \
     --nrows 50000
 ```
 

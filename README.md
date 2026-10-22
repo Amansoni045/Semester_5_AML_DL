@@ -31,7 +31,7 @@ python3 scripts/run_eda_pipeline.py
 
 > [!NOTE]  
 > `scripts/run_eda_pipeline.py` automatically checks if `.venv` exists. If run with system Python, it runs `scripts/setup_environment.sh` first to ensure `.venv` and all packages from `requirements.txt` are installed, registers the Jupyter kernel (`aml-dl-venv`), bootstraps execution into `.venv`, runs all 6 EDA notebooks sequentially, and audits generated Parquet files in `data/GeneratedOutput/01.EDA/`.
-> For full setup details, see the [Environment Setup Guide](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/environment_setup.md).
+> For full setup details, see the [Environment Setup Guide](docs/environment_setup.md).
 
 ---
 
@@ -76,21 +76,23 @@ Our harmonized dataset contains **4,297,895 surface water monitoring observation
 
 ---
 
-## 5. Exploratory Data Analysis (EDA) Suite
+## 5. Exploratory Data Analysis & Preprocessing
 
-The complete exploratory analysis is compiled into a single unified report:  
-**[Exploratory Data Analysis Comprehensive Report](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/docs/EDA_REPORT.md)**
+The exploratory analysis is compiled in:  
+**[Exploratory Data Analysis Comprehensive Report](docs/EDA_REPORT.md)** and **[Preprocessing Specification](docs/PREPROCESSING_SPECIFICATION.md)**.
 
-All 6 notebooks are fully executed with embedded high-resolution figures in **[`nootbooks/01.EDA/`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/)**:
+All notebooks are organized in **[`notebooks/`](notebooks/)**:
 
-| Notebook | Focus & Scientific Analyses | Exported Parquet (`data/GeneratedOutput/01.EDA/`) |
+| Notebook | Focus & Tasks | Outputs |
 |---|---|---|
-| **[`01_data_architecture_and_profiling.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/01_data_architecture_and_profiling.ipynb)** | 4.3M rows, 14 columns, 64,665 stations; country & waterbody breakdowns; sampling frequency over 83 years. | `01_dataset_summary_profile.parquet` |
-| **[`02_sensor_sparsity_and_missingness.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb)** | Sensor missingness matrix; complete cases (2.41M in England/Ireland/China) vs telemetry (USA/India); nutrient co-occurrence ($r > 0.99$). | `02_missingness_patterns.parquet` |
-| **[`03_geochemical_physics_and_anomalies.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb)** | Sensor sentinel code detection (`-999999.0`), scale bugs (`pH = 67115.0`); **Henry's Law** oxygen saturation curves; physical anomaly bounds. | `03_cleaned_physically_validated.parquet` |
-| **[`04_bivariate_and_multivariate_correlations.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb)** | Pearson & Spearman heatmaps ($PO_4$ $r = -0.66$, $N$ $r = -0.61$); **eutrophication stoichiometric $N:P$ ratios**; **Streeter-Phelps oxygen sag curves**. | `04_feature_correlations.parquet` |
-| **[`05_temporal_seasonality_and_spatial_trends.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb)** | Historical trajectory (1970–2023); monthly seasonal cycles (spring runoff vs summer temperature peaks); flowing rivers vs lake vs effluent contrasts. | `05_temporal_spatial_aggregates.parquet` |
-| **[`06_target_behavior_and_leakage_audit.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb)** | `CCME_Values` spike at 100.0; class imbalance (50.1% Excellent vs 3.0% Poor); **AML/DL Target Leakage Warning**; **70 / 15 / 15 Splitting Handoff to Role 3**. | `06_target_audit_and_splitting_guidelines.parquet` |
+| **[`notebooks/01.EDA/00_initial_dataset_audit.ipynb`](notebooks/01.EDA/00_initial_dataset_audit.ipynb)** | Initial inspection, profiling, and anomaly diagnostics | `reports/dataset_audit_report.md` |
+| **[`notebooks/01.EDA/01_data_architecture_and_profiling.ipynb`](notebooks/01.EDA/01_data_architecture_and_profiling.ipynb)** | Multi-country data architecture & sampling frequency | `01_dataset_summary_profile.parquet` |
+| **[`notebooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb`](notebooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb)** | Missingness mechanisms & nutrient co-occurrence ($r > 0.99$) | `02_missingness_patterns.parquet` |
+| **[`notebooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb`](notebooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb)** | Sensor sentinel code detection & Henry's Law DO saturation | `03_cleaned_physically_validated.parquet` |
+| **[`notebooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb`](notebooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb)** | Correlation heatmaps, N:P ratios & Streeter-Phelps curves | `04_feature_correlations.parquet` |
+| **[`notebooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb`](notebooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb)** | Historical trends (1970–2023) & seasonal cycles | `05_temporal_spatial_aggregates.parquet` |
+| **[`notebooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb`](notebooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb)** | Target distribution, class imbalance, and leakage audit | Target analysis summaries |
+| **[`notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing_and_feature_engineering.ipynb`](notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing_and_feature_engineering.ipynb)** | Cleaning, feature engineering, 70/15/15 split, imputation, scaling | `train.parquet`, `val.parquet`, `test.parquet`, scaled files |
 
 ---
 
@@ -98,36 +100,47 @@ All 6 notebooks are fully executed with embedded high-resolution figures in **[`
 
 ```
 Semester_5_AML_DL/
-├── AGENT.md                                      # Master AI context & operational instructions (All 6 Roles)
-├── README.md                                     # Main project entrypoint (this file)
-├── requirements.txt                              # Root dependencies (without pinned versions)
+├── AGENT.md                                      # Project overview & roadmap
+├── README.md                                     # Main project guide
+├── requirements.txt                              # Python package dependencies
 ├── scripts/
-│   ├── setup_environment.sh                      # Dedicated .venv setup & requirements installer
-│   └── run_eda_pipeline.py                       # Python master runner (auto-boots .venv, runs 6 notebooks)
+│   ├── setup_environment.sh                      # Environment setup script (.venv)
+│   ├── run_eda_pipeline.py                       # Automated EDA runner
+│   └── build_and_run_audit_notebook.py           # Audit notebook builder
+├── src/
+│   ├── __init__.py                               # Package exports
+│   ├── preprocessing.py                          # Data cleaning, feature engineering, split & scaling
+│   └── data_audit.py                             # Inspection & anomaly auditing utilities
+├── tests/
+│   ├── __init__.py
+│   └── test_preprocessing.py                     # Unit & integration test suite (65+ tests)
 ├── data/
 │   ├── Dataset/
-│   │   ├── Parquet/                              # Tracked in Git (Snappy compressed, fast I/O)
+│   │   ├── Parquet/                              # Tracked parquet master datasets
 │   │   │   ├── Combined Data/
-│   │   │   │   └── Combined_dataset.parquet      # Master dataset (4,297,895 rows × 14 columns)
-│   │   │   └── Country-Wise Data/
-│   │   │       ├── Australia_dataset.parquet     # 87 rows
-│   │   │       ├── Canada_dataset.parquet        # 3,995 rows
-│   │   │       ├── China_dataset.parquet         # 45,997 rows
-│   │   │       ├── England_dataset.parquet       # 2,129,198 rows
-│   │   │       ├── India_dataset.parquet         # 3,633 rows
-│   │   │       ├── Ireland_dataset.parquet       # 235,019 rows
-│   │   │       └── USA_dataset.parquet           # 1,879,966 rows
-│   │   └── CSV/                                  # Raw CSV files stored locally (ignored via .gitignore)
+│   │   │   │   └── Combined_dataset.parquet      # Master combined dataset (4.29M rows)
+│   │   │   └── Country-Wise Data/                # Country-specific parquet files
+│   │   └── CSV/                                  # Raw CSV archive (ignored by git)
+│   │       ├── Combined Data/
+│   │       └── Country-Wise Data/
 │   ├── Data Collection Sources/
-│   │   ├── DataCollectionSources.parquet         # Provenance URLs & source metadata (153 records)
-│   │   └── DataCollectionSources.xlsx            # Raw reference file (ignored via .gitignore)
 │   └── GeneratedOutput/
-│       └── 01.EDA/                               # final_eda_cleaned_dataset.parquet (4.29M clean rows for Role 3) + 6 analytical reports
-├── nootbooks/
-│   └── 01.EDA/                                   # All 6 fully executed EDA Jupyter notebooks
+│       ├── 01.EDA/                               # EDA summary parquets
+│       ├── 02.Preprocessing&FeatureSelection/    # Model training datasets (train, val, test, scaled)
+│       ├── 03.ModelTraining/                     # Tree models & MLP checkpoints
+│       └── 04.ModelEvaluation/                   # Metric tables & SHAP artifacts
+├── notebooks/
+│   ├── 01.EDA/                                   # EDA notebooks (00 through 06)
+│   ├── 02.Preprocessing&FeatureSelection/        # Preprocessing & feature engineering notebook
+│   ├── 03.ModelTraining/                         # Tree baseline & neural net training notebooks
+│   └── 04.ModelEvaluation/                       # Evaluation & explainability notebooks
+├── reports/
+│   ├── dataset_audit_report.md
+│   └── figures/
 └── docs/
-    ├── EDA_REPORT.md                             # Single comprehensive EDA scientific report
-    └── environment_setup.md                      # Virtual environment (.venv) setup guide
+    ├── EDA_REPORT.md
+    ├── PREPROCESSING_SPECIFICATION.md
+    └── environment_setup.md
 ```
 
 ---
