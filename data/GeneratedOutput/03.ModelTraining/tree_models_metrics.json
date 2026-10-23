@@ -1,0 +1,26 @@
+[
+  {
+    "Model": "Mean Baseline",
+    "MAE": 11.5191,
+    "RMSE": 15.7585,
+    "R\u00b2": 0.0,
+    "Fit Time (s)": 0.0,
+    "Inference Time (s)": 0.0
+  },
+  {
+    "Model": "Random Forest",
+    "MAE": 0.0833,
+    "RMSE": 0.497,
+    "R\u00b2": 0.999,
+    "Fit Time (s)": 17.86,
+    "Inference Time (s)": 0.85
+  },
+  {
+    "Model": "XGBoost",
+    "MAE": 0.2209,
+    "RMSE": 0.6439,
+    "R\u00b2": 0.9983,
+    "Fit Time (s)": 18.73,
+    "Inference Time (s)": 0.44
+  }
+]
