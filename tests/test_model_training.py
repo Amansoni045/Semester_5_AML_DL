@@ -12,11 +12,14 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, "data", "GeneratedOutput", "03.ModelTraining")
 
 
+from src.preprocessing import MODEL_INPUT_FEATURES
+
+
 def test_random_forest_model_load_and_predict():
     rf_path = os.path.join(OUTPUT_DIR, "random_forest_model.joblib")
     assert os.path.exists(rf_path), "random_forest_model.joblib must exist"
     rf = joblib.load(rf_path)
-    X_dummy = np.random.randn(5, 15).astype(np.float32)
+    X_dummy = pd.DataFrame(np.random.randn(5, 15).astype(np.float32), columns=MODEL_INPUT_FEATURES)
     preds = rf.predict(X_dummy)
     assert preds.shape == (5,)
     assert np.all(np.isfinite(preds))
@@ -27,7 +30,7 @@ def test_xgboost_model_load_and_predict():
     assert os.path.exists(xgb_path), "xgboost_model.json must exist"
     model = xgb.XGBRegressor()
     model.load_model(xgb_path)
-    X_dummy = np.random.randn(5, 15).astype(np.float32)
+    X_dummy = pd.DataFrame(np.random.randn(5, 15).astype(np.float32), columns=MODEL_INPUT_FEATURES)
     preds = model.predict(X_dummy)
     assert preds.shape == (5,)
     assert np.all(np.isfinite(preds))
