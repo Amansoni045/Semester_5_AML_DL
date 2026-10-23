@@ -25,31 +25,28 @@ def create_notebook():
     # Title
     cells.append(nbf.v4.new_markdown_cell(
 """# Baseline and Tree-Based Models for Water Quality Prediction
-Train and compare a simple mean baseline, Random Forest, and XGBoost regressor to predict continuous water quality scores (`ccme_values`).
+Train a simple mean baseline, Random Forest, and XGBoost regressor to predict continuous water quality scores (`ccme_values`).
+Save trained model artifacts and validation predictions for the evaluation teammate.
 """
     ))
 
     # Cell 1: Imports
     cells.append(nbf.v4.new_markdown_cell(
 """## 1. Setup and Imports
-Import standard libraries for data handling, model training, evaluation, and plotting.
+Import standard libraries for data handling, model training, and serialization.
 """
     ))
     cells.append(nbf.v4.new_code_cell(
 """import os
 import sys
 import time
-import json
 import joblib
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
 import xgboost as xgb
 
+# Ensure project root is on sys.path
 for candidate in ['.', '..', '../..']:
     if os.path.exists(os.path.join(candidate, 'src', 'preprocessing.py')):
         PROJECT_ROOT = os.path.abspath(candidate)
@@ -66,25 +63,21 @@ print(f"Features count: {len(MODEL_INPUT_FEATURES)}")
 """
     ))
 
-    # Cell 2: Feature and Target Definition
+    # Cell 2: Feature and Target Inspection
     cells.append(nbf.v4.new_markdown_cell(
 """## 2. Feature and Target Inspection
 Inspect the 15 input features and check whether any assignment-requested measurements are missing.
 """
     ))
     cells.append(nbf.v4.new_code_cell(
-"""meta_path = os.path.join(PROJECT_ROOT, 'data', 'GeneratedOutput', '02.Preprocessing&FeatureSelection', 'preprocessing_metadata.json')
-with open(meta_path) as f:
-    meta = json.load(f)
-
-print("Authoritative Input Features (15):")
+"""print("Authoritative Input Features (15):")
 for i, feat in enumerate(MODEL_INPUT_FEATURES, 1):
     print(f"  {i:>2}. {feat}")
 
 assignment_features = ['ph', 'do_mg_l', 'temperature_c', 'turbidity', 'conductivity', 'total_dissolved_solids']
 print("\\nChecking assignment requested parameters in dataset:")
 for p in assignment_features:
-    status = "Available" if p in MODEL_INPUT_FEATURES or p in meta['base_features'] else "NOT AVAILABLE in dataset"
+    status = "Available" if p in MODEL_INPUT_FEATURES else "NOT AVAILABLE in dataset"
     print(f"  • {p:<25}: {status}")
 
 print("\\nTarget variable: ccme_values (continuous score 0.0 to 100.0)")
@@ -102,8 +95,8 @@ Load the training and validation parquet datasets prepared in Stage 02.
 val_path = os.path.join(PROJECT_ROOT, 'data', 'GeneratedOutput', '02.Preprocessing&FeatureSelection', 'val.parquet')
 
 t0 = time.time()
-df_train = pd.read_parquet(train_path)
-df_val = pd.read_parquet(val_path)
+df_train = pd.read_parquet(train_path, columns=MODEL_INPUT_FEATURES + ['ccme_values'])
+df_val = pd.read_parquet(val_path, columns=MODEL_INPUT_FEATURES + ['ccme_values'])
 load_time = time.time() - t0
 
 print(f"Loaded datasets in {load_time:.2f} seconds.")
@@ -124,22 +117,21 @@ print(f"X_val matrix  : {X_val.shape} | y_val vector  : {y_val.shape}")
     # Cell 4: Smoke Test
     cells.append(nbf.v4.new_markdown_cell(
 """## 4. Pipeline Smoke Test
-Run a quick test on a 5,000-sample subset to ensure model fitting, prediction, and scoring work properly before full-scale training.
+Run a quick test on a 5,000-sample subset to ensure model fitting and prediction work properly before full-scale training.
 """
     ))
     cells.append(nbf.v4.new_code_cell(
 """smoke_X_tr = X_train[:5000]
 smoke_y_tr = y_train[:5000]
 smoke_X_val = X_val[:1000]
-smoke_y_val = y_val[:1000]
 
 quick_rf = RandomForestRegressor(n_estimators=10, max_depth=6, random_state=42, n_jobs=-1)
 quick_rf.fit(smoke_X_tr, smoke_y_tr)
 smoke_preds = quick_rf.predict(smoke_X_val)
 
-smoke_mae = mean_absolute_error(smoke_y_val, smoke_preds)
-smoke_r2 = r2_score(smoke_y_val, smoke_preds)
-print(f"Smoke test passed: RF (10 trees) Val MAE = {smoke_mae:.4f}, Val R² = {smoke_r2:.4f}")
+assert len(smoke_preds) == 1000
+assert np.all(np.isfinite(smoke_preds))
+print("Smoke test passed: Model fitting and prediction pipeline working properly.")
 """
     ))
 
@@ -158,17 +150,9 @@ t0 = time.time()
 y_val_pred_baseline = np.full_like(y_val, fill_value=mean_prediction)
 baseline_pred_time = time.time() - t0
 
-baseline_mae = mean_absolute_error(y_val, y_val_pred_baseline)
-baseline_rmse = root_mean_squared_error(y_val, y_val_pred_baseline)
-baseline_r2 = r2_score(y_val, y_val_pred_baseline)
-
-print("Baseline Regressor Results (Validation Split):")
-print(f"  Training Set Mean: {mean_prediction:.4f}")
-print(f"  MAE              : {baseline_mae:.4f}")
-print(f"  RMSE             : {baseline_rmse:.4f}")
-print(f"  R² Score         : {baseline_r2:.4f}")
-print(f"  Fit Time         : {baseline_train_time:.4f} s")
-print(f"  Inference Time   : {baseline_pred_time:.4f} s")
+print(f"Mean Baseline fitted in {baseline_train_time:.4f} seconds.")
+print(f"  Training set target mean: {mean_prediction:.4f}")
+print(f"  Generated {len(y_val_pred_baseline):,} validation predictions in {baseline_pred_time:.4f} seconds.")
 """
     ))
 
@@ -197,15 +181,8 @@ t0 = time.time()
 y_val_pred_rf = rf_model.predict(X_val)
 rf_pred_time = time.time() - t0
 
-rf_mae = mean_absolute_error(y_val, y_val_pred_rf)
-rf_rmse = root_mean_squared_error(y_val, y_val_pred_rf)
-rf_r2 = r2_score(y_val, y_val_pred_rf)
-
 print(f"Random Forest Training Completed in {rf_train_time:.2f} seconds.")
-print(f"  MAE            : {rf_mae:.4f}")
-print(f"  RMSE           : {rf_rmse:.4f}")
-print(f"  R² Score       : {rf_r2:.4f}")
-print(f"  Inference Time : {rf_pred_time:.2f} s")
+print(f"Generated {len(y_val_pred_rf):,} Random Forest predictions in {rf_pred_time:.2f} seconds.")
 """
     ))
 
@@ -237,69 +214,32 @@ t0 = time.time()
 y_val_pred_xgb = xgb_model.predict(X_val)
 xgb_pred_time = time.time() - t0
 
-xgb_mae = mean_absolute_error(y_val, y_val_pred_xgb)
-xgb_rmse = root_mean_squared_error(y_val, y_val_pred_xgb)
-xgb_r2 = r2_score(y_val, y_val_pred_xgb)
-
 print(f"\\nXGBoost Training Completed in {xgb_train_time:.2f} seconds.")
-print(f"  Best Iteration : {xgb_model.best_iteration}")
-print(f"  MAE            : {xgb_mae:.4f}")
-print(f"  RMSE           : {xgb_rmse:.4f}")
-print(f"  R² Score       : {xgb_r2:.4f}")
-print(f"  Inference Time : {xgb_pred_time:.2f} s")
+print(f"Best Iteration: {xgb_model.best_iteration}")
+print(f"Generated {len(y_val_pred_xgb):,} XGBoost predictions in {xgb_pred_time:.2f} seconds.")
 """
     ))
 
-    # Cell 8: Comparison Table & Export
+    # Cell 8: Save Model Artifacts and Validation Predictions
     cells.append(nbf.v4.new_markdown_cell(
-"""## 8. Compare Models and Save Artifacts
-Summarize validation results in a comparison table and save models and predictions for evaluation in Stage 04.
+"""## 8. Save Trained Models and Validation Predictions
+Save the trained model files and validation predictions for handoff to the evaluation teammate.
+Model evaluation (MAE, RMSE, R² calculation, residual analysis, and model comparison) is handled separately in Stage 04.
 """
     ))
     cells.append(nbf.v4.new_code_cell(
 """out_dir = os.path.join(PROJECT_ROOT, 'data', 'GeneratedOutput', '03.ModelTraining')
 os.makedirs(out_dir, exist_ok=True)
 
-results = [
-    {
-        "Model": "Mean Baseline",
-        "MAE": round(baseline_mae, 4),
-        "RMSE": round(baseline_rmse, 4),
-        "R²": round(baseline_r2, 4),
-        "Fit Time (s)": round(baseline_train_time, 2),
-        "Inference Time (s)": round(baseline_pred_time, 2),
-    },
-    {
-        "Model": "Random Forest",
-        "MAE": round(rf_mae, 4),
-        "RMSE": round(rf_rmse, 4),
-        "R²": round(rf_r2, 4),
-        "Fit Time (s)": round(rf_train_time, 2),
-        "Inference Time (s)": round(rf_pred_time, 2),
-    },
-    {
-        "Model": "XGBoost",
-        "MAE": round(xgb_mae, 4),
-        "RMSE": round(xgb_rmse, 4),
-        "R²": round(xgb_r2, 4),
-        "Fit Time (s)": round(xgb_train_time, 2),
-        "Inference Time (s)": round(xgb_pred_time, 2),
-    },
-]
-
-comparison_df = pd.DataFrame(results)
-display(comparison_df)
-
-metrics_path = os.path.join(out_dir, 'tree_models_metrics.json')
-with open(metrics_path, 'w') as f:
-    json.dump(results, f, indent=2)
-
+# Save Random Forest model
 rf_path = os.path.join(out_dir, 'random_forest_model.joblib')
 joblib.dump(rf_model, rf_path)
 
+# Save XGBoost model
 xgb_path = os.path.join(out_dir, 'xgboost_model.json')
 xgb_model.save_model(xgb_path)
 
+# Save validation predictions for evaluation teammate
 val_preds_df = pd.DataFrame({
     'actual': y_val,
     'pred_baseline': y_val_pred_baseline,
@@ -309,11 +249,11 @@ val_preds_df = pd.DataFrame({
 preds_path = os.path.join(out_dir, 'tree_val_predictions.parquet')
 val_preds_df.to_parquet(preds_path, index=False, compression='snappy')
 
-print(f"\\nSaved models and artifacts to: {out_dir}")
-print(f"  • {os.path.basename(metrics_path)}")
-print(f"  • {os.path.basename(rf_path)}")
-print(f"  • {os.path.basename(xgb_path)}")
-print(f"  • {os.path.basename(preds_path)}")
+print(f"Saved Phase 1 Model Training Artifacts to: {out_dir}")
+print(f"  • Random Forest Model : {os.path.basename(rf_path)}")
+print(f"  • XGBoost Model       : {os.path.basename(xgb_path)}")
+print(f"  • Validation Handoff  : {os.path.basename(preds_path)} ({len(val_preds_df):,} rows)")
+print("\\nNote: Model evaluation metrics (MAE, RMSE, R²) and comparison charts are deferred to the evaluation teammate.")
 """
     ))
 
