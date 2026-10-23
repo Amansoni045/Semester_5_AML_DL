@@ -104,7 +104,6 @@ def main():
     print(f"Project root: {PROJECT_ROOT}")
     print(f"Notebooks dir: {NB_DIR}")
 
-    # Discover EDA notebooks (exclude audit notebook if desired, or run all numbered)
     nb_files = sorted(glob.glob(os.path.join(NB_DIR, "0[1-6]_*.ipynb")))
     if not nb_files:
         nb_files = sorted(glob.glob(os.path.join(NB_DIR, "*.ipynb")))

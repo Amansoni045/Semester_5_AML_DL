@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Ensure project root is on sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.preprocessing import (
@@ -52,10 +51,6 @@ from src.preprocessing import (
 )
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
 def _make_raw_fixture(n_extra_duplicates: int = 2) -> pd.DataFrame:
     """
     Build a minimal DataFrame that mirrors the raw combined dataset schema
@@ -88,7 +83,6 @@ def _make_raw_fixture(n_extra_duplicates: int = 2) -> pd.DataFrame:
     df.loc[0, "Temperature (cel)"] = -999999.0
     df.loc[1, "Dissolved Oxygen (mg/l)"] = -999999.0
 
-    # Add duplicate rows of row 4
     dup_rows = pd.concat([df.iloc[[4]]] * n_extra_duplicates, ignore_index=True)
     df = pd.concat([df, dup_rows], ignore_index=True)
     return df
@@ -107,10 +101,6 @@ def cleaned_fixture(raw_fixture, tmp_path) -> tuple:
     return pipeline.run()
 
 
-# ---------------------------------------------------------------------------
-# 1. Column name standardisation
-# ---------------------------------------------------------------------------
-
 class TestColumnNameStandardisation:
 
     def test_all_original_columns_renamed(self, cleaned_fixture):
@@ -128,10 +118,6 @@ class TestColumnNameStandardisation:
         assert "column_mapping" in df.attrs
         assert df.attrs["column_mapping"] == COLUMN_NAME_MAP
 
-
-# ---------------------------------------------------------------------------
-# 2. Data type casting
-# ---------------------------------------------------------------------------
 
 class TestDataTypeCasting:
 
@@ -164,10 +150,6 @@ class TestDataTypeCasting:
             assert pd.api.types.is_numeric_dtype(df[col])
 
 
-# ---------------------------------------------------------------------------
-# 3. Sentinel and physical bounds replacement
-# ---------------------------------------------------------------------------
-
 class TestSentinelReplacement:
 
     def test_sentinel_temperature_replaced_with_nan(self, cleaned_fixture):
@@ -199,10 +181,6 @@ class TestSentinelReplacement:
         df_out, _ = pipeline.run()
         assert pd.isna(df_out["temperature_c"].iloc[0])
 
-
-# ---------------------------------------------------------------------------
-# 4. USA temperature correction
-# ---------------------------------------------------------------------------
 
 class TestUSATemperatureCorrection:
 
@@ -246,24 +224,16 @@ class TestUSATemperatureCorrection:
         assert any(eng_eff["temperature_c"] == 60.0)
 
 
-# ---------------------------------------------------------------------------
-# 5. Negative concentration cleaning rules
-# ---------------------------------------------------------------------------
-
 class TestNegativeConcentrations:
 
     def test_detection_limit_noise_clipped_to_zero(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        # Ammonia had -0.003 mg/L -> clipped to 0.0
         assert int((df["ammonia_mg_l"] < 0.0).sum()) == 0
-        # DO had -0.05 mg/L -> clipped to 0.0
         assert int((df["do_mg_l"] < 0.0).sum()) == 0
-        # Orthophosphate had -0.002 mg/L -> clipped to 0.0
         assert int((df["orthophosphate_mg_l"] < 0.0).sum()) == 0
 
     def test_unphysical_negative_bod_converted_to_nan(self, cleaned_fixture):
         df, _ = cleaned_fixture
-        # Row 3 had BOD = -1.5 mg/L (physically invalid consumption) -> converted to NaN
         assert pd.isna(df.loc[df["area"] == "River C", "bod_mg_l"].iloc[0])
 
     def test_legitimate_sub_zero_temperature_preserved(self, tmp_path):
@@ -276,10 +246,6 @@ class TestNegativeConcentrations:
         df_out, _ = pipeline.run()
         assert any(df_out["temperature_c"] == -2.5)
 
-
-# ---------------------------------------------------------------------------
-# 6. Exact duplicate removal
-# ---------------------------------------------------------------------------
 
 class TestDuplicateRemoval:
 
@@ -304,10 +270,6 @@ class TestDuplicateRemoval:
         assert len(df) == n_unique_raw
 
 
-# ---------------------------------------------------------------------------
-# 7. Suspicious value flagging
-# ---------------------------------------------------------------------------
-
 class TestSuspiciousValueFlagging:
 
     def test_all_flag_columns_created(self, cleaned_fixture):
@@ -328,10 +290,6 @@ class TestSuspiciousValueFlagging:
             if nan_mask.any():
                 assert not df.loc[nan_mask, flag_col].any()
 
-
-# ---------------------------------------------------------------------------
-# 8. Target completeness and mapping
-# ---------------------------------------------------------------------------
 
 class TestTargetCompletenessAndMapping:
 
@@ -355,7 +313,7 @@ class TestTargetCompletenessAndMapping:
         for t in targets:
             assert t not in MODEL_INPUT_FEATURES
 
-    def test_model_input_features_authoritative_15_list(self):
+    def test_model_input_features_15_list(self):
         expected_15 = [
             "ph", "temperature_c", "do_mg_l", "bod_mg_l", "ammonia_mg_l",
             "orthophosphate_mg_l", "nitrogen_mg_l", "nitrate_mg_l",
@@ -367,10 +325,6 @@ class TestTargetCompletenessAndMapping:
         for t in [TARGET_REGRESSION, TARGET_CLASSIFICATION, TARGET_CLASSIFICATION_ORDINAL]:
             assert t not in MODEL_INPUT_FEATURES
 
-
-# ---------------------------------------------------------------------------
-# 9. Cyclical month encoding
-# ---------------------------------------------------------------------------
 
 class TestCyclicalMonthEncoding:
 
@@ -387,27 +341,22 @@ class TestCyclicalMonthEncoding:
         })
         out, _ = engineer_features(df)
 
-        # Month 1 (Jan): angle = 0 -> sin = 0, cos = 1
         jan_sin = out.loc[0, "month_sin"]
         jan_cos = out.loc[0, "month_cos"]
         assert np.isclose(jan_sin, 0.0, atol=1e-6)
         assert np.isclose(jan_cos, 1.0, atol=1e-6)
 
-        # Month 12 (Dec): angle = 2*pi*11/12 -> sin = -0.5, cos = sqrt(3)/2
         dec_sin = out.loc[1, "month_sin"]
         dec_cos = out.loc[1, "month_cos"]
         assert np.isclose(dec_sin, -0.5, atol=1e-6)
         assert np.isclose(dec_cos, np.sqrt(3) / 2, atol=1e-6)
 
-        # Distance between Jan and Dec in 2D circular space
         dist_jan_dec = np.sqrt((jan_sin - dec_sin) ** 2 + (jan_cos - dec_cos) ** 2)
 
-        # Month 2 (Feb): angle = 2*pi*1/12 -> sin = 0.5, cos = sqrt(3)/2
         feb_sin = out.loc[2, "month_sin"]
         feb_cos = out.loc[2, "month_cos"]
         dist_jan_feb = np.sqrt((jan_sin - feb_sin) ** 2 + (jan_cos - feb_cos) ** 2)
 
-        # Distances must be equal (exact 30 degree step)
         assert np.isclose(dist_jan_dec, dist_jan_feb, atol=1e-6)
 
     def test_missing_date_produces_nan_month_encodings(self):
@@ -421,10 +370,6 @@ class TestCyclicalMonthEncoding:
         assert pd.isna(out.loc[0, "month_cos"])
 
 
-# ---------------------------------------------------------------------------
-# 10. Feature engineering safety and ratios
-# ---------------------------------------------------------------------------
-
 class TestFeatureEngineeringSafety:
 
     def test_np_ratio_division_by_zero(self):
@@ -433,11 +378,8 @@ class TestFeatureEngineeringSafety:
             "orthophosphate_mg_l": [0.0, 0.05, 0.05],
         })
         out, _ = engineer_features(df)
-        # Denominator zero must yield NaN, not huge artificial number
         assert pd.isna(out.loc[0, "np_ratio"])
-        # Valid denominator yields accurate ratio
         assert np.isclose(out.loc[1, "np_ratio"], 60.0)
-        # Missing numerator yields NaN
         assert pd.isna(out.loc[2, "np_ratio"])
 
     def test_bod_do_ratio_division_by_zero(self):
@@ -451,54 +393,41 @@ class TestFeatureEngineeringSafety:
         assert pd.isna(out.loc[2, "bod_do_ratio"])
 
     def test_signed_dissolved_oxygen_deficit(self):
-        # Temp 20C -> saturation ~9.09 mg/L
         sat_20 = calculate_do_saturation(pd.Series([20.0])).iloc[0]
         df = pd.DataFrame({
             "temperature_c": [20.0, 20.0, np.nan],
             "do_mg_l": [5.0, 12.0, 8.0],
         })
         out, _ = engineer_features(df)
-        # Normal deficit (oxygen depleted by pollution)
         assert out.loc[0, "do_deficit"] > 0
         assert np.isclose(out.loc[0, "do_deficit"], sat_20 - 5.0)
 
-        # Supersaturation (intense algal photosynthesis) -> signed negative deficit
         assert out.loc[1, "do_deficit"] < 0
         assert np.isclose(out.loc[1, "do_deficit"], sat_20 - 12.0)
 
-        # Missing input yields NaN
         assert pd.isna(out.loc[2, "do_deficit"])
 
     def test_calculate_do_saturation_sub_zero_and_range(self):
-        # Sub-zero temperatures (-5C, -1C) must be bounded at freezing point saturation
         temps = pd.Series([-5.0, -1.0, 0.0, 20.0, 45.0, 55.0, np.nan])
         sat_eh = calculate_do_saturation(temps, formula="elmore_hayes")
         sat_bk = calculate_do_saturation(temps, formula="benson_krause")
 
-        # Elmore-Hayes freezing point saturation is 14.652 mg/L
         assert np.isclose(sat_eh.iloc[0], 14.652)
         assert np.isclose(sat_eh.iloc[1], 14.652)
         assert np.isclose(sat_eh.iloc[2], 14.652)
         assert np.isclose(sat_eh.iloc[3], 9.0218, atol=1e-3)
 
-        # Benson-Krause freezing point saturation is 14.6208 mg/L
         assert np.isclose(sat_bk.iloc[0], 14.6208, atol=1e-3)
         assert np.isclose(sat_bk.iloc[1], 14.6208, atol=1e-3)
         assert np.isclose(sat_bk.iloc[2], 14.6208, atol=1e-3)
         assert np.isclose(sat_bk.iloc[3], 9.0924, atol=1e-3)
 
-        # High temperatures capped at 45.0C
         assert np.isclose(sat_eh.iloc[4], sat_eh.iloc[5])
         assert np.isclose(sat_bk.iloc[4], sat_bk.iloc[5])
 
-        # Missing input returns NaN
         assert pd.isna(sat_eh.iloc[6])
         assert pd.isna(sat_bk.iloc[6])
 
-
-# ---------------------------------------------------------------------------
-# 11. Splitting strategies (Random, Group, Temporal)
-# ---------------------------------------------------------------------------
 
 class TestSplittingStrategies:
 
@@ -512,7 +441,6 @@ class TestSplittingStrategies:
         assert abs(len(train_df) / len(df_large) - 0.70) < 0.05
 
     def test_country_area_group_split_disjointness(self):
-        # Create dataset with multiple country-area clusters
         rows = []
         for station_num in range(20):
             for _ in range(5):
@@ -525,7 +453,6 @@ class TestSplittingStrategies:
                     "ph": 7.5,
                 })
         df_areas = pd.DataFrame(rows)
-        # Test both authoritative name and legacy alias
         for method_name in ["country_area_group", "spatial_group"]:
             train_df, val_df, test_df = split_data(df_areas, method=method_name, random_state=42)
 
@@ -533,7 +460,6 @@ class TestSplittingStrategies:
             val_areas = set(val_df["area"])
             test_areas = set(test_df["area"])
 
-            # Country-area clusters across partitions must be 100% mutually exclusive
             assert len(train_areas & val_areas) == 0
             assert len(train_areas & test_areas) == 0
             assert len(val_areas & test_areas) == 0
@@ -561,10 +487,6 @@ class TestSplittingStrategies:
         pd.testing.assert_frame_equal(s1, s2)
 
 
-# ---------------------------------------------------------------------------
-# 12. Training-only imputation and scaling
-# ---------------------------------------------------------------------------
-
 class TestImputationAndScaling:
 
     def test_imputation_fitted_on_train_only(self):
@@ -572,8 +494,8 @@ class TestImputationAndScaling:
             "country": ["USA", "USA"],
             "waterbody_type": ["River", "River"],
             "month": [6, 6],
-            "ph": [7.0, 8.0],  # median = 7.5
-            "temperature_c": [20.0, 22.0],  # median = 21.0
+            "ph": [7.0, 8.0],
+            "temperature_c": [20.0, 22.0],
         })
         val_data = pd.DataFrame({
             "country": ["USA"],
@@ -606,7 +528,7 @@ class TestImputationAndScaling:
             "ph": [7.4],
         })
         val_data = pd.DataFrame({
-            "country": ["Antarctica"],  # unseen group
+            "country": ["Antarctica"],
             "waterbody_type": ["Glacier"],
             "month": [1],
             "ph": [np.nan],
@@ -626,13 +548,8 @@ class TestImputationAndScaling:
 
         assert np.isclose(train_sc["ph"].mean(), 0.0, atol=1e-6)
         assert np.isclose(train_sc["ph"].std(ddof=0), 1.0, atol=1e-6)
-        # Val transformed with train mean (7.0) and std
         assert np.isclose(val_sc.loc[0, "ph"], 0.0, atol=1e-6)
 
-
-# ---------------------------------------------------------------------------
-# 13. Summary, Output writing, and Real Dataset
-# ---------------------------------------------------------------------------
 
 class TestCleaningSummaryAndIO:
 
@@ -675,7 +592,6 @@ class TestRobustnessAndMetadataConsistency:
         train_imp, val_imp, test_imp, _ = impute_missing_values(train_df, val_df, test_df, features)
         train_sc, val_sc, test_sc, _ = scale_features(train_imp, val_imp, test_imp, features)
 
-        # Enforce exact identical feature column order across all partitions
         assert list(train_imp[features].columns) == features
         assert list(val_imp[features].columns) == features
         assert list(test_imp[features].columns) == features
@@ -732,10 +648,8 @@ class TestRobustnessAndMetadataConsistency:
             assert feature_names == MODEL_INPUT_FEATURES
             assert np.isnan(X).sum() == 0
             assert np.isinf(X).sum() == 0
-            # Test critical leakage detection: passing a target in feature_cols must raise ValueError
             with pytest.raises(ValueError, match="CRITICAL LEAKAGE DETECTED"):
                 load_training_data(sample_path, feature_cols=MODEL_INPUT_FEATURES + ["ccme_values"])
-
 
 
 REAL_DATASET_PATH = os.path.join(

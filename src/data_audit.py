@@ -22,7 +22,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("data_audit")
 
-# Plausible domain bounds for anomaly flagging
 DOMAIN_BOUNDS = {
     "pH (ph units)": {"min": 0.0, "max": 14.0, "warning_min": 3.0, "warning_max": 11.0},
     "Dissolved Oxygen (mg/l)": {"min": 0.0, "max": 30.0, "warning_min": 0.0, "warning_max": 20.0},
@@ -78,7 +77,6 @@ def find_dataset_path(
                         "format": ext.replace(".", "").upper(),
                     })
 
-    # Remove duplicates if any
     unique_candidates = {c["absolute_path"]: c for c in discovered}
     candidate_list = list(unique_candidates.values())
 
@@ -87,14 +85,12 @@ def find_dataset_path(
             f"No data files with extensions {extensions} found in search paths: {search_dirs}"
         )
 
-    # Scoring candidates based on keywords and size
     def score_candidate(cand: Dict[str, Any]) -> Tuple[int, float]:
         name_lower = cand["file_name"].lower()
         score = 0
         for pattern in preferred_name_patterns:
             if pattern in name_lower:
                 score += 10
-        # Larger datasets typically represent the combined/master dataset
         return (score, cand["size_mb"])
 
     candidate_list.sort(key=score_candidate, reverse=True)
@@ -107,10 +103,6 @@ def find_dataset_path(
 
     return selected_path, candidate_list
 
-
-# -----------------------------------------------------------------------------
-# 2. Efficient Data Loading
-# -----------------------------------------------------------------------------
 
 def load_dataset(
     filepath: str,
@@ -149,7 +141,6 @@ def load_dataset(
 
     if ext == ".parquet":
         if nrows is not None:
-            # PyArrow allows loading head rows
             import pyarrow.parquet as pq
             table = pq.read_table(filepath)
             df = table.slice(0, nrows).to_pandas()
@@ -174,10 +165,6 @@ def load_dataset(
     else:
         raise ValueError(f"Unsupported file format '{ext}'. Expected .csv or .parquet.")
 
-
-# -----------------------------------------------------------------------------
-# 3. Structural & Overview Audit
-# -----------------------------------------------------------------------------
 
 def inspect_dataset_overview(df: pd.DataFrame) -> Dict[str, Any]:
     """
@@ -206,7 +193,6 @@ def inspect_dataset_overview(df: pd.DataFrame) -> Dict[str, Any]:
         nunique = int(df[col].nunique(dropna=True))
         nunique_pct = round((nunique / num_rows) * 100, 4) if num_rows > 0 else 0.0
 
-        # Sample value for quick reference
         first_valid = df[col].dropna().iloc[0] if non_null > 0 else None
 
         col_details.append({
@@ -236,10 +222,6 @@ def inspect_dataset_overview(df: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
-# -----------------------------------------------------------------------------
-# 4. Missingness Audit
-# -----------------------------------------------------------------------------
-
 def audit_missingness(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Audits missing values, percentages, and global completeness.
@@ -264,7 +246,6 @@ def audit_missingness(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         "missing_percentage": missing_pct_series.values.round(3),
     }).sort_values(by="missing_count", ascending=False).reset_index(drop=True)
 
-    # Classify missingness severity
     def categorize_missing(pct: float) -> str:
         if pct == 0.0:
             return "Complete (0%)"
@@ -277,7 +258,6 @@ def audit_missingness(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
 
     missing_df["severity"] = missing_df["missing_percentage"].apply(categorize_missing)
 
-    # Global completeness metrics
     total_cells = df.size
     total_missing_cells = int(missing_series.sum())
     overall_missing_pct = round((total_missing_cells / total_cells) * 100, 3) if total_cells > 0 else 0.0
@@ -298,10 +278,6 @@ def audit_missingness(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
 
     return missing_df, summary
 
-
-# -----------------------------------------------------------------------------
-# 5. Duplicates & Unique Values Audit
-# -----------------------------------------------------------------------------
 
 def audit_duplicates(df: pd.DataFrame, subset: Optional[List[str]] = None) -> Dict[str, Any]:
     """
@@ -359,7 +335,6 @@ def audit_unique_values(df: pd.DataFrame) -> pd.DataFrame:
         top_freq = int((df[col] == top_val).sum()) if top_val is not None else 0
         top_pct = round((top_freq / total_rows) * 100, 3) if total_rows > 0 else 0.0
 
-        # Cardinality classification
         if nunique == 1:
             cardinality = "Constant (1 value)"
         elif nunique == total_rows:
@@ -383,10 +358,6 @@ def audit_unique_values(df: pd.DataFrame) -> pd.DataFrame:
 
     return pd.DataFrame(results)
 
-
-# -----------------------------------------------------------------------------
-# 6. Basic Numerical & Categorical Statistics
-# -----------------------------------------------------------------------------
 
 def audit_numerical_statistics(
     df: pd.DataFrame,
@@ -492,10 +463,6 @@ def audit_categorical_statistics(df: pd.DataFrame, top_n: int = 5) -> pd.DataFra
     return pd.DataFrame(results)
 
 
-# -----------------------------------------------------------------------------
-# 7. Suspicious Values, Inconsistent Types & Outlier Audit
-# -----------------------------------------------------------------------------
-
 def audit_suspicious_values_and_outliers(
     df: pd.DataFrame,
     iqr_multiplier: float = 1.5,
@@ -534,7 +501,6 @@ def audit_suspicious_values_and_outliers(
         q3 = float(s.quantile(0.75))
         iqr = q3 - q1
 
-        # Tukey bounds
         lower_mild = q1 - (iqr_multiplier * iqr)
         upper_mild = q3 + (iqr_multiplier * iqr)
         lower_extreme = q1 - (extreme_iqr_multiplier * iqr)
@@ -546,16 +512,13 @@ def audit_suspicious_values_and_outliers(
         mild_pct = round((mild_outliers / len(s)) * 100, 3)
         extreme_pct = round((extreme_outliers / len(s)) * 100, 3)
 
-        # Negative values check
         neg_count = int((s < 0).sum())
         neg_pct = round((neg_count / len(s)) * 100, 4)
 
-        # Hardware / telemetry sentinel values (<= -999 or in known sentinels)
         sentinel_mask = s.isin(KNOWN_SENTINELS) | (s <= -999.0)
         sentinel_count = int(sentinel_mask.sum())
         sentinel_vals = s[sentinel_mask].value_counts().head(3).to_dict()
 
-        # Domain boundary breaches
         domain = DOMAIN_BOUNDS.get(col, {})
         domain_breaches = 0
         domain_details = ""
@@ -592,7 +555,6 @@ def audit_suspicious_values_and_outliers(
             "extreme_outliers": extreme_outliers,
         }
 
-    # Inconsistent types and string padding audit for object columns
     type_inconsistencies = []
     cat_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
     for col in cat_cols:
@@ -622,10 +584,6 @@ def audit_suspicious_values_and_outliers(
     return audit_table, summary
 
 
-# -----------------------------------------------------------------------------
-# 8. Target Distribution Audit
-# -----------------------------------------------------------------------------
-
 def audit_target_distribution(
     df: pd.DataFrame,
     target_candidates: Optional[List[str]] = None,
@@ -653,7 +611,6 @@ def audit_target_distribution(
 
     for target in identified_targets:
         if pd.api.types.is_numeric_dtype(df[target]):
-            # Continuous Target (Regression)
             s = df[target].dropna()
             report[target] = {
                 "type": "Continuous / Regression",
@@ -669,7 +626,6 @@ def audit_target_distribution(
                 "skewness": round(float(s.skew()), 3),
             }
         else:
-            # Categorical Target (Classification)
             vc = df[target].value_counts(dropna=False)
             total = len(df)
             breakdown = {
@@ -691,10 +647,6 @@ def audit_target_distribution(
 
     return report
 
-
-# -----------------------------------------------------------------------------
-# 9. Visualization Suite
-# -----------------------------------------------------------------------------
 
 def generate_audit_visualizations(
     df: pd.DataFrame,
@@ -725,22 +677,17 @@ def generate_audit_visualizations(
     os.makedirs(output_dir, exist_ok=True)
     saved_figs = {}
 
-    # Sample dataframe if very large to prevent memory overhead during plotting
     if len(df) > sample_size:
         logger.info(f"Subsampling {sample_size:,} rows from {len(df):,} for visualization rendering...")
         df_sample = df.sample(n=sample_size, random_state=42)
     else:
         df_sample = df.copy()
 
-    # Set aesthetic theme
     sns.set_theme(style="whitegrid", font_scale=1.0)
     plt.rcParams["font.sans-serif"] = ["DejaVu Sans", "Arial", "Helvetica"]
     plt.rcParams["axes.edgecolor"] = "#cccccc"
     plt.rcParams["axes.linewidth"] = 0.8
 
-    # -------------------------------------------------------------------------
-    # Fig 1: Missingness Overview
-    # -------------------------------------------------------------------------
     missing_series = (df.isna().sum() / len(df) * 100).sort_values(ascending=True)
     if missing_series.max() > 0:
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -772,9 +719,6 @@ def generate_audit_visualizations(
         saved_figs["missingness_overview"] = fig1_path
         logger.info(f"Saved: {fig1_path}")
 
-    # -------------------------------------------------------------------------
-    # Fig 2: Missingness Correlation Co-occurrence Heatmap
-    # -------------------------------------------------------------------------
     cols_with_na = df.columns[df.isna().any()].tolist()
     if len(cols_with_na) > 1:
         missing_bool = df_sample[cols_with_na].isna().astype(int)
@@ -801,9 +745,6 @@ def generate_audit_visualizations(
         saved_figs["missingness_correlation"] = fig2_path
         logger.info(f"Saved: {fig2_path}")
 
-    # -------------------------------------------------------------------------
-    # Fig 3: Numerical Feature Distributions (Histograms + KDE with Outlier Markers)
-    # -------------------------------------------------------------------------
     num_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c not in ["CCME_Values"]]
     if num_cols:
         n_features = len(num_cols)
@@ -820,7 +761,6 @@ def generate_audit_visualizations(
                 ax.set_visible(False)
                 continue
 
-            # Robust visual clipping to 1st and 99th percentile to display distribution shape
             p01 = s.quantile(0.01)
             p99 = s.quantile(0.99)
             s_clipped = s[(s >= p01) & (s <= p99)]
@@ -832,7 +772,6 @@ def generate_audit_visualizations(
             ax.axvline(median_val, color="#e67e22", linestyle="--", linewidth=1.5, label=f"Median: {median_val:.2f}")
             ax.axvline(mean_val, color="#c0392b", linestyle=":", linewidth=1.5, label=f"Mean: {mean_val:.2f}")
 
-            # Check if sentinels or extreme outliers exist
             has_sentinels = (s <= -999).sum() > 0 or (s >= 9999).sum() > 0
             subtitle = f"[{p01:.1f} to {p99:.1f}]"
             if has_sentinels:
@@ -843,7 +782,6 @@ def generate_audit_visualizations(
             ax.set_ylabel("Density", fontsize=9)
             ax.legend(fontsize=8, loc="upper right")
 
-        # Hide any unused subplots
         for j in range(i + 1, len(axes)):
             axes[j].set_visible(False)
 
@@ -856,9 +794,6 @@ def generate_audit_visualizations(
         saved_figs["numerical_distributions"] = fig3_path
         logger.info(f"Saved: {fig3_path}")
 
-    # -------------------------------------------------------------------------
-    # Fig 4: Outlier Boxplots
-    # -------------------------------------------------------------------------
     if num_cols:
         fig, axes = plt.subplots(n_rows_grid, n_cols_grid, figsize=(15, 3.2 * n_rows_grid))
         axes = np.array(axes).reshape(-1)
@@ -870,7 +805,6 @@ def generate_audit_visualizations(
                 ax.set_visible(False)
                 continue
 
-            # Standardized boxplot within reasonable physical range
             sns.boxplot(x=s, ax=ax, color="#3498db", fliersize=2, linewidth=1)
             ax.set_title(f"Boxplot: {col}", fontsize=10, fontweight="bold")
             ax.set_xlabel("Value", fontsize=9)
@@ -887,9 +821,6 @@ def generate_audit_visualizations(
         saved_figs["outlier_boxplots"] = fig4_path
         logger.info(f"Saved: {fig4_path}")
 
-    # -------------------------------------------------------------------------
-    # Fig 5: Target Distributions (Continuous & Categorical)
-    # -------------------------------------------------------------------------
     has_continuous = "CCME_Values" in df.columns
     has_categorical = "CCME_WQI" in df.columns
 
@@ -941,9 +872,6 @@ def generate_audit_visualizations(
         saved_figs["target_distributions"] = fig5_path
         logger.info(f"Saved: {fig5_path}")
 
-    # -------------------------------------------------------------------------
-    # Fig 6: Correlation Matrix of Numerical Predictors
-    # -------------------------------------------------------------------------
     all_num = df_sample.select_dtypes(include=[np.number]).columns.tolist()
     if len(all_num) > 1:
         corr_matrix = df_sample[all_num].corr(method="spearman")
@@ -973,10 +901,6 @@ def generate_audit_visualizations(
 
     return saved_figs
 
-
-# -----------------------------------------------------------------------------
-# 10. Reproducible Audit Report Generation
-# -----------------------------------------------------------------------------
 
 def generate_audit_report(
     df: pd.DataFrame,
@@ -1016,7 +940,6 @@ def generate_audit_report(
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     logger.info(f"Generating comprehensive audit report at: {output_path}")
 
-    # Compute audits
     overview = inspect_dataset_overview(df)
     missing_df, missing_summary = audit_missingness(df)
     dup_summary = audit_duplicates(df)
@@ -1026,7 +949,6 @@ def generate_audit_report(
     outlier_df, outlier_summary = audit_suspicious_values_and_outliers(df)
     target_summary = audit_target_distribution(df)
 
-    # Relative path for embedded markdown images
     rel_fig_dir = os.path.relpath(figures_dir, os.path.dirname(output_path))
 
     report_lines = [
@@ -1232,10 +1154,6 @@ def generate_audit_report(
     return report_content
 
 
-# -----------------------------------------------------------------------------
-# 11. Full End-to-End Audit Orchestrator
-# -----------------------------------------------------------------------------
-
 def run_full_audit(
     dataset_path: Optional[str] = None,
     output_dir: str = "reports",
@@ -1267,20 +1185,16 @@ def run_full_audit(
     logger.info("STARTING REPRODUCIBLE DATASET INSPECTION & DATA QUALITY AUDIT")
     logger.info("=" * 70)
 
-    # 1. Discover or validate dataset
     if dataset_path is None:
         dataset_path, candidates = find_dataset_path()
     else:
         candidates = []
 
-    # 2. Load dataset efficiently
     df = load_dataset(dataset_path, nrows=nrows)
 
-    # 3. Generate Visualizations
     fig_dir = os.path.join(output_dir, "figures")
     saved_figs = generate_audit_visualizations(df, output_dir=fig_dir)
 
-    # 4. Generate Markdown Audit Report
     report_file = os.path.join(output_dir, "dataset_audit_report.md")
     report_text = generate_audit_report(df, dataset_path=dataset_path, output_path=report_file, figures_dir=fig_dir)
 
