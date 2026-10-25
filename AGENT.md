@@ -83,7 +83,7 @@ Semester_5_AML_DL/
 ├── scripts/
 │   ├── setup_environment.sh                      # Environment setup script (.venv)
 │   ├── run_eda_pipeline.py                       # Automated EDA runner
-│   └── build_and_run_audit_notebook.py           # Audit notebook builder
+│   └── run_notebook.py                           # CLI notebook runner
 ├── data/
 │   ├── Dataset/
 │   │   ├── Parquet/
@@ -141,8 +141,8 @@ Semester_5_AML_DL/
 | 2026-10-19 | Role 2 (EDA) | Built & executed pure EDA Notebooks with embedded plots | `notebooks/01.EDA/*.ipynb` (00 to 06) | **Completed** |
 | 2026-10-19 | Role 6 (Setup) | Created root `requirements.txt` and virtual environment setup guide | `requirements.txt`, `docs/environment_setup.md` | **Completed** |
 | 2026-10-21 | Role 2 (Audit) | Automated dataset inspection, data quality audit, and visual diagnostics | `src/data_audit.py`, `notebooks/01.EDA/00_initial_dataset_audit.ipynb` | **Completed** |
-| 2026-10-22 | **Role 3 (Preprocessing & Feature Engineering)** | Full data cleaning, feature engineering (N:P ratio, BOD:DO ratio, DO deficit, cyclical season), stratified 70/15/15 split, train-only group median imputation, and MLP StandardScaler | `src/preprocessing.py`, `tests/test_preprocessing.py`, `notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing_and_feature_engineering.ipynb`, `data/GeneratedOutput/02.Preprocessing&FeatureSelection/` (`train.parquet`, `val.parquet`, `test.parquet`, scaled files) | **Completed** |
-| Next | **Role 4 (AML Models)** | Train and tune Random Forest and XGBoost baselines; evaluate MAE/RMSE/R2 and Macro F1 | `notebooks/03.ModelTraining/` | **Up Next** |
+| 2026-10-22 | **Role 3 (Preprocessing & Feature Engineering)** | Full data cleaning, feature analysis, 15-feature engineering, stratified 70/15/15 split, train-only group median imputation, scaling, and model-ready validation | `src/preprocessing.py`, `tests/test_preprocessing.py`, `notebooks/02.Preprocessing&FeatureSelection/*.ipynb` (01 to 03), `data/GeneratedOutput/02.Preprocessing&FeatureSelection/` (`train.parquet`, `val.parquet`, `test.parquet`, scaled files) | **Completed** |
+| 2026-10-24 | **Role 4 (AML Models)** | Train baseline regressor, Random Forest, and XGBoost; save models and validation prediction handoff | `notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb`, `data/GeneratedOutput/03.ModelTraining/`, `tests/test_model_training.py` | **Completed** |
 | Next | **Role 5 (Deep Learning)** | Train regularized dual-head MLP; evaluate calibration, uncertainty, and SHAP explainability | `notebooks/03.ModelTraining/`, `notebooks/04.ModelEvaluation/` | Queued |
 | Next | **Role 6 (Integration)** | Compile final comparative benchmark report, presentation slide deck, and viva prep | `docs/FINAL_REPORT.md` | Queued |
 

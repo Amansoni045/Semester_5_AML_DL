@@ -3,8 +3,8 @@
 > **Project**: Project 18 — Water Quality Prediction via Gradient Boosting & Deep Neural Networks  
 > **Course**: Semester 5 Applied Machine Learning & Deep Learning (AML / DL)  
 > **Role Responsible**: Role 2 — Dataset Collection & Exploratory Data Analysis  
-> **Executed Notebooks**: [`nootbooks/01.EDA/`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/)  
-> **Analytical Parquet Outputs**: [`data/GeneratedOutput/01.EDA/`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/data/GeneratedOutput/01.EDA/)  
+> **Executed Notebooks**: [`notebooks/01.EDA/`](../notebooks/01.EDA/)  
+> **Analytical Parquet Outputs**: [`data/GeneratedOutput/01.EDA/`](../data/GeneratedOutput/01.EDA/)  
 > **Dataset**: 4,297,895 records × 14 columns across 7 countries (1940–2023)  
 
 ---
@@ -15,7 +15,7 @@ This document provides a single, unified reference for the entire Exploratory Da
 
 Our investigation analyzed **4,297,895 records** across **64,665 unique monitoring stations** over an **83-year timeline (1940–2023)**. Rather than relying on simple summary statistics, our analysis was structured into 6 modular stages covering sensor physics, missingness mechanisms, geochemical laws (Henry's Law, nutrient stoichiometry), long-term climate trajectories, and machine learning data leakage risks.
 
-All 6 notebooks have been executed with embedded high-resolution figures in `nootbooks/01.EDA/`, and every analytical table is saved as a Snappy-compressed `.parquet` file in `data/GeneratedOutput/01.EDA/`.
+All 6 notebooks have been executed with embedded high-resolution figures in `notebooks/01.EDA/`, and every analytical table is saved as a Snappy-compressed `.parquet` file in `data/GeneratedOutput/01.EDA/`.
 
 ---
 
@@ -31,8 +31,8 @@ All 6 notebooks have been executed with embedded high-resolution figures in `noo
 | **Waterbody Breakdown** | 13 categories | Rivers (43.2%), Streams (34.1%), Effluent (14.0%), Lakes (3.6%), Estuaries (1.2%), Marine (0.5%). |
 | **Storage & I/O** | 44.9 MB (Snappy Parquet) | Optimized columnar binary format; loads in <2.5 seconds in Pandas/DuckDB and opens in VS Code Parquetly. |
 
-*Generated Output*: [`data/GeneratedOutput/01.EDA/01_dataset_summary_profile.parquet`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/data/GeneratedOutput/01.EDA/01_dataset_summary_profile.parquet)  
-*Notebook*: [`nootbooks/01.EDA/01_data_architecture_and_profiling.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/01_data_architecture_and_profiling.ipynb)
+*Generated Output*: [`data/GeneratedOutput/01.EDA/01_dataset_summary_profile.parquet`](../data/GeneratedOutput/01.EDA/01_dataset_summary_profile.parquet)  
+*Notebook*: [`notebooks/01.EDA/01_data_architecture_and_profiling.ipynb`](../notebooks/01.EDA/01_data_architecture_and_profiling.ipynb)
 
 ---
 
@@ -52,8 +52,8 @@ Our audit revealed a critical structural divergence between laboratory monitorin
    - Train baseline tree models on the 2.41M complete cases.
    - For nationwide telemetry rows, apply iterative / KNN imputation or construct a physical-probe feature branch.
 
-*Generated Output*: [`data/GeneratedOutput/01.EDA/02_missingness_patterns.parquet`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/data/GeneratedOutput/01.EDA/02_missingness_patterns.parquet)  
-*Notebook*: [`nootbooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb)
+*Generated Output*: [`data/GeneratedOutput/01.EDA/02_missingness_patterns.parquet`](../data/GeneratedOutput/01.EDA/02_missingness_patterns.parquet)  
+*Notebook*: [`notebooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb`](../notebooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb)
 
 ---
 
@@ -76,8 +76,8 @@ To protect machine learning models from corrupt gradient updates, we audited the
 5. **Clean Physically Validated Filter**:
    - Applied physical constraint boundaries that safely eliminate corrupt sentinels while preserving genuine heavy pollution spikes in industrial effluents.
 
-*Generated Output*: [`data/GeneratedOutput/01.EDA/03_cleaned_physically_validated.parquet`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/data/GeneratedOutput/01.EDA/03_cleaned_physically_validated.parquet)  
-*Notebook*: [`nootbooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb)
+*Generated Output*: [`data/GeneratedOutput/01.EDA/03_cleaned_physically_validated.parquet`](../data/GeneratedOutput/01.EDA/03_cleaned_physically_validated.parquet)  
+*Notebook*: [`notebooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb`](../notebooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb)
 
 ---
 
@@ -97,8 +97,8 @@ We evaluated both linear (Pearson) and monotonic non-linear (Spearman) relations
 3. **Streeter-Phelps Oxygen Sag Curve**:
    - As Biochemical Oxygen Demand (BOD) rises above 10 mg/L, Dissolved Oxygen drops sharply, validating classical river oxygen deficit models.
 
-*Generated Output*: [`data/GeneratedOutput/01.EDA/04_feature_correlations.parquet`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/data/GeneratedOutput/01.EDA/04_feature_correlations.parquet)  
-*Notebook*: [`nootbooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb)
+*Generated Output*: [`data/GeneratedOutput/01.EDA/04_feature_correlations.parquet`](../data/GeneratedOutput/01.EDA/04_feature_correlations.parquet)  
+*Notebook*: [`notebooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb`](../notebooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb)
 
 ---
 
@@ -114,8 +114,8 @@ We evaluated both linear (Pearson) and monotonic non-linear (Spearman) relations
    - Industrial effluent discharge and canals exhibit significantly lower median scores (~75–80) with high variability.
    - Natural flowing rivers and protected lakes maintain higher median quality scores (~90–98).
 
-*Generated Output*: [`data/GeneratedOutput/01.EDA/05_temporal_spatial_aggregates.parquet`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/data/GeneratedOutput/01.EDA/05_temporal_spatial_aggregates.parquet)  
-*Notebook*: [`nootbooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb)
+*Generated Output*: [`data/GeneratedOutput/01.EDA/05_temporal_spatial_aggregates.parquet`](../data/GeneratedOutput/01.EDA/05_temporal_spatial_aggregates.parquet)  
+*Notebook*: [`notebooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb`](../notebooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb)
 
 ---
 
@@ -138,8 +138,8 @@ $$\text{WQI} = 100 - \frac{\sqrt{F_1^2 + F_2^2 + F_3^2}}{1.732}$$
 > [!WARNING]
 > If a machine learning model is trained on all 8 clean constituent parameters to predict CCME WQI, it will merely memorize the algebraic arithmetic rather than learning environmental chemistry. The authentic machine learning objective is predicting water quality from **sparse physical sensor proxies** (`Temperature`, `pH`, `Dissolved Oxygen`) or **forecasting future water quality** from historical lag measurements.
 
-*Generated Output*: [`data/GeneratedOutput/01.EDA/06_target_distributions_and_leakage_audit.parquet`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/data/GeneratedOutput/01.EDA/06_target_distributions_and_leakage_audit.parquet)  
-*Notebook*: [`nootbooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb`](file:///Users/mayanksharma/Downloads/New_Projects/Semester_5_AML_DL/nootbooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb)
+*Generated Output*: [`data/GeneratedOutput/01.EDA/06_target_distributions_and_leakage_audit.parquet`](../data/GeneratedOutput/01.EDA/06_target_distributions_and_leakage_audit.parquet)  
+*Notebook*: [`notebooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb`](../notebooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb)
 
 ---
 

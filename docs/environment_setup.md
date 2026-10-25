@@ -63,7 +63,7 @@ pip install -r requirements.txt
 ```
 
 ### Step 4: Register Kernel for Jupyter Notebooks & VS Code
-To ensure Jupyter notebooks in `nootbooks/` use this virtual environment:
+To ensure Jupyter notebooks in `notebooks/` use this virtual environment:
 ```bash
 python -m ipykernel install --user --name=aml-dl-venv --display-name="Python (.venv - AML/DL)"
 ```
@@ -72,7 +72,7 @@ python -m ipykernel install --user --name=aml-dl-venv --display-name="Python (.v
 
 ## 4. Selecting the Kernel in VS Code
 
-1. Open any notebook in `nootbooks/01.EDA/` (e.g. `01_data_architecture_and_profiling.ipynb`).
+1. Open any notebook in `notebooks/01.EDA/` (e.g. `01_data_architecture_and_profiling.ipynb`).
 2. In the top-right corner of the editor, click **Select Kernel**.
 3. Choose **Python Environments...** &rarr; select **`.venv` (Python 3.x.x)** or **Python (.venv - AML/DL)**.
 4. You are ready to run the cells seamlessly!

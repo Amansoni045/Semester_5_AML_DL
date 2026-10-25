@@ -102,7 +102,10 @@ All notebooks are organized in **[`notebooks/`](notebooks/)**:
 | **[`notebooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb`](notebooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb)** | Correlation heatmaps, N:P ratios & Streeter-Phelps curves | `04_feature_correlations.parquet` |
 | **[`notebooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb`](notebooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb)** | Historical trends (1970–2023) & seasonal cycles | `05_temporal_spatial_aggregates.parquet` |
 | **[`notebooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb`](notebooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb)** | Target distribution, class imbalance, and leakage audit | Target analysis summaries |
-| **[`notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing_and_feature_engineering.ipynb`](notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing_and_feature_engineering.ipynb)** | Cleaning, feature engineering, 70/15/15 split, imputation, scaling | `train.parquet`, `val.parquet`, `test.parquet`, scaled files |
+| **[`notebooks/02.Preprocessing&FeatureSelection/01_feature_analysis.ipynb`](notebooks/02.Preprocessing&FeatureSelection/01_feature_analysis.ipynb)** | Feature distributions, correlation heatmaps, VIF multicollinearity, and leakage audit | Feature analysis profiles & recommendations |
+| **[`notebooks/02.Preprocessing&FeatureSelection/02_data_preprocessing_and_feature_engineering.ipynb`](notebooks/02.Preprocessing&FeatureSelection/02_data_preprocessing_and_feature_engineering.ipynb)** | Cleaning, 15-feature engineering, 70/15/15 split, imputation, scaling | `train.parquet`, `val.parquet`, `test.parquet`, scaled files |
+| **[`notebooks/02.Preprocessing&FeatureSelection/03_model_ready_validation.ipynb`](notebooks/02.Preprocessing&FeatureSelection/03_model_ready_validation.ipynb)** | Model-ready validation, strict target quarantine check, spatial & temporal leakage audit | Verification sign-off & data readiness |
+| **[`notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb`](notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb)** | Phase 1 ML: Mean baseline, Random Forest, XGBoost training & prediction handoff | `random_forest_model.joblib`, `xgboost_model.json`, `tree_val_predictions.parquet` |
 
 ---
 
@@ -116,7 +119,7 @@ Semester_5_AML_DL/
 ├── scripts/
 │   ├── setup_environment.sh                      # Environment setup script (.venv)
 │   ├── run_eda_pipeline.py                       # Automated EDA runner
-│   └── build_and_run_audit_notebook.py           # Audit notebook builder
+│   └── run_notebook.py                           # CLI notebook runner
 ├── src/
 │   ├── __init__.py                               # Package exports
 │   ├── preprocessing.py                          # Data cleaning, feature engineering, split & scaling
