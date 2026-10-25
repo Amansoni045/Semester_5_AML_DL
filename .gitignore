@@ -232,7 +232,9 @@ data/Dataset/Parquet/**/*.parquet
 
 # Generated datasets (large binary files exceeding GitHub 100MB limit; reproduced via scripts/notebooks)
 data/GeneratedOutput/**/*.parquet
+data/generated_output/**/*.parquet
 !data/GeneratedOutput/**/*_sample.parquet
+!data/generated_output/**/*_sample.parquet
 data/GeneratedOutput/**/*.joblib
 data/GeneratedOutput/**/*.pt
 data/GeneratedOutput/**/*.pkl
