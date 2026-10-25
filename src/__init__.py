@@ -1,22 +1,4 @@
-"""
-Water Quality Prediction ML Project source package.
-"""
-
-from .data_audit import (
-    find_dataset_path,
-    load_dataset,
-    inspect_dataset_overview,
-    audit_missingness,
-    audit_duplicates,
-    audit_unique_values,
-    audit_numerical_statistics,
-    audit_categorical_statistics,
-    audit_suspicious_values_and_outliers,
-    audit_target_distribution,
-    generate_audit_visualizations,
-    generate_audit_report,
-    run_full_audit,
-)
+"""Water Quality Prediction ML Project source package."""
 
 from .preprocessing import (
     WaterQualityPreprocessor,
@@ -28,12 +10,18 @@ from .preprocessing import (
     scale_features,
     prepare_training_datasets,
     BASE_NUMERIC_FEATURES,
+    ENGINEERED_FEATURES,
+    MODEL_INPUT_FEATURES,
+    TARGET_REGRESSION,
+    TARGET_CLASSIFICATION,
+    TARGET_CLASSIFICATION_ORDINAL,
     COLUMN_NAME_MAP,
     COLUMN_NAME_MAP_REVERSE,
     MISSING_VALUE_STRATEGY,
     SUSPICIOUS_VALUE_RULES,
     SDL_CLIP_COLUMNS,
     CCME_WQI_CATEGORIES,
+    CCME_WQI_MAP,
     assert_schema_preserved,
     assert_no_sentinels,
     assert_no_sdl_negatives,
@@ -46,19 +34,6 @@ from .preprocessing import (
 )
 
 __all__ = [
-    "find_dataset_path",
-    "load_dataset",
-    "inspect_dataset_overview",
-    "audit_missingness",
-    "audit_duplicates",
-    "audit_unique_values",
-    "audit_numerical_statistics",
-    "audit_categorical_statistics",
-    "audit_suspicious_values_and_outliers",
-    "audit_target_distribution",
-    "generate_audit_visualizations",
-    "generate_audit_report",
-    "run_full_audit",
     "WaterQualityPreprocessor",
     "CleaningSummary",
     "run_cleaning_pipeline",
@@ -68,12 +43,18 @@ __all__ = [
     "scale_features",
     "prepare_training_datasets",
     "BASE_NUMERIC_FEATURES",
+    "ENGINEERED_FEATURES",
+    "MODEL_INPUT_FEATURES",
+    "TARGET_REGRESSION",
+    "TARGET_CLASSIFICATION",
+    "TARGET_CLASSIFICATION_ORDINAL",
     "COLUMN_NAME_MAP",
     "COLUMN_NAME_MAP_REVERSE",
     "MISSING_VALUE_STRATEGY",
     "SUSPICIOUS_VALUE_RULES",
     "SDL_CLIP_COLUMNS",
     "CCME_WQI_CATEGORIES",
+    "CCME_WQI_MAP",
     "assert_schema_preserved",
     "assert_no_sentinels",
     "assert_no_sdl_negatives",

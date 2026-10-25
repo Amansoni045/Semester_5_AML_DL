@@ -6,32 +6,36 @@
 
 ---
 
-## 1. Project Overview & The "Hybrid" Logic
+## 1. Project Overview & Architecture
 
-This project predicts surface water quality from physical and chemical measurements using a complementary machine learning and deep learning architecture:
+This project predicts surface water quality from physical and chemical sensor measurements using a two-phase evaluation framework:
 
-- **AML Baseline (Tree Models)**: Train **XGBoost** and **Random Forest** models on physical and chemical features (`pH`, `Dissolved Oxygen`, `Temperature`, `BOD`, `Ammonia`, `Orthophosphate`, `Nitrogen`, `Nitrate`). Tree models offer strong performance on tabular data and robust splitting behavior.
-- **Deep Learning Model (Neural Network)**: Train a regularized **Multi-Layer Perceptron (MLP)** with dual heads (regression for continuous `CCME_Values` and classification for `CCME_WQI` classes) to capture smooth combinations and calibrated uncertainty when multiple sensors interact non-linearly.
-- **Fair Evaluation Protocol**: Use site-stratified and temporal holdout splits to prevent spatial and temporal memorization leakage, reporting **MAE, RMSE, $R^2$** for regression and **Macro F1 & Calibration** for classification.
+- **Phase 1: Machine Learning (Current Responsibility)**: Train **Baseline**, **Random Forest**, and **XGBoost** regressors on 15 verified features (8 physical/chemical parameters + 7 engineered geochemical and seasonal predictors). Models are serialized and predictions are exported for model evaluation.
+- **Phase 2: Deep Learning (Future Phase)**: Multi-layer perceptron neural networks to capture non-linear sensor dynamics and uncertainty.
+- **Model Evaluation**: Managed by another team member in `notebooks/04.ModelEvaluation/` and `data/GeneratedOutput/04.ModelEvaluation/`.
 
 ---
 
-## 2. Quickstart & Automated Pipeline Runner
+## 2. Quickstart & Workflow Execution
 
-You can set up the environment and run the entire EDA pipeline with a single command:
+You can run individual notebooks directly or use the provided automation scripts:
 
 ```bash
-# Option A: One-line Universal Python Runner (runs environment setup first, then runs all 6 EDA notebooks):
-python3 scripts/run_eda_pipeline.py
-
-# Option B: Run environment setup script explicitly, then run pipeline:
+# Setup environment:
 ./scripts/setup_environment.sh
-.venv/bin/python scripts/run_eda_pipeline.py
-```
 
-> [!NOTE]  
-> `scripts/run_eda_pipeline.py` automatically checks if `.venv` exists. If run with system Python, it runs `scripts/setup_environment.sh` first to ensure `.venv` and all packages from `requirements.txt` are installed, registers the Jupyter kernel (`aml-dl-venv`), bootstraps execution into `.venv`, runs all 6 EDA notebooks sequentially, and audits generated Parquet files in `data/GeneratedOutput/01.EDA/`.
-> For full setup details, see the [Environment Setup Guide](docs/environment_setup.md).
+# Run EDA pipeline:
+.venv/bin/python scripts/run_eda_pipeline.py
+
+# Or run any individual notebook directly:
+.venv/bin/python scripts/run_notebook.py notebooks/01.EDA/01_data_understanding.ipynb
+.venv/bin/python scripts/run_notebook.py notebooks/01.EDA/02_data_patterns_and_target.ipynb
+.venv/bin/python scripts/run_notebook.py "notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb"
+.venv/bin/python scripts/run_notebook.py notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb
+
+# Run automated tests:
+.venv/bin/pytest tests/
+```
 
 ---
 
@@ -39,114 +43,91 @@ python3 scripts/run_eda_pipeline.py
 
 Our harmonized dataset contains **4,297,895 surface water monitoring observations** across **64,665 unique stations** spanning 1940 to 2023.
 
-### Country Breakdown
-
 | Country | Records | Year Range | Primary Source Networks |
 |---|---|---|---|
-| **England** | 2,129,198 | 2000–2023 | Environment Agency UK (`data.gov.uk`) — Complete 8-sensor panels |
-| **USA** | 1,879,966 | 1940–2023 | USGS NWIS Telemetry (FL, CA, TX, NY, WA, NC) + EPA Water Quality Portal |
-| **Ireland** | 235,019 | 1940–2023 | EPA Ireland (`catchments.ie` / `data.europa.eu`) — Complete panels |
+| **England** | 2,129,198 | 2000–2023 | Environment Agency UK (`data.gov.uk`) |
+| **USA** | 1,879,966 | 1940–2023 | USGS NWIS Telemetry + EPA Water Quality Portal |
+| **Ireland** | 235,019 | 1940–2023 | EPA Ireland (`catchments.ie` / `data.europa.eu`) |
 | **China** | 45,997 | 2001–2017 | Ministry of Ecology and Environment / `data.gov.hk` |
 | **Canada** | 3,995 | 1968–2021 | Open Canada / ECCC / Lac Hertel High-Frequency Sonde Network |
-| **India** | 3,633 | 2003–2023 | Central Pollution Control Board (CPCB) National River Network |
+| **India** | 3,633 | 2003–2023 | Central Pollution Control Board (CPCB) |
 | **Australia** | 87 | 2014–2015 | Torrens River & Lake Water Quality (`data.sa.gov.au`) |
 | **Total** | **4,297,895** | **1940–2023** | **Harmonized 14-Column Master Dataset** |
 
 ---
 
-## 4. Target Schema & Feature Definitions
+## 4. Feature Definitions & Target Quarantine
 
-- **Metadata / Context**:
-  - `Country`: Country of origin (string)
-  - `Area`: Monitoring station location / river / catchment area (string)
-  - `Waterbody Type`: River, Stream, Effluent, Lake, Estuary, Marine (string)
-  - `Date`: Sampling date formatted as `DD-MM-YYYY` (string)
-- **Authoritative Model Input Features ($X$, 15 Features)**:
-  - *Base Physical & Chemical Parameters (8)*:
-    - `ph`: Negative log hydrogen activity (pH units)
-    - `temperature_c`: Water temperature (Celsius)
-    - `do_mg_l`: Dissolved Oxygen concentration (mg/L)
-    - `bod_mg_l`: 5-day Biochemical Oxygen Demand (mg/L)
-    - `ammonia_mg_l`: Ammonium / ammonia concentration (mg/L)
-    - `orthophosphate_mg_l`: Dissolved reactive phosphorus (mg/L)
-    - `nitrogen_mg_l`: Total / dissolved nitrogen (mg/L)
-    - `nitrate_mg_l`: Nitrate ion concentration (mg/L)
-  - *Domain-Engineered Geochemical & Seasonal Predictors (7)*:
-    - `np_ratio`: Stoichiometric Total Nitrogen to Orthophosphate ratio
-    - `bod_do_ratio`: Organic loading relative to available dissolved oxygen
-    - `do_deficit`: Signed oxygen deficit $DO_{\text{sat}}(T) - DO$ (sub-zero bounded at $0^\circ\text{C}$ freezing point saturation)
-    - `month`: Integer calendar month ($1 \dots 12$)
-    - `quarter`: Integer calendar quarter ($1 \dots 4$)
-    - `month_sin`: Cyclical seasonal transform $\sin(2\pi(m-1)/12)$
-    - `month_cos`: Cyclical seasonal transform $\cos(2\pi(m-1)/12)$
-- **Target Indices ($y$, Strictly Excluded from $X$)**:
-  - `ccme_values`: Canadian Council of Ministers of the Environment Water Quality Index score (`0.0` – `100.0`, continuous regression target)
-  - `ccme_wqi`: Categorical classification (`Poor` < `Marginal` < `Fair` < `Good` < `Excellent`)
-  - `ccme_wqi_code`: Ordinal integer classification label (`0` $\dots$ `4`)
+- **Base Features (8)**:
+  - `ph`: Negative log hydrogen activity (pH units)
+  - `temperature_c`: Water temperature (Celsius)
+  - `do_mg_l`: Dissolved Oxygen concentration (mg/L)
+  - `bod_mg_l`: 5-day Biochemical Oxygen Demand (mg/L)
+  - `ammonia_mg_l`: Ammonium / ammonia concentration (mg/L)
+  - `orthophosphate_mg_l`: Dissolved reactive phosphorus (mg/L)
+  - `nitrogen_mg_l`: Total / dissolved nitrogen (mg/L)
+  - `nitrate_mg_l`: Nitrate ion concentration (mg/L)
+- **Engineered Features (7)**:
+  - `np_ratio`: Stoichiometric Total Nitrogen to Orthophosphate ratio
+  - `bod_do_ratio`: Organic loading relative to available dissolved oxygen
+  - `do_deficit`: Signed oxygen deficit $DO_{\text{sat}}(T) - DO$
+  - `month`: Integer calendar month (1–12)
+  - `quarter`: Integer calendar quarter (1–4)
+  - `month_sin`: Cyclical seasonal transform $\sin(2\pi(m-1)/12)$
+  - `month_cos`: Cyclical seasonal transform $\cos(2\pi(m-1)/12)$
+- **Target Variables (Strictly quarantined from model inputs)**:
+  - `ccme_values`: Canadian Council of Ministers of the Environment Water Quality Index score (`0.0`–`100.0`, continuous regression target)
+  - `ccme_wqi`: Categorical classification (`Poor`, `Marginal`, `Fair`, `Good`, `Excellent`)
+  - `ccme_wqi_code`: Ordinal integer classification label (`0`–`4`)
 
 ---
 
-## 5. Exploratory Data Analysis & Preprocessing
+## 5. Notebooks Structure
 
-The exploratory analysis is compiled in:  
-**[Exploratory Data Analysis Comprehensive Report](docs/EDA_REPORT.md)** and **[Preprocessing Specification](docs/PREPROCESSING_SPECIFICATION.md)**.
+```
+notebooks/
+├── 01.EDA/
+│   ├── 01_data_understanding.ipynb                # Dataset loading, structure, missing values, summary stats
+│   └── 02_data_patterns_and_target.ipynb          # Sentinels, physical validity, correlations, seasonality, target distributions
+├── 02.Preprocessing&FeatureSelection/
+│   └── 01_data_preprocessing.ipynb               # Full 7-step pipeline: cleaning, feature engineering, split, imputation, scaling
+├── 03.ModelTraining/
+│   └── 01_baseline_and_tree_models.ipynb          # Phase 1: Mean baseline, Random Forest, XGBoost training & artifact export
+└── 04.ModelEvaluation/                            # Reserved for evaluation teammate (.gitkeep)
+```
 
-All notebooks are organized in **[`notebooks/`](notebooks/)**:
-
-| Notebook | Focus & Tasks | Outputs |
-|---|---|---|
-| **[`notebooks/01.EDA/00_initial_dataset_audit.ipynb`](notebooks/01.EDA/00_initial_dataset_audit.ipynb)** | Initial inspection, profiling, and anomaly diagnostics | `reports/dataset_audit_report.md` |
-| **[`notebooks/01.EDA/01_data_architecture_and_profiling.ipynb`](notebooks/01.EDA/01_data_architecture_and_profiling.ipynb)** | Multi-country data architecture & sampling frequency | `01_dataset_summary_profile.parquet` |
-| **[`notebooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb`](notebooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb)** | Missingness mechanisms & nutrient co-occurrence ($r > 0.99$) | `02_missingness_patterns.parquet` |
-| **[`notebooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb`](notebooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb)** | Sensor sentinel code detection & Henry's Law DO saturation | `03_cleaned_physically_validated.parquet` |
-| **[`notebooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb`](notebooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb)** | Correlation heatmaps, N:P ratios & Streeter-Phelps curves | `04_feature_correlations.parquet` |
-| **[`notebooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb`](notebooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb)** | Historical trends (1970–2023) & seasonal cycles | `05_temporal_spatial_aggregates.parquet` |
-| **[`notebooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb`](notebooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb)** | Target distribution, class imbalance, and leakage audit | Target analysis summaries |
-| **[`notebooks/02.Preprocessing&FeatureSelection/01_feature_analysis.ipynb`](notebooks/02.Preprocessing&FeatureSelection/01_feature_analysis.ipynb)** | Feature distributions, correlation heatmaps, VIF multicollinearity, and leakage audit | Feature analysis profiles & recommendations |
-| **[`notebooks/02.Preprocessing&FeatureSelection/02_data_preprocessing_and_feature_engineering.ipynb`](notebooks/02.Preprocessing&FeatureSelection/02_data_preprocessing_and_feature_engineering.ipynb)** | Cleaning, 15-feature engineering, 70/15/15 split, imputation, scaling | `train.parquet`, `val.parquet`, `test.parquet`, scaled files |
-| **[`notebooks/02.Preprocessing&FeatureSelection/03_model_ready_validation.ipynb`](notebooks/02.Preprocessing&FeatureSelection/03_model_ready_validation.ipynb)** | Model-ready validation, strict target quarantine check, spatial & temporal leakage audit | Verification sign-off & data readiness |
-| **[`notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb`](notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb)** | Phase 1 ML: Mean baseline, Random Forest, XGBoost training & prediction handoff | `random_forest_model.joblib`, `xgboost_model.json`, `tree_val_predictions.parquet` |
+All notebooks follow clean Colab-style code formatting with single-line Markdown section headers and concise, readable Python cells without unnecessary boilerplate or inline comment clutter.
 
 ---
 
 ## 6. Repository Layout
 
-```
+```text
 Semester_5_AML_DL/
-├── AGENT.md                                      # Project overview & roadmap
-├── README.md                                     # Main project guide
+├── README.md                                     # Main project documentation
+├── AGENT.md                                      # Project progress & roadmap
 ├── requirements.txt                              # Python package dependencies
+├── .gitignore                                    # Git ignore rules for virtualenvs & large binaries
 ├── scripts/
-│   ├── setup_environment.sh                      # Environment setup script (.venv)
-│   ├── run_eda_pipeline.py                       # Automated EDA runner
-│   └── run_notebook.py                           # CLI notebook runner
+│   ├── setup_environment.sh                      # Virtual environment setup script
+│   ├── run_eda_pipeline.py                       # Automated EDA notebook runner
+│   └── run_notebook.py                           # CLI notebook executor
 ├── src/
 │   ├── __init__.py                               # Package exports
-│   ├── preprocessing.py                          # Data cleaning, feature engineering, split & scaling
-│   └── data_audit.py                             # Inspection & anomaly auditing utilities
+│   └── preprocessing.py                          # Data cleaning, feature engineering, split & scaling
 ├── tests/
 │   ├── __init__.py
-│   └── test_preprocessing.py                     # Unit & integration test suite (65+ tests)
+│   ├── test_preprocessing.py                     # Unit tests for preprocessing & cleaning
+│   └── test_model_training.py                    # Unit tests for tree models & predictions
 ├── data/
 │   ├── Dataset/
-│   │   ├── Parquet/                              # Tracked parquet master datasets
-│   │   │   ├── Combined Data/
-│   │   │   │   └── Combined_dataset.parquet      # Master combined dataset (4.29M rows)
-│   │   │   └── Country-Wise Data/                # Country-specific parquet files
+│   │   ├── Parquet/                              # Tracked parquet master dataset
 │   │   └── CSV/                                  # Raw CSV archive (ignored by git)
-│   │       ├── Combined Data/
-│   │       └── Country-Wise Data/
-│   ├── Data Collection Sources/
 │   └── GeneratedOutput/
-│       ├── 01.EDA/                               # EDA summary parquets
-│       ├── 02.Preprocessing&FeatureSelection/    # Model training datasets (train, val, test, scaled)
-│       ├── 03.ModelTraining/                     # Tree models & MLP checkpoints
-│       └── 04.ModelEvaluation/                   # Metric tables & SHAP artifacts
-├── notebooks/
-│   ├── 01.EDA/                                   # EDA notebooks (00 through 06)
-│   ├── 02.Preprocessing&FeatureSelection/        # Preprocessing & feature engineering notebook
-│   ├── 03.ModelTraining/                         # Tree baseline & neural net training notebooks
-│   └── 04.ModelEvaluation/                       # Evaluation & explainability notebooks
+│       ├── 01.EDA/                               # EDA summary parquets and final clean dataset
+│       ├── 02.Preprocessing&FeatureSelection/    # Model-ready train, val, test splits & metadata
+│       ├── 03.ModelTraining/                     # Serialized models & validation predictions
+│       └── 04.ModelEvaluation/                   # Reserved for evaluation teammate (.gitkeep)
 ├── reports/
 │   ├── dataset_audit_report.md
 │   └── figures/
@@ -160,9 +141,9 @@ Semester_5_AML_DL/
 
 ## 7. Viewing Parquet Files in VS Code
 
-All `.parquet` files use standard **`SNAPPY`** compression for fast I/O and broad compatibility.
+All `.parquet` files use standard **`SNAPPY`** compression.
 
 To inspect, filter, and plot any Parquet file directly inside VS Code:
 1. Open the **Extensions** panel (`Cmd + Shift + X` on macOS / `Ctrl + Shift + X` on Windows/Linux).
 2. Install **Parquetly** (**Parquetly - Parquet Viewer and Editor**).
-3. Click any `.parquet` file in `data/` or right-click &rarr; **Reopen Editor With...** &rarr; **Parquetly**.
+3. Click any `.parquet` file in `data/` to view its contents interactively.
