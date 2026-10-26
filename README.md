@@ -93,7 +93,9 @@ notebooks/
 │   └── 01_data_preprocessing.ipynb               # Full 7-step pipeline: cleaning, feature engineering, split, imputation, scaling
 ├── 03.ModelTraining/
 │   └── 01_baseline_and_tree_models.ipynb          # Phase 1: Mean baseline, Random Forest, XGBoost training & artifact export
-└── 04.ModelEvaluation/                            # Reserved for evaluation teammate (.gitkeep)
+└── 04.ModelEvaluation/
+    ├── 01_ml_model_comparison.ipynb               # Metric calculation (MAE, RMSE, R²), alignment check & comparison
+    └── 02_feature_importance.ipynb                # Built-in Random Forest MDI & XGBoost gain feature importances
 ```
 
 All notebooks follow clean Colab-style code formatting with single-line Markdown section headers and concise, readable Python cells without unnecessary boilerplate or inline comment clutter.
@@ -127,7 +129,8 @@ Semester_5_AML_DL/
 │       ├── 01.EDA/                               # EDA summary parquets and final clean dataset
 │       ├── 02.Preprocessing&FeatureSelection/    # Model-ready train, val, test splits & metadata
 │       ├── 03.ModelTraining/                     # Serialized models & validation predictions
-│       └── 04.ModelEvaluation/                   # Reserved for evaluation teammate (.gitkeep)
+│       └── 04.ModelEvaluation/                   # Model comparison CSV, plots & feature importance charts
+
 ├── reports/
 │   ├── dataset_audit_report.md
 │   └── figures/

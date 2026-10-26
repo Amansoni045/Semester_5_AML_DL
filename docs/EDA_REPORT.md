@@ -13,9 +13,9 @@
 
 This document provides a single, unified reference for the entire Exploratory Data Analysis (EDA) performed on the global surface water quality monitoring dataset. 
 
-Our investigation analyzed **4,297,895 records** across **64,665 unique monitoring stations** over an **83-year timeline (1940–2023)**. Rather than relying on simple summary statistics, our analysis was structured into 6 modular stages covering sensor physics, missingness mechanisms, geochemical laws (Henry's Law, nutrient stoichiometry), long-term climate trajectories, and machine learning data leakage risks.
+Our investigation analyzed **4,297,895 records** across **64,665 unique monitoring stations** over an **83-year timeline (1940–2023)**. Rather than relying on simple summary statistics, our analysis was structured into modular investigations covering sensor physics, missingness mechanisms, geochemical laws (Henry's Law, nutrient stoichiometry), long-term climate trajectories, and machine learning data leakage risks.
 
-All 6 notebooks have been executed with embedded high-resolution figures in `notebooks/01.EDA/`, and every analytical table is saved as a Snappy-compressed `.parquet` file in `data/GeneratedOutput/01.EDA/`.
+The analysis is consolidated into two executable notebooks in `notebooks/01.EDA/` (`01_data_understanding.ipynb` and `02_data_patterns_and_target.ipynb`), and every analytical summary table is saved as a Snappy-compressed `.parquet` file in `data/GeneratedOutput/01.EDA/`.
 
 ---
 
@@ -32,7 +32,7 @@ All 6 notebooks have been executed with embedded high-resolution figures in `not
 | **Storage & I/O** | 44.9 MB (Snappy Parquet) | Optimized columnar binary format; loads in <2.5 seconds in Pandas/DuckDB and opens in VS Code Parquetly. |
 
 *Generated Output*: [`data/GeneratedOutput/01.EDA/01_dataset_summary_profile.parquet`](../data/GeneratedOutput/01.EDA/01_dataset_summary_profile.parquet)  
-*Notebook*: [`notebooks/01.EDA/01_data_architecture_and_profiling.ipynb`](../notebooks/01.EDA/01_data_architecture_and_profiling.ipynb)
+*Notebook*: [`notebooks/01.EDA/01_data_understanding.ipynb`](../notebooks/01.EDA/01_data_understanding.ipynb)
 
 ---
 
@@ -53,7 +53,7 @@ Our audit revealed a critical structural divergence between laboratory monitorin
    - For nationwide telemetry rows, apply iterative / KNN imputation or construct a physical-probe feature branch.
 
 *Generated Output*: [`data/GeneratedOutput/01.EDA/02_missingness_patterns.parquet`](../data/GeneratedOutput/01.EDA/02_missingness_patterns.parquet)  
-*Notebook*: [`notebooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb`](../notebooks/01.EDA/02_sensor_sparsity_and_missingness.ipynb)
+*Notebook*: [`notebooks/01.EDA/01_data_understanding.ipynb`](../notebooks/01.EDA/01_data_understanding.ipynb)
 
 ---
 
@@ -77,7 +77,7 @@ To protect machine learning models from corrupt gradient updates, we audited the
    - Applied physical constraint boundaries that safely eliminate corrupt sentinels while preserving genuine heavy pollution spikes in industrial effluents.
 
 *Generated Output*: [`data/GeneratedOutput/01.EDA/03_cleaned_physically_validated.parquet`](../data/GeneratedOutput/01.EDA/03_cleaned_physically_validated.parquet)  
-*Notebook*: [`notebooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb`](../notebooks/01.EDA/03_geochemical_physics_and_anomalies.ipynb)
+*Notebook*: [`notebooks/01.EDA/02_data_patterns_and_target.ipynb`](../notebooks/01.EDA/02_data_patterns_and_target.ipynb)
 
 ---
 
@@ -98,7 +98,7 @@ We evaluated both linear (Pearson) and monotonic non-linear (Spearman) relations
    - As Biochemical Oxygen Demand (BOD) rises above 10 mg/L, Dissolved Oxygen drops sharply, validating classical river oxygen deficit models.
 
 *Generated Output*: [`data/GeneratedOutput/01.EDA/04_feature_correlations.parquet`](../data/GeneratedOutput/01.EDA/04_feature_correlations.parquet)  
-*Notebook*: [`notebooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb`](../notebooks/01.EDA/04_bivariate_and_multivariate_correlations.ipynb)
+*Notebook*: [`notebooks/01.EDA/02_data_patterns_and_target.ipynb`](../notebooks/01.EDA/02_data_patterns_and_target.ipynb)
 
 ---
 
@@ -115,7 +115,7 @@ We evaluated both linear (Pearson) and monotonic non-linear (Spearman) relations
    - Natural flowing rivers and protected lakes maintain higher median quality scores (~90–98).
 
 *Generated Output*: [`data/GeneratedOutput/01.EDA/05_temporal_spatial_aggregates.parquet`](../data/GeneratedOutput/01.EDA/05_temporal_spatial_aggregates.parquet)  
-*Notebook*: [`notebooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb`](../notebooks/01.EDA/05_temporal_seasonality_and_spatial_trends.ipynb)
+*Notebook*: [`notebooks/01.EDA/02_data_patterns_and_target.ipynb`](../notebooks/01.EDA/02_data_patterns_and_target.ipynb)
 
 ---
 
@@ -139,7 +139,8 @@ $$\text{WQI} = 100 - \frac{\sqrt{F_1^2 + F_2^2 + F_3^2}}{1.732}$$
 > If a machine learning model is trained on all 8 clean constituent parameters to predict CCME WQI, it will merely memorize the algebraic arithmetic rather than learning environmental chemistry. The authentic machine learning objective is predicting water quality from **sparse physical sensor proxies** (`Temperature`, `pH`, `Dissolved Oxygen`) or **forecasting future water quality** from historical lag measurements.
 
 *Generated Output*: [`data/GeneratedOutput/01.EDA/06_target_distributions_and_leakage_audit.parquet`](../data/GeneratedOutput/01.EDA/06_target_distributions_and_leakage_audit.parquet)  
-*Notebook*: [`notebooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb`](../notebooks/01.EDA/06_target_behavior_and_leakage_audit.ipynb)
+*Notebook*: [`notebooks/01.EDA/02_data_patterns_and_target.ipynb`](../notebooks/01.EDA/02_data_patterns_and_target.ipynb)
+
 
 ---
 

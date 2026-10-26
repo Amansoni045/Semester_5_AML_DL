@@ -96,12 +96,12 @@ Semester_5_AML_DL/
 │       ├── 01.EDA/                               # EDA summary parquets & final cleaned data
 │       ├── 02.Preprocessing&FeatureSelection/    # Model training datasets (train, val, test, scaled)
 │       ├── 03.ModelTraining/                     # Serialized models & validation predictions
-│       └── 04.ModelEvaluation/                   # Reserved for evaluation teammate (.gitkeep)
+│       └── 04.ModelEvaluation/                   # Model comparison CSV, plots & feature importance charts
 ├── notebooks/
 │   ├── 01.EDA/                                   # 01_data_understanding.ipynb, 02_data_patterns_and_target.ipynb
 │   ├── 02.Preprocessing&FeatureSelection/        # 01_data_preprocessing.ipynb
 │   ├── 03.ModelTraining/                         # 01_baseline_and_tree_models.ipynb
-│   └── 04.ModelEvaluation/                       # Reserved for evaluation teammate (.gitkeep)
+│   └── 04.ModelEvaluation/                       # 01_ml_model_comparison.ipynb, 02_feature_importance.ipynb
 ├── reports/
 │   ├── dataset_audit_report.md
 │   └── figures/
@@ -110,8 +110,8 @@ Semester_5_AML_DL/
 │   └── preprocessing.py                          # Data cleaning, feature engineering, split & scaling
 └── tests/
     ├── __init__.py
-    ├── test_preprocessing.py                     # Unit tests for preprocessing & cleaning (41 tests)
-    └── test_model_training.py                    # Unit tests for tree models & predictions (14 tests)
+    ├── test_preprocessing.py                     # Unit tests for preprocessing & cleaning (52 tests)
+    └── test_model_training.py                    # Unit tests for tree models & predictions (3 tests)
 ```
 
 ---
@@ -125,5 +125,6 @@ Semester_5_AML_DL/
 | 2026-10-25 | Role 2 (EDA Simplification) | Consolidated 7 EDA notebooks into 2 clean Colab notebooks | `notebooks/01.EDA/01_data_understanding.ipynb`, `02_data_patterns_and_target.ipynb` | **Completed** |
 | 2026-10-25 | Role 3 (Preprocessing Simplification) | Consolidated 3 preprocessing notebooks into 1 clean Colab notebook | `notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb` | **Completed** |
 | 2026-10-25 | Role 4 (AML Models Simplification) | Formatted Phase 1 ML training notebook with single-line headers; verified saved models & predictions | `notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb`, `data/GeneratedOutput/03.ModelTraining/` | **Completed** |
-| Next | Role 5 (Deep Learning) | Train regularized dual-head MLP; evaluate calibration, uncertainty (Phase 2) | `notebooks/03.ModelTraining/` | Queued (Phase 2) |
-| Next | Evaluation Teammate | Perform comprehensive model evaluation and metric reporting | `notebooks/04.ModelEvaluation/`, `data/GeneratedOutput/04.ModelEvaluation/` | Assigned to Teammate |
+| 2026-10-26 | Role 5 / Evaluation | Evaluated baseline, Random Forest, XGBoost; verified alignment, metrics & feature importance | `notebooks/04.ModelEvaluation/`, `data/GeneratedOutput/04.ModelEvaluation/` | **Completed** |
+| Future | Role 5 (Deep Learning) | Train regularized dual-head MLP; evaluate calibration, uncertainty (Phase 2) | `notebooks/03.ModelTraining/` | Queued (Phase 2) |
+
