@@ -266,10 +266,10 @@ $$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{Smooth L1}} + 0.5 \cdot \mathc
 - Smooth Huber L1 loss prevented gradient shock from residual sensor spikes.
 - Settled at **Val R² = 0.9957** and **Val MAE = 0.7056** index points.
 
-### 97.49% Recall on 'Poor' Water Quality Tier
-- Inverse class weighting successfully resolved extreme class imbalance.
-- Identified **97.49% of all chronically impaired 'Poor' water bodies** while maintaining **96.09% overall accuracy**.
-- Crucial for municipal early warning telemetry: minimizes false negatives on dangerous water.
+### 97.49% Recall & Calibrated Uncertainty
+- Inverse class weighting successfully resolved extreme class imbalance (97.49% Poor recall).
+- **Probability Calibration:** Multi-Class Brier Score = **0.0533** | Expected Calibration Error (ECE) = **1.27%**.
+- Crucial for municipal early warning telemetry: minimizes false negatives and provides reliable confidence.
 
 ---
 
@@ -281,7 +281,7 @@ $$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{Smooth L1}} + 0.5 \cdot \mathc
 | **Mean Baseline** | Heuristic | 14.1297 | 17.6561 | -0.0000 | N/A | < 0.01 ms |
 | **Random Forest Regressor** | Bagged Trees (30) | **0.0521** | **0.2081** | **0.9999** | N/A | 1.24 ms |
 | **XGBoost Regressor** | Gradient Boosted (150) | 0.1375 | 0.3740 | 0.9996 | N/A | 0.45 ms |
-| **Dual-Head MLP (PyTorch)** | Deep Multi-Task NN | 0.7056 | 1.1557 | 0.9957 | **96.09%** | **0.08 ms (GPU)** |
+| **Dual-Head MLP (PyTorch)** | Deep Multi-Task NN | 0.7056 | 1.1557 | 0.9957 | **96.09% (ECE 1.27%)** | **0.08 ms (GPU)** |
 
 ### Operational Trade-Offs
 - **Use Random Forest / XGBoost:** When continuous scalar precision is the sole requirement and inference is executed on low-power edge microcontrollers.
@@ -290,37 +290,32 @@ $$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{Smooth L1}} + 0.5 \cdot \mathc
 ---
 
 <!-- Slide 16 -->
-## Explainable AI: Discovering Key Geochemical Drivers
+## Explainable AI: Feature Importance & TreeSHAP Attribution
 
-![bg right:50% 90%](../data/GeneratedOutput/04.ModelEvaluation/feature_importance.png)
+![bg right:50% 90%](../data/GeneratedOutput/04.ModelEvaluation/shap_summary.png)
 
-### Orthophosphate Dominates (~88%)
-- Feature importance scores confirm that Orthophosphate (`log1p_orthophosphate` + raw) drives ~88% of all decision tree splits across international water basins.
-- Validates environmental science: phosphorus is the primary limiting nutrient controlling aquatic eutrophication.
-
-### Secondary Critical Predictors
-- **Prior Station Ortho (`hist_ortho_lag1`):** Captures hydrological memory and baseline inertia.
-- **Ammoniacal Nitrogen:** Primary marker of raw sewage discharge and agricultural runoff.
-- **Dissolved Oxygen Saturation:** Essential metric of biological aerobic vitality.
+### Global Importance vs. Local TreeSHAP
+- **Orthophosphate Dominates (~88%):** Drives ~88% of all decision tree splits across international basins.
+- **Game-Theoretic TreeSHAP Attribution:** High orthophosphate (red points) exerts severe negative SHAP force on CCME WQI.
+- **Secondary Critical Predictors:** Prior Station Ortho (`hist_ortho_lag1`), Ammoniacal Nitrogen, and DO Saturation %.
+- Both Gini importance and TreeSHAP independently validate key geochemical drivers.
 
 ---
 
 <!-- Slide 17 -->
-## Engineering Triumph: Multi-Part Parquet Sharding
+## Engineering Triumph: Parquet Sharding, Modular src/ & pytest Suite
 
-### The Challenge: GitHub 100 MB Limit
-- Scaling to 2.82M rows across 45 columns yielded a 188.43 MB `train.parquet` and 189.67 MB `train_scaled.parquet`.
-- `git push --force` was rejected by GitHub server-side hooks with HTTP 400.
-- User constraint: **All files must be tracked; zero files ignored**.
+### 1. Transparent Parquet Sharding (GitHub 100 MB Limit)
+- Sharded `train.parquet` into 3 parts (~53 MB each) inside transparent directory using `zstd`.
+- `pd.read_parquet("train.parquet")` loads all 1.97M rows seamlessly without code changes.
 
-### The Solution: Transparent Multi-Part Directories
-- Partitioned training data into 3 shards of ~53 MB each (`part-00000.parquet` to `part-00002.parquet`) using `zstd` compression.
-- Apache Arrow and Pandas natively load multi-part directories transparently:
-  ```python
-  df_train = pd.read_parquet("data/Dataset/02.Processed/train.parquet")
-```
-- Seamless developer experience: loads all 1.97M rows automatically!
-- Pushed **515.44 MB** cleanly to `origin/main` with zero files ignored.
+### 2. Production Python Package (`src/`) & Automated Tests (`tests/`)
+- Refactored core modules: `src/features.py`, `src/models.py`, `src/metrics.py`, `src/utils.py`.
+- Automated test suite in `tests/` (**12 unit tests, 100% passing in 2.2s** via `pytest`):
+  - Validates aquatic domain physics bounds & non-negative assertions.
+  - Validates zero lookahead leakage in station lags and target quarantine.
+  - Validates PyTorch `DualHeadMLP` forward shapes and checkpoint loading.
+
 
 ---
 

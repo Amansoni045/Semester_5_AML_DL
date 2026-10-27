@@ -947,8 +947,8 @@
     <div class="slide" id="slide-14">
       <div class="slide-header">
         <div class="slide-title-group">
-          <h2>Deep Learning Performance: 96.09% Accuracy &amp; Minority Recall</h2>
-          <p class="sub">Loss Convergence Curves • Confusion Matrix Diagonal Dominance • 97.49% 'Poor' Recall</p>
+          <h2>Deep Learning Performance: 96.09% Accuracy &amp; Calibrated Uncertainty</h2>
+          <p class="sub">Loss Convergence Curves • Confusion Matrix • Brier Score: 0.0533 • ECE: 1.27%</p>
         </div>
       </div>
       <div class="grid-2" style="flex: 1;">
@@ -968,7 +968,7 @@
           </div>
           <div class="card" style="padding: 12px;">
             <p style="font-size: 12px; color: #cbd5e1;">
-              <strong>Diagonal Dominance:</strong> Inverse class weighting achieved <strong>97.49% recall on the minority 'Poor' class</strong> and <strong>96.09% overall accuracy</strong>, successfully preventing false negatives on dangerous water.
+              <strong>Diagonal Dominance &amp; Calibration:</strong> Achieved <strong>97.49% recall on minority 'Poor' water</strong>, <strong>96.09% overall accuracy</strong>, and an <strong>Expected Calibration Error of 1.27%</strong>.
             </p>
           </div>
         </div>
@@ -1029,7 +1029,7 @@
             <td>0.7056</td>
             <td>1.1557</td>
             <td>0.9957</td>
-            <td><strong>96.09%</strong></td>
+            <td><strong>96.09% (ECE 1.27%)</strong></td>
             <td><strong>0.08 ms (GPU)</strong></td>
           </tr>
         </tbody>
@@ -1053,78 +1053,73 @@
       </div>
     </div>
 
-    <!-- SLIDE 16: Explainable AI & Feature Importance -->
+    <!-- SLIDE 16: Explainable AI: Feature Importance & TreeSHAP -->
     <div class="slide" id="slide-16">
       <div class="slide-header">
         <div class="slide-title-group">
-          <h2>Explainable AI: Discovering Key Geochemical Drivers</h2>
-          <p class="sub">Feature Importance Ranking • Orthophosphate Dominance • Environmental Validation</p>
+          <h2>Explainable AI: Feature Importance &amp; TreeSHAP Attribution</h2>
+          <p class="sub">Global Gini / Gain Rankings • Game-Theoretic TreeSHAP Attribution</p>
         </div>
       </div>
-      <div class="grid-2">
-        <div class="figure-container">
-          <img src="../data/GeneratedOutput/04.ModelEvaluation/feature_importance.png" alt="Feature Importance">
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 14px;">
-          <div class="card" style="border-left: 4px solid var(--accent-emerald);">
-            <h3 style="color: var(--accent-emerald);">Phosphorus Dominance (~88%)</h3>
-            <ul>
-              <li>Feature importance scores show Orthophosphate (<code>log1p_orthophosphate</code> + raw) drives ~88% of all model split decisions.</li>
-              <li>Confirms limnological consensus: Phosphorus is the single most critical nutrient triggering freshwater algae blooms and hypoxic fish kills.</li>
-            </ul>
+      <div class="grid-2" style="flex: 1;">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="figure-container">
+            <img src="../data/GeneratedOutput/04.ModelEvaluation/feature_importance.png" alt="Feature Importance">
           </div>
-          <div class="card" style="border-left: 4px solid var(--accent-cyan);">
-            <h3 style="color: var(--accent-cyan);">Secondary Geochemical Predictors</h3>
-            <ul>
-              <li><strong>Prior Station Ortho (<code>hist_ortho_lag1</code>):</strong> Provides baseline inertia and historical memory.</li>
-              <li><strong>Ammoniacal Nitrogen:</strong> Indicates raw sewage discharges and agricultural runoff.</li>
-              <li><strong>Dissolved Oxygen Saturation:</strong> Fundamental indicator of biological respiratory health.</li>
-            </ul>
+          <div class="card" style="padding: 12px;">
+            <p style="font-size: 12px; color: #cbd5e1;">
+              <strong>Global Importance:</strong> Orthophosphate (<code>log1p_orthophosphate</code> + raw) drives ~88% of all model split decisions. Confirms phosphorus is the primary limiting nutrient controlling freshwater eutrophication.
+            </p>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="figure-container">
+            <img src="../data/GeneratedOutput/04.ModelEvaluation/shap_summary.png" alt="TreeSHAP Summary">
+          </div>
+          <div class="card" style="padding: 12px;">
+            <p style="font-size: 12px; color: #cbd5e1;">
+              <strong>TreeSHAP Attribution:</strong> High orthophosphate concentration pushes CCME WQI down sharply, whereas high DO saturation pushes it upwards toward pristine water. Both methods independently validate key drivers.
+            </p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- SLIDE 17: Engineering Triumph: Parquet Sharding -->
+    <!-- SLIDE 17: Engineering Triumph: Parquet Sharding & Modular Architecture -->
     <div class="slide" id="slide-17">
       <div class="slide-header">
         <div class="slide-title-group">
-          <h2>Engineering Triumph: Multi-Part Parquet Sharding</h2>
-          <p class="sub">Bypassing GitHub's 100 MB Limit • Zero Data Loss • Transparent Directory Loading</p>
+          <h2>Engineering Triumph: Parquet Sharding, Modular src/ &amp; pytest Suite</h2>
+          <p class="sub">Bypassing GitHub's 100 MB Limit • Modular Python Architecture • Automated Unit Tests</p>
         </div>
       </div>
       <div class="grid-2" style="margin-bottom: 16px;">
         <div class="card" style="border-left: 4px solid var(--accent-rose);">
-          <h3 style="color: var(--accent-rose);">The Challenge: GitHub 100 MB Blockage</h3>
+          <h3 style="color: var(--accent-rose);">Multi-Part Parquet Sharding</h3>
           <ul>
-            <li>Scaling to 2.82M rows across 45 columns resulted in a 188.43 MB <code>train.parquet</code> and 189.67 MB <code>train_scaled.parquet</code>.</li>
-            <li><code>git push --force</code> was rejected by GitHub server-side hooks with a fatal error.</li>
-            <li>Adding data to <code>.gitignore</code> was rejected by project requirements: "ALL files must be tracked".</li>
+            <li>Scaling to 2.82M rows resulted in a 188.43 MB <code>train.parquet</code> blocked by GitHub's 100 MB limit.</li>
+            <li>Engineered transparent multi-part sharding: partitioned into 3 shards of ~53 MB each inside <code>train.parquet/</code> using <code>zstd</code> compression.</li>
+            <li>Zero code changes: <code>pd.read_parquet('train.parquet')</code> reads all shards seamlessly into 1.97M rows.</li>
           </ul>
         </div>
         <div class="card" style="border-left: 4px solid var(--accent-cyan);">
-          <h3 style="color: var(--accent-cyan);">The Solution: Transparent Sharding</h3>
+          <h3 style="color: var(--accent-cyan);">Modular src/ &amp; 100% pytest Suite</h3>
           <ul>
-            <li>Engineered transparent multi-part Parquet sharding inside <code>train.parquet/</code> directories.</li>
-            <li>Partitioned training datasets into 3 shards of ~53 MB each (<code>part-00000.parquet</code> to <code>part-00002.parquet</code>) using <code>zstd</code> compression.</li>
-            <li>All shards remain safely below GitHub's 100 MB threshold.</li>
+            <li>Refactored pipeline into a clean package: <code>src/features.py</code>, <code>src/models.py</code>, <code>src/metrics.py</code>, <code>src/utils.py</code>.</li>
+            <li>12 automated unit tests in <code>tests/</code> (100% passing in 2.2s):</li>
+            <li>• Tests aquatic chemistry limits and non-negative assertions.</li>
+            <li>• Tests PyTorch forward pass, shapes, and zero target leakage.</li>
           </ul>
         </div>
       </div>
       <div class="card" style="border-left: 4px solid var(--accent-emerald);">
-        <h3 style="color: var(--accent-emerald);">Seamless Code Compatibility</h3>
-        <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 8px;">
-          Apache Arrow and Pandas natively load multi-part directories transparently without changing a single line of downstream code:
-        </p>
-        <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 6px; font-family: monospace; font-size: 12px; color: var(--accent-cyan);">
-          &gt;&gt;&gt; df_train = pd.read_parquet('data/Dataset/02.Processed/train.parquet')<br>
-          # Automatically reads all 3 sub-parts into one unified 1,973,731-row DataFrame!
-        </div>
-        <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
-          Successfully pushed 515.44 MB of clean code, models, data, and publication figures to GitHub with 0 files ignored.
+        <h3 style="color: var(--accent-emerald);">Seamless Code Compatibility &amp; Production Verification</h3>
+        <p style="font-size: 12px; color: #cbd5e1;">
+          Execute <code>.venv/bin/pytest -v</code> to verify all 12 tests across data filtering, model architectures, and calibration. Pushed 100% of data, code, tests, and models to GitHub.
         </p>
       </div>
     </div>
+
 
     <!-- SLIDE 18: Conclusions & Future Directions -->
     <div class="slide" id="slide-18">

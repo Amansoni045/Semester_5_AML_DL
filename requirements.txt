@@ -13,9 +13,14 @@ scikit-learn
 xgboost
 torch
 joblib
+shap
 
 # Notebook & Environment Support
 nbformat
 ipykernel
 jupyter
+
+# Reporting, Presentation & Testing
+python-pptx
+pytest
 

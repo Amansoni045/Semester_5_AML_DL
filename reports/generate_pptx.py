@@ -578,9 +578,9 @@ def create_presentation():
         "Regression head converged to Val R² = 0.9957 and Val MAE = 0.7056 index points."
     ], ACCENT_CYAN)
 
-    add_card(s14, Inches(6.8), Inches(5.35), Inches(5.7), Inches(1.7), "97.49% Recall on 'Poor' Water Quality", [
-        "Inverse class weighting successfully resolved extreme class imbalance.",
-        "Model identified 97.49% of all chronically impaired 'Poor' water bodies without sacrificing overall accuracy (96.09%)."
+    add_card(s14, Inches(6.8), Inches(5.35), Inches(5.7), Inches(1.7), "97.49% Recall & Calibrated Uncertainty", [
+        "Inverse class weighting successfully resolved extreme class imbalance (97.49% Poor recall).",
+        "Probability Calibration: Multi-Class Brier Score = 0.0533 | ECE = 1.27% across all 10 confidence deciles."
     ], ACCENT_ROSE)
 
     # ==========================================
@@ -594,7 +594,7 @@ def create_presentation():
         ["Mean Baseline", "Heuristic", "14.1297", "17.6561", "-0.0000", "N/A", "< 0.01 ms"],
         ["Random Forest Regressor", "Bagged Trees (30)", "0.0521", "0.2081", "0.9999", "N/A", "1.24 ms"],
         ["XGBoost Regressor", "Gradient Boosted (150)", "0.1375", "0.3740", "0.9996", "N/A", "0.45 ms"],
-        ["Dual-Head MLP (PyTorch)", "Deep Multi-Task Neural Net", "0.7056", "1.1557", "0.9957", "96.09%", "0.08 ms (Batched GPU)"]
+        ["Dual-Head MLP (PyTorch)", "Deep Multi-Task Neural Net", "0.7056", "1.1557", "0.9957", "96.09% (ECE 1.27%)", "0.08 ms (Batched GPU)"]
     ]
     add_table_data(s15, Inches(0.8), Inches(1.6), Inches(11.733), Inches(2.8), headers_s15, rows_s15, [Inches(2.5), Inches(2.2), Inches(1.2), Inches(1.2), Inches(1.2), Inches(1.8), Inches(1.633)])
 
@@ -611,43 +611,49 @@ def create_presentation():
     ], ACCENT_BLUE)
 
     # ==========================================
-    # SLIDE 16: Explainable AI & Feature Importance
+    # SLIDE 16: Explainable AI: Feature Importance & TreeSHAP
     # ==========================================
     s16 = prs.slides.add_slide(blank_layout)
-    add_header(s16, "Explainable AI: Discovering Key Geochemical Drivers", slide_num=16)
+    add_header(s16, "Explainable AI: Feature Importance & TreeSHAP Attribution", slide_num=16)
 
     fig17 = get_fig("data/GeneratedOutput/04.ModelEvaluation/feature_importance.png")
-    if fig17:
+    fig_shap = get_fig("data/GeneratedOutput/04.ModelEvaluation/shap_summary.png")
+
+    if fig17 and fig_shap:
+        s16.shapes.add_picture(fig17, Inches(0.8), Inches(1.6), width=Inches(5.7))
+        s16.shapes.add_picture(fig_shap, Inches(6.8), Inches(1.6), width=Inches(5.7))
+    elif fig17:
         s16.shapes.add_picture(fig17, Inches(0.8), Inches(1.6), width=Inches(7.2))
 
-    add_card(s16, Inches(8.3), Inches(1.6), Inches(4.2), Inches(2.6), "Phosphorus Dominates (~88%)", [
-        "Feature importance shows Orthophosphate (log1p_orthophosphate + raw) accounts for ~88% of tree split decisions.",
-        "Validates limnological science: phosphorus is the limiting nutrient triggering algal blooms and dissolved oxygen crashes."
+    add_card(s16, Inches(0.8), Inches(5.35), Inches(5.7), Inches(1.7), "Global Tree Importance (Gini/Gain)", [
+        "Orthophosphate (log1p_orthophosphate + raw) accounts for ~88% of all model split decisions.",
+        "Validates limnological science: phosphorus is the limiting nutrient controlling algae blooms."
     ], ACCENT_EMERALD)
 
-    add_card(s16, Inches(8.3), Inches(4.4), Inches(4.2), Inches(2.5), "Secondary Key Drivers", [
-        "• Prior Station Ortho (hist_ortho_lag1): Captures temporal inertia and long-term basin memory.",
-        "• Ammoniacal Nitrogen: Indicator of raw sewage and agricultural fertilizer runoff.",
-        "• Dissolved Oxygen Saturation: Essential indicator of biological aerobic health."
+    add_card(s16, Inches(6.8), Inches(5.35), Inches(5.7), Inches(1.7), "Local TreeSHAP Beeswarm Attribution", [
+        "Game-theoretic SHAP verifies high orthophosphate pushes CCME WQI down sharply.",
+        "Consistent attribution across both methods guarantees scientific explainability."
     ], ACCENT_CYAN)
 
     # ==========================================
-    # SLIDE 17: Engineering Triumph: Parquet Sharding
+    # SLIDE 17: Engineering Triumph: Parquet Sharding & Modular Architecture
     # ==========================================
     s17 = prs.slides.add_slide(blank_layout)
-    add_header(s17, "Engineering Triumph: Multi-Part Parquet Sharding Architecture", slide_num=17)
+    add_header(s17, "Engineering Triumph: Parquet Sharding, Modular src/ & pytest Suite", slide_num=17)
 
-    add_card(s17, Inches(0.8), Inches(1.6), Inches(5.7), Inches(2.5), "The Problem: GitHub 100 MB Limit", [
-        "Scaling to 2.82M rows across 45 columns resulted in a 188.43 MB train.parquet and 189.67 MB train_scaled.parquet.",
-        "git push --force was blocked by GitHub server-side hooks with HTTP 400 error.",
-        "Adding data to .gitignore was rejected by user requirement: 'ALL files must be tracked'."
+    add_card(s17, Inches(0.8), Inches(1.6), Inches(5.7), Inches(2.6), "Multi-Part Parquet Sharding (GitHub)", [
+        "188 MB training partitions blocked by GitHub 100 MB limit.",
+        "Engineered transparent 3-part Parquet sharding (~53 MB each) inside train.parquet/ using zstd compression.",
+        "Zero code changes required: pd.read_parquet('train.parquet') loads all parts seamlessly into 1.97M rows."
     ], ACCENT_ROSE)
 
-    add_card(s17, Inches(6.8), Inches(1.6), Inches(5.7), Inches(2.5), "The Solution: Transparent Sharding", [
-        "Engineered transparent multi-part Parquet sharding inside train.parquet/ and train_scaled.parquet/ directories.",
-        "Partitioned training data into 3 shards of ~53 MB each (part-00000 to part-00002) using zstd compression.",
-        "All shards remain safely below GitHub's 100 MB threshold."
+    add_card(s17, Inches(6.8), Inches(1.6), Inches(5.7), Inches(2.6), "Modular src/ Package & 100% pytest Suite", [
+        "Refactored all pipeline logic into a production-grade Python package: src/features, src/models, src/metrics, src/utils.",
+        "Comprehensive automated test suite in tests/ (12 unit tests, 100% passing in 2.2s):",
+        "• Validates aquatic physical bounds & zero lookahead leakage.",
+        "• Validates PyTorch model forward pass, shapes, and target quarantine."
     ], ACCENT_CYAN)
+
 
     add_card(s17, Inches(0.8), Inches(4.3), Inches(11.733), Inches(2.6), "Seamless Developer Experience & Code Compatibility", [
         "Zero Code Changes Required for Downstream Pipelines: Apache Arrow and Pandas natively load multi-part directories transparently:",
