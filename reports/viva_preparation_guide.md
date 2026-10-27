@@ -25,7 +25,7 @@ To ensure full marks for all 6 members, this guide is divided into:
 | Essential Question | Exact Facts / Numbers to Quote |
 |---|---|
 | **What is the primary target variable?** | The **Canadian Council of Ministers of the Environment Water Quality Index (CCME WQI)**, a continuous index bounded between $0$ and $100$, categorized into 5 tiers: *Excellent* (95–100), *Good* (80–94), *Fair* (65–79), *Marginal* (45–64), and *Poor* (0–44). |
-| **How many raw records were ingested?** | **2,827,977 raw records** spanning **83 years (1940–2023)** across **5 nations** (England: 83.74%, USA: 8.51%, Ireland: 7.13%, China: 0.43%, Canada: 0.20%). |
+| **How many raw records were ingested?** | **2,827,977 raw records** spanning **83 years (1940–2023)** across **5 nations** (England: 2,128,128 [75.48%], USA: 407,138 [14.44%], Ireland: 234,409 [8.31%], China: 45,996 [1.63%], Canada: 3,946 [0.14%]). |
 | **What did the data audit uncover?** | We disproved an unverified legacy claim of "35% missingness". The authentic regulatory data has **0 null values (100% complete case ground truth)**. |
 | **How many records were removed by physics filtering?** | Exactly **8,360 corrupted telemetry records (0.296%)** were purged for violating physical/thermodynamic laws (e.g., $\text{pH} < 3$ or $> 12$, negative nutrients, $\text{DO} > 25\text{ mg/L}$, $\text{Temp} < 0^\circ\text{C}$ or $> 45^\circ\text{C}$). |
 | **What is the final clean production volume?** | **2,819,617 pristine complete-case observations**. |
@@ -41,10 +41,10 @@ To ensure full marks for all 6 members, this guide is divided into:
 
 ---
 
-### Member 1: Mayank Sharma (Project Lead & Machine Learning Architecture)
+### Member 1: Mayank Sharma (Project Lead & EDA / Repository Architecture)
 
 #### Core Responsibility:
-End-to-end pipeline architecture, Random Forest and XGBoost model implementations, GitHub version control, transparent 3-part Parquet sharding, and anti-leakage quarantine protocol.
+End-to-end pipeline architecture, data ingestion across 5 countries, Parquet sharding, GitHub version control, and anti-leakage quarantine protocol.
 
 #### Potential Faculty Questions & Model Answers:
 
@@ -63,7 +63,7 @@ End-to-end pipeline architecture, Random Forest and XGBoost model implementation
 
 ---
 
-### Team Member 2: Literature Review, Environmental Standards & CCME Math
+### Member 2: Pranav (Research, Documentation, Environmental Standards & CCME Math)
 
 #### Core Responsibility:
 Literature synthesis on ML in aquatic monitoring, formal mathematical derivation of the CCME WQI ($F_1, F_2, F_3, nse$), and comparison with international regulatory frameworks (WHO, US EPA, EU WFD).
@@ -88,7 +88,7 @@ Literature synthesis on ML in aquatic monitoring, formal mathematical derivation
 
 ---
 
-### Team Member 3: Multi-National Dataset Auditing & Exploratory Data Analysis
+### Member 3: Aaryan Gera (Data Preprocessing Lead: Multi-National Dataset Auditing & Cleaning)
 
 #### Core Responsibility:
 Comprehensive auditing of the 2,827,977 raw monitoring records across 5 nations, identification and purging of 8,360 sensor telemetry errors, and exploratory data analysis of chemical distributions.
@@ -111,7 +111,7 @@ Comprehensive auditing of the 2,827,977 raw monitoring records across 5 nations,
 
 ---
 
-### Team Member 4: Aquatic Chemical Feature Engineering & Stoichiometry
+### Member 4: Chaitanya Kumar (Aquatic Chemical Feature Engineering & Stoichiometry Lead)
 
 #### Core Responsibility:
 Derivation of 38 features grounded in aquatic chemistry: Benson-Krause DO saturation %, Streeter-Phelps oxygen deficit, Redfield N:P stoichiometry, Emerson un-ionized ammonia, and $\log(1+x)$ transformations.
@@ -137,7 +137,7 @@ Derivation of 38 features grounded in aquatic chemistry: Benson-Krause DO satura
 
 ---
 
-### Team Member 5: AML Model Benchmarking, Hyperparameters & Splitting Strategy
+### Member 5: Aman Soni (Model Training Lead: Baseline, Random Forest & XGBoost Benchmarking)
 
 #### Core Responsibility:
 Model training, hyperparameter optimization, class-stratified 70/15/15 splitting, baseline benchmarks, and comparative evaluation metrics (MAE, RMSE, $R^2$).
@@ -169,7 +169,7 @@ Model training, hyperparameter optimization, class-stratified 70/15/15 splitting
 
 ---
 
-### Team Member 6: Explainable AI (TreeSHAP), Calibration & Automated Testing
+### Member 6: Ankit Kumar Pandey (Model Evaluation, Validation, TreeSHAP & Testing)
 
 #### Core Responsibility:
 Game-theoretic TreeSHAP feature attribution, multi-class probability calibration metrics (Brier Score and ECE), and developing the 12-test automated unit test suite under `pytest`.

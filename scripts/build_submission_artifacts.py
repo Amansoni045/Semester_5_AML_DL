@@ -164,12 +164,12 @@ def build_presentation_pptx():
 
     p = tf1.add_paragraph()
     p.text = (
-        "• Mayank Sharma (Project Lead & AML Pipeline Architecture)\n"
-        "• Team Member 2 (Literature Review, CCME WQI Math & Regulatory Frameworks)\n"
-        "• Team Member 3 (Multi-National Dataset Auditing & Exploratory Data Analysis)\n"
-        "• Team Member 4 (Aquatic Chemical Feature Engineering & Stoichiometric Physics)\n"
-        "• Team Member 5 (Tree-Based Ensemble Optimization & Validation Benchmarking)\n"
-        "• Team Member 6 (Explainable AI via TreeSHAP, Metric Verification & PyTest Suite)"
+        "• Mayank Sharma (Lead – EDA & Repository Management Lead)\n"
+        "• Aman Soni (Model Training Lead – Baseline, RF, XGBoost)\n"
+        "• Aaryan Gera (Data Preprocessing Lead – Cleaning & Audit)\n"
+        "• Chaitanya Kumar (Feature Engineering & Stoichiometry Lead)\n"
+        "• Ankit Kumar Pandey (Model Evaluation & Validation Lead)\n"
+        "• Pranav (Research, Documentation & Presentation Lead)"
     )
     p.font.size = Pt(10.5)
     p.font.color.rgb = TEXT_WHITE
@@ -381,12 +381,12 @@ def build_presentation_pptx():
     s14 = create_blank(prs)
     add_header(s14, "Six-Member Project Allocation & Viva Voce Defense Matrix")
     members = [
-        ("Mayank Sharma (Lead)", "Pipeline Architecture & Modeling", "Orchestrated end-to-end ML pipeline, Random Forest & XGBoost modeling, Parquet sharding, and GitHub versioning.", ACCENT_CYAN),
-        ("Team Member 2", "Literature Review & Regulations", "Synthesized ML environmental literature, derived CCME WQI formulation (F1, F2, F3, nse), and international standards.", ACCENT_BLUE),
-        ("Team Member 3", "Dataset Auditing & EDA", "Executed multi-national dataset audit across 5 countries, detected telemetry anomalies, and established physics boundaries.", ACCENT_EMERALD),
-        ("Team Member 4", "Feature Engineering & Chemistry", "Engineered 38 features: Benson-Krause DO sat, Redfield N:P, Emerson toxic ammonia, log1p transforms, and station lags.", ACCENT_GOLD),
-        ("Team Member 5", "Optimization & Benchmarking", "Managed hyperparameter optimization, loss functions, stratified 70/15/15 partitioning, and comparative benchmark metrics.", ACCENT_BLUE),
-        ("Team Member 6", "Explainability (XAI) & Testing", "Conducted TreeSHAP attribution analysis, computed calibration metrics (Brier/ECE), and developed 12-test pytest suite.", ACCENT_CYAN),
+        ("Mayank Sharma (Lead)", "EDA & Repository Management Lead", "Orchestrated end-to-end ML pipeline, data ingestion architecture, Parquet sharding, and anti-leakage quarantine.", ACCENT_CYAN),
+        ("Aman Soni", "Model Training Lead (RF, XGBoost)", "Tuned tree ensembles, optimized loss functions and split criteria (MDI vs Gain), and led regression training.", ACCENT_BLUE),
+        ("Aaryan Gera", "Data Preprocessing Lead (Cleaning & Audit)", "Executed 5-country dataset audit, enforced thermodynamic screening boundaries, and eliminated telemetry errors.", ACCENT_EMERALD),
+        ("Chaitanya Kumar", "Feature Engineering & Stoichiometry Lead", "Engineered 38 features: Benson-Krause DO sat, Redfield N:P, Emerson toxic NH3, log(1+x) normalization, and station lags.", ACCENT_GOLD),
+        ("Ankit Kumar Pandey", "Model Evaluation & Validation Lead", "Managed stratified 70/15/15 partitioning, continuous metric benchmarks (MAE, RMSE, R²), and Dual-Head MLP evaluation.", ACCENT_BLUE),
+        ("Pranav", "Research, Documentation & Presentation Lead", "Derived formal CCME WQI formulation (F1, F2, F3, nse), analyzed TreeSHAP attribution, and led viva preparation.", ACCENT_CYAN),
     ]
     for i, (name, role, desc, color) in enumerate(members):
         col = i % 2
@@ -448,8 +448,20 @@ def build_presentation_pdf():
     slides_html_path = REPO_ROOT / "scripts" / "temp_presentation_print.html"
     out_pdf = REPORTS_DIR / "Project_Presentation.pdf"
 
-    # We read phase1_presentation_slides.html and inject @media print styling
-    raw_html = (REPORTS_DIR / "phase1_presentation_slides.html").read_text(encoding="utf-8")
+    # If phase1_presentation_slides.html is not present, synchronize from finalized presentation PDF
+    slides_template = REPORTS_DIR / "phase1_presentation_slides.html"
+    if not slides_template.exists():
+        final_pdf = REPO_ROOT / "final" / "Project_Presentation_Final.pdf"
+        if final_pdf.exists():
+            import shutil
+            shutil.copy2(final_pdf, out_pdf)
+            print(f"✓ Project_Presentation.pdf synchronized from {final_pdf} ({out_pdf.stat().st_size / 1e3:.1f} KB)")
+            return
+        else:
+            print("Notice: phase1_presentation_slides.html not found, skipping presentation PDF rebuild.")
+            return
+
+    raw_html = slides_template.read_text(encoding="utf-8")
     
     # Replace style with print-ready rules
     print_style = """
@@ -727,32 +739,34 @@ def build_report_pdf():
   <div class="authors-grid">
     <div class="author-box">
       <div class="author-name">Mayank Sharma (Lead)</div>
-      <div class="author-role">Pipeline Architecture & Modeling</div>
+      <div class="author-role">EDA & Repository Management Lead</div>
     </div>
     <div class="author-box">
-      <div class="author-name">Team Member 2</div>
-      <div class="author-role">Literature & Regulations</div>
+      <div class="author-name">Aman Soni</div>
+      <div class="author-role">Model Training Lead (RF, XGBoost)</div>
     </div>
     <div class="author-box">
-      <div class="author-name">Team Member 3</div>
-      <div class="author-role">Data Auditing & EDA</div>
+      <div class="author-name">Aaryan Gera</div>
+      <div class="author-role">Data Preprocessing Lead (Cleaning & Audit)</div>
     </div>
     <div class="author-box">
-      <div class="author-name">Team Member 4</div>
-      <div class="author-role">Feature Engineering & Chemistry</div>
+      <div class="author-name">Chaitanya Kumar</div>
+      <div class="author-role">Feature Engineering & Stoichiometry</div>
     </div>
     <div class="author-box">
-      <div class="author-name">Team Member 5</div>
-      <div class="author-role">Optimization & Benchmarking</div>
+      <div class="author-name">Ankit Kumar Pandey</div>
+      <div class="author-role">Evaluation & Validation Lead (MAE, R²)</div>
     </div>
     <div class="author-box">
-      <div class="author-name">Team Member 6</div>
-      <div class="author-role">Explainability & Testing</div>
+      <div class="author-name">Pranav</div>
+      <div class="author-role">Research, Documentation & TreeSHAP</div>
     </div>
   </div>
 
   <div class="affiliation">
     Department of Computer Science & Artificial Intelligence, School of Engineering and Technology<br>
+    Rishihood University | Semester 5 Applied Machine Learning & Deep Learning | Project 18: Water Quality Prediction<br>
+    Emails: {{mayank.sharma, aman.soni, aaryan.gera, chaitanya.kumar, ankit.pandey, pranav}}@nst.rishihood.edu.in<br>
     Repository: <strong>https://github.com/MAYANKSHARMA01010/Semester_5_AML_DL</strong>
   </div>
 </div>
@@ -773,15 +787,15 @@ def build_report_pdf():
   <h1>III. Multi-National Dataset Profile & Audit</h1>
   <p>We ingested 2,827,977 surface water monitoring observations across 5 nations spanning 1940 to 2023. A data audit disproved legacy claims of "35% missingness", verifying that the authentic regulatory data has 0 null entries (100% complete ground truth).</p>
 
-  <div class="table-title">Table I: Multi-National Composition</div>
+  <div class="table-title">Table I: Multi-National Observation Distribution</div>
   <table>
-    <tr><th>Country</th><th>Raw Rows</th><th>Clean Rows</th><th>Share</th></tr>
-    <tr><td>England</td><td>2,367,978</td><td>2,361,042</td><td>83.74%</td></tr>
-    <tr><td>USA</td><td>240,654</td><td>239,890</td><td>8.51%</td></tr>
-    <tr><td>Ireland</td><td>201,345</td><td>200,980</td><td>7.13%</td></tr>
-    <tr><td>China</td><td>12,000</td><td>11,985</td><td>0.43%</td></tr>
-    <tr><td>Canada</td><td>6,000</td><td>5,720</td><td>0.20%</td></tr>
-    <tr><th>Total</th><th>2,827,977</th><th>2,819,617</th><th>100.00%</th></tr>
+    <tr><th>Country</th><th>Clean Rows</th><th>Geographic Share</th><th>Monitoring Agency Source</th></tr>
+    <tr><td>England</td><td>2,128,128</td><td>75.48%</td><td>Environment Agency Water Quality Archive (WIMS)</td></tr>
+    <tr><td>USA</td><td>407,138</td><td>14.44%</td><td>USGS National Water Information System (NWIS)</td></tr>
+    <tr><td>Ireland</td><td>234,409</td><td>8.31%</td><td>EPA Ireland Hydronet Surface Monitoring</td></tr>
+    <tr><td>China</td><td>45,996</td><td>1.63%</td><td>Ministry of Ecology and Environment (MEE)</td></tr>
+    <tr><td>Canada</td><td>3,946</td><td>0.14%</td><td>Environment and Climate Change Canada (ECCC)</td></tr>
+    <tr><th>Total Clean</th><th>2,819,617</th><th>100.00%</th><td>83-Year Complete-Case Multi-National Record (1940–2023)</td></tr>
   </table>
 
   <div class="figure-box">
@@ -843,20 +857,23 @@ def build_report_pdf():
 
   <h1>X. Results & Model Benchmarking</h1>
   <p>Empirical metrics on 422,943 validation records confirm outstanding predictive accuracy:</p>
-  <div class="table-title">Table III: Validation Benchmark Results</div>
+  <div class="table-title">Table III: Validation Benchmark Results (422,943 Rows)</div>
   <table>
-    <tr><th>Model</th><th>Val MAE</th><th>Val RMSE</th><th>Val R²</th><th>Latency</th></tr>
+    <tr><th>Model Architecture</th><th>Val MAE</th><th>Val RMSE</th><th>Val R²</th><th>Inference Latency</th></tr>
     <tr><td>Mean Baseline</td><td>14.130</td><td>17.656</td><td>0.0000</td><td>0.02 s</td></tr>
-    <tr><td>XGBoost</td><td>0.137</td><td>0.374</td><td>0.9996</td><td><strong>0.42 s</strong></td></tr>
-    <tr><td>Random Forest</td><td><strong>0.052</strong></td><td><strong>0.208</strong></td><td><strong>0.9999</strong></td><td>3.85 s</td></tr>
+    <tr><td>Random Forest Regressor</td><td><strong>0.052</strong></td><td><strong>0.208</strong></td><td><strong>0.9999</strong></td><td>3.85 s</td></tr>
+    <tr><td>XGBoost Regressor</td><td>0.137</td><td>0.374</td><td>0.9996</td><td><strong>0.42 s</strong></td></tr>
+    <tr><td>Dual-Head MLP (PyTorch)</td><td>0.706</td><td>1.156</td><td>0.9957</td><td>1.12 s</td></tr>
   </table>
 
   <div class="figure-box">
     <img src="{fig4}" alt="Model Comparison">
-    <div class="figure-caption">Fig. 4. Empirical validation error comparison: Random Forest and XGBoost vs. Baseline.</div>
+    <div class="figure-caption">Fig. 4. Empirical validation error comparison: Random Forest, XGBoost, and Dual-Head MLP vs. Baseline.</div>
   </div>
 
-  <p>Both models eliminated >99.6% of baseline variance. Random Forest attained the highest precision (MAE = 0.052), while XGBoost delivered 9x faster inference (0.42 s for 422k rows ≈ 1 μs per sensor query), optimal for real-time IoT edge deployments.</p>
+  <p style="font-size: 8.5pt; margin-top: 4px; color: #222;"><em>Note:</em> The Dual-Head MLP concurrently performs 5-class discrete ecological tier classification: Accuracy = 96.09%, Macro F1 = 0.9485, Brier Score = 0.0533, and Expected Calibration Error (ECE) = 1.27%.</p>
+
+  <p style="font-size: 8pt; color: #333; background: #f8fafc; padding: 6px; border-left: 3px solid #0284c7; margin-top: 4px;"><strong>Scientific Reliability & Validity Qualification:</strong> These scores measure how well each machine learning architecture re-computes a complex, non-linear deterministic formula across randomly held-out rows. High R² &approx; 0.9999 demonstrates successful mathematical approximation of the composite index rather than independent hydrological forecasting across unmonitored catchments. Orthophosphate's 88% share represents an intrinsic property of the regulatory index and data distribution rather than a direct interventional causal claim. Future extensions will test strict station-held-out and time-forward splits.</p>
 
   <h1>XI. Explainability via TreeSHAP</h1>
   <p>TreeSHAP feature attribution confirmed that <strong>orthophosphate drives over 88% of all decision tree splits</strong>. Elevated phosphorus triggers algal proliferation and severe WQI collapse. Shift-1 station lag (hist_ortho_lag1) ranked second, proving the power of environmental memory.</p>
@@ -870,15 +887,15 @@ def build_report_pdf():
   <p>We engineered a modular package (src/) with features, models, metrics, and utils. A 12-test automated unit test suite executed under pytest passes in 1.65 seconds (100% pass rate), verifying thermodynamic boundaries, stoichiometry, anti-leakage quarantine, and model serialization.</p>
 
   <h1>XIII. Team Contribution Matrix (6 Members)</h1>
-  <div class="table-title">Table IV: Six-Member Allocation Matrix</div>
+  <div class="table-title">Table IV: Six-Member Allocation & Viva Voce Defense Matrix</div>
   <table>
-    <tr><th>Member</th><th>Core Responsibility</th><th>Viva Defense Zone</th></tr>
-    <tr><td><strong>Mayank Sharma (Lead)</strong></td><td>Pipeline Architecture, RF & XGBoost, GitHub & Sharding</td><td>Pipeline orchestration, tree algorithms, anti-leakage quarantine.</td></tr>
-    <tr><td><strong>Team Member 2</strong></td><td>Literature Review, CCME WQI Math, Regulations</td><td>CCME derivation (F1, F2, F3, nse), EPA/WHO standards.</td></tr>
-    <tr><td><strong>Team Member 3</strong></td><td>Multi-National Audit, Bounds, EDA</td><td>Data audit (5 nations), physics screening, outlier diagnostics.</td></tr>
-    <tr><td><strong>Team Member 4</strong></td><td>Feature Engineering, Stoichiometry, Skewness</td><td>Benson-Krause DO sat, Redfield N:P, Emerson NH3, log(1+x).</td></tr>
-    <tr><td><strong>Team Member 5</strong></td><td>Optimization, Splitting, Benchmarks</td><td>Tree hyperparameters, loss functions, MAE/RMSE/R² metrics.</td></tr>
-    <tr><td><strong>Team Member 6</strong></td><td>Explainability (TreeSHAP), Calibration, Testing</td><td>Shapley axioms, TreeSHAP algorithm, 12-test pytest suite.</td></tr>
+    <tr><th>Team Member</th><th>Core Module Responsibility</th><th>Viva Voce Defense Zone</th></tr>
+    <tr><td><strong>Mayank Sharma</strong> (Lead)</td><td>EDA & Repository Management Lead; Pipeline Architecture & Sharding</td><td>End-to-end pipeline orchestration, data ingestion architecture, anti-leakage protocol.</td></tr>
+    <tr><td><strong>Aman Soni</strong></td><td>Model Training Lead (Baseline, Random Forest, XGBoost)</td><td>Loss functions, tree pruning, MDI vs Gain, hyperparameter optimization.</td></tr>
+    <tr><td><strong>Aaryan Gera</strong></td><td>Data Preprocessing Lead (Cleaning & Dataset Preparation)</td><td>5-country repository audit, physical bounds screening (pH, DO, Temp), outlier diagnostics.</td></tr>
+    <tr><td><strong>Chaitanya Kumar</strong></td><td>Feature Engineering & Pipeline Lead (Stoichiometry & Skewness)</td><td>Benson-Krause DO sat, Redfield N:P, Emerson NH3, log(1+x) normalization.</td></tr>
+    <tr><td><strong>Ankit Kumar Pandey</strong></td><td>Model Evaluation & Validation Lead (MAE, RMSE, R²)</td><td>Quantitative metric comparison, error trade-offs, test partition validation.</td></tr>
+    <tr><td><strong>Pranav</strong></td><td>Research, Documentation & Presentation Lead (Literature, SHAP, Viva)</td><td>CCME formulation (F1, F2, F3, nse), Shapley axioms, TreeSHAP, regulatory benchmarks.</td></tr>
   </table>
 
   <h1>XIV. Conclusion & Phase 2 Outlook</h1>
@@ -912,6 +929,17 @@ def build_report_pdf():
     import pypdf
     reader = pypdf.PdfReader(out_pdf)
     print(f"✓ Project_Report.pdf successfully generated: {out_pdf} ({len(reader.pages)} pages, {out_pdf.stat().st_size / 1e3:.1f} KB)")
+
+    # Copy the updated final report to final/
+    import shutil
+    final_dir = REPO_ROOT / "final"
+    if final_dir.exists():
+        dest1 = final_dir / "Project_Report_Final.pdf"
+        dest2 = final_dir / "Project_Report.pdf"
+        shutil.copy2(out_pdf, dest1)
+        shutil.copy2(out_pdf, dest2)
+        print(f"✓ Copied final updated report to: {dest1} ({dest1.stat().st_size / 1e3:.1f} KB)")
+        print(f"✓ Copied final updated report to: {dest2} ({dest2.stat().st_size / 1e3:.1f} KB)")
 
 
 def cleanup_reports_directory():

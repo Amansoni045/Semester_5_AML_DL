@@ -29,12 +29,12 @@ This project aims to predict documented surface water quality indices and catego
 
 | Team Member | Functional Area | Primary Responsibilities | Status |
 |---|---|---|---|
-| **Mayank Sharma (Lead)** | **Pipeline Architecture & AML Modeling** | End-to-end ML pipeline orchestration, Random Forest & XGBoost modeling, transparent 3-part Parquet sharding, GitHub version control, pipeline runner (`scripts/run_phase1_pipeline.py`). | **Completed** |
-| **Team Member 2** | **Literature Review & Regulations** | Synthesized water quality ML literature, derived CCME WQI formulation ($F_1, F_2, F_3, nse$), and benchmarked against WHO, US EPA, and EU WFD standards. | **Completed** |
-| **Team Member 3** | **Dataset Auditing & EDA** | Audited 2.82M records across 5 countries, detected sensor error dropouts, and enforced aquatic physical bounds screening (purging 8,360 corrupted values). | **Completed** |
-| **Team Member 4** | **Feature Engineering & Chemistry** | Derived 38 features: Benson-Krause DO capacity polynomial, Redfield stoichiometric N:P ratio, Emerson toxic un-ionized ammonia, and $\log(1+x)$ skewness reductions. | **Completed** |
-| **Team Member 5** | **Optimization & Benchmarking** | Hyperparameter tuning (tree depth, learning rate, subsampling), stratified 70/15/15 dataset partitioning, and quantitative metric benchmarking (MAE, RMSE, $R^2$). | **Completed** |
-| **Team Member 6** | **Explainability (XAI) & Testing** | Generated TreeSHAP game-theoretic feature attribution plots, evaluated probability calibration (Brier/ECE), and built 12-test automated unit testing suite (`tests/`). | **Completed** |
+| **Mayank Sharma (Lead)** | **EDA & Repository Architecture** | End-to-end ML pipeline orchestration, data ingestion architecture, transparent 3-part Parquet sharding, anti-leakage quarantine protocol, GitHub version control. | **Completed** |
+| **Aman Soni** | **Model Training (RF & XGBoost)** | Tuned Random Forest and XGBoost tree ensembles, evaluated loss functions, split gain criteria, and regularized learning rates. | **Completed** |
+| **Aaryan Gera** | **Data Preprocessing & Audit** | Audited 2.82M records across 5 countries, detected sensor error dropouts, and enforced aquatic physical bounds screening (purging 8,360 corrupted values). | **Completed** |
+| **Chaitanya Kumar** | **Feature Engineering & Chemistry** | Derived 38 features: Benson-Krause DO capacity polynomial, Redfield stoichiometric N:P ratio, Emerson toxic un-ionized ammonia, and $\log(1+x)$ skewness reductions. | **Completed** |
+| **Ankit Kumar Pandey** | **Model Evaluation & Validation** | Stratified 70/15/15 dataset partitioning, quantitative metric benchmarking (MAE, RMSE, $R^2$), and Dual-Head MLP evaluation. | **Completed** |
+| **Pranav** | **Research, Documentation & SHAP** | Derived CCME WQI formulation ($F_1, F_2, F_3, nse$), synthesized environmental standards, analyzed TreeSHAP attributions, and led viva preparation. | **Completed** |
 
 ---
 

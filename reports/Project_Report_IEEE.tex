@@ -30,17 +30,17 @@
 \author{
     \IEEEauthorblockN{
         Mayank Sharma\IEEEauthorrefmark{1}, 
-        Team Member 2\IEEEauthorrefmark{2}, 
-        Team Member 3\IEEEauthorrefmark{3}, 
-        Team Member 4\IEEEauthorrefmark{4}, 
-        Team Member 5\IEEEauthorrefmark{5}, and 
-        Team Member 6\IEEEauthorrefmark{6}
+        Aman Soni\IEEEauthorrefmark{2}, 
+        Aaryan Gera\IEEEauthorrefmark{3}, 
+        Chaitanya Kumar\IEEEauthorrefmark{4}, 
+        Ankit Kumar Pandey\IEEEauthorrefmark{5}, and 
+        Pranav\IEEEauthorrefmark{6}
     }
     \IEEEauthorblockA{
         Department of Computer Science \& Artificial Intelligence, School of Engineering and Technology\\
-        Semester 5 Applied Machine Learning \& Deep Learning | Project 18: Water Quality Prediction\\
+        Rishihood University | Semester 5 Applied Machine Learning \& Deep Learning | Project 18: Water Quality Prediction\\
         Repository: \url{https://github.com/MAYANKSHARMA01010/Semester_5_AML_DL}\\
-        Emails: \{mayank.s\IEEEauthorrefmark{1}, member2\IEEEauthorrefmark{2}, member3\IEEEauthorrefmark{3}, member4\IEEEauthorrefmark{4}, member5\IEEEauthorrefmark{5}, member6\IEEEauthorrefmark{6}\}@institution.edu
+        Emails: \{mayank.sharma\IEEEauthorrefmark{1}, aman.soni\IEEEauthorrefmark{2}, aaryan.gera\IEEEauthorrefmark{3}, chaitanya.kumar\IEEEauthorrefmark{4}, ankit.pandey\IEEEauthorrefmark{5}, pranav\IEEEauthorrefmark{6}\}@nst.rishihood.edu.in
     }
 }
 
@@ -155,11 +155,11 @@ We ingested multi-country surface water monitoring telemetry spanning 83 years (
 \toprule
 \textbf{Country} & \textbf{Raw Records} & \textbf{Clean Records} & \textbf{Proportion} \\
 \midrule
-England & 2,367,978 & 2,361,042 & 83.74\% \\
-USA & 240,654 & 239,890 & 8.51\% \\
-Ireland & 201,345 & 200,980 & 7.13\% \\
-China & 12,000 & 11,985 & 0.43\% \\
-Canada & 6,000 & 5,720 & 0.20\% \\
+England & 2,134,842 & 2,128,128 & 75.48\% \\
+USA & 408,520 & 407,138 & 14.44\% \\
+Ireland & 235,119 & 234,409 & 8.31\% \\
+China & 46,050 & 45,996 & 1.63\% \\
+Canada & 3,995 & 3,946 & 0.14\% \\
 \midrule
 \textbf{Total} & \textbf{2,827,977} & \textbf{2,819,617} & \textbf{100.00\%} \\
 \bottomrule
@@ -267,21 +267,24 @@ R^2 = 1 - \frac{\sum_{i=1}^N (y_i - \hat{y}_i)^2}{\sum_{i=1}^N (y_i - \bar{y})^2
 Table \ref{tab:model_comparison} reports empirical metrics on the 422,943 validation records.
 
 \begin{table}[htbp]
-\caption{Phase 1 Machine Learning Benchmark Results (Validation Set)}
+\caption{Model Benchmark Results on Validation Set (422,943 Rows)}
 \label{tab:model_comparison}
 \centering
 \begin{tabular}{lrrrr}
 \toprule
-\textbf{Model Architecture} & \textbf{MAE} & \textbf{RMSE} & \textbf{$R^2$} & \textbf{Infer. Time} \\
+\textbf{Model Architecture} & \textbf{MAE} & \textbf{RMSE} & \textbf{$R^2$} & \textbf{Inference} \\
 \midrule
 Mean Baseline & 14.130 & 17.656 & 0.0000 & 0.02 s \\
-XGBoost Regressor & 0.137 & 0.374 & \textbf{0.9996} & 0.42 s \\
 Random Forest Regressor & \textbf{0.052} & \textbf{0.208} & \textbf{0.9999} & 3.85 s \\
+XGBoost Regressor & 0.137 & 0.374 & 0.9996 & \textbf{0.42 s} \\
+Dual-Head MLP (PyTorch) & 0.706 & 1.156 & 0.9957 & 1.12 s \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Both ensemble models achieved outstanding predictive fidelity, reducing baseline error by over 99.6\%. Random Forest attained the lowest error ($\text{MAE} = 0.052$), while XGBoost offered 9$\times$ faster inference latency (0.42 s for 422k observations), representing an ideal candidate for edge deployment.
+The Dual-Head MLP concurrently performs 5-class discrete tier classification, achieving Accuracy = 96.09\%, Macro F1 = 0.9485, Brier Score = 0.0533, and Expected Calibration Error (ECE) = 1.27\%.
+
+\textit{Scientific Reliability \& Validity Qualification:} These scores reflect each model's capacity to re-compute a complex, non-linear deterministic formula across randomly held-out rows. High $R^2 \approx 0.9999$ demonstrates successful approximation of the composite standard rather than independent forecasting skill across unmonitored catchments. Orthophosphate's dominance represents an intrinsic property of the regulatory index and data distribution rather than a direct interventional causal claim. Future extensions will incorporate strict station-held-out and time-forward splits.
 
 \section{Interpretability via TreeSHAP Attribution}
 We analyzed global feature importance using TreeSHAP on validation data. Fig. 1 visualizes mean absolute SHAP attributions:
@@ -309,21 +312,21 @@ In compliance with CSAI project guidelines, Table \ref{tab:team_contributions} d
 \caption{Six-Member Project Allocation \& Viva Defense Matrix}
 \label{tab:team_contributions}
 \centering
-\begin{tabular}{p{1.8cm}p{2.8cm}p{3.2cm}}
+\begin{tabular}{p{2.0cm}p{2.7cm}p{3.1cm}}
 \toprule
 \textbf{Team Member} & \textbf{Core Module Responsibility} & \textbf{Viva Voce Defense Zone} \\
 \midrule
-\textbf{Mayank Sharma} (Lead) & ML Pipeline Architecture, Random Forest \& XGBoost, GitHub \& Parquet Sharding & End-to-end pipeline orchestration, ensemble algorithms, anti-leakage protocol. \\
+\textbf{Mayank Sharma} (Lead) & EDA \& Repository Management Lead; Pipeline Architecture \& Parquet Sharding & End-to-end pipeline orchestration, data ingestion architecture, anti-leakage protocol. \\
 \midrule
-\textbf{Member 2} & Literature Review, CCME WQI Derivation, Regulatory Standards & CCME formulation ($F_1, F_2, F_3, nse$), water quality benchmarks (EPA, WHO). \\
+\textbf{Aman Soni} & Model Training Lead (Baseline, Random Forest, XGBoost) & Loss functions, tree pruning, MDI vs Gain, hyperparameter optimization. \\
 \midrule
-\textbf{Member 3} & Multi-National Data Audit, Telemetry Bounds, Exploratory Data Analysis & 5-country repository audit, physical bounds screening (pH, DO, Temp), outlier diagnostics. \\
+\textbf{Aaryan Gera} & Data Preprocessing Lead (Cleaning \& Dataset Preparation) & 5-country repository audit, physical bounds screening (pH, DO, Temp), outlier diagnostics. \\
 \midrule
-\textbf{Member 4} & Aquatic Chemistry Feature Engineering, Stoichiometry, Skewness & Henry's law DO sat, Redfield ratio, toxic $\text{NH}_3$ equilibrium, $\log(1+x)$ math. \\
+\textbf{Chaitanya Kumar} & Feature Engineering \& Pipeline Lead (Stoichiometry \& Skewness) & Benson-Krause DO sat, Redfield N:P, Emerson NH3, $\log(1+x)$ normalization. \\
 \midrule
-\textbf{Member 5} & Hyperparameter Optimization, Stratified Splitting, ML Benchmarking & Loss functions, tree pruning, MDI vs Gain, MAE/RMSE/$R^2$ trade-offs. \\
+\textbf{Ankit Kumar Pandey} & Model Evaluation \& Validation Lead (MAE, RMSE, $R^2$) & Quantitative metric comparison, error trade-offs, test partition validation. \\
 \midrule
-\textbf{Member 6} & Explainability (TreeSHAP), Calibration Metrics, Code Quality / PyTest & Shapley axioms, TreeSHAP polynomial algorithm, unit testing, Brier/ECE calibration. \\
+\textbf{Pranav} & Research, Documentation \& Presentation Lead (Literature, SHAP, Viva) & CCME formulation ($F_1, F_2, F_3, nse$), Shapley axioms, TreeSHAP, regulatory benchmarks. \\
 \bottomrule
 \end{tabular}
 \end{table}
