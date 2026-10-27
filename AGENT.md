@@ -29,8 +29,8 @@ This project aims to predict documented surface water quality indices and catego
 
 | Team Member | Functional Area | Primary Responsibilities | Status |
 |---|---|---|---|
-| **Mayank Sharma (Lead)** | **EDA & Repository Architecture** | End-to-end ML pipeline orchestration, data ingestion architecture, transparent 3-part Parquet sharding, anti-leakage quarantine protocol, GitHub version control. | **Completed** |
-| **Aman Soni** | **Model Training (RF & XGBoost)** | Tuned Random Forest and XGBoost tree ensembles, evaluated loss functions, split gain criteria, and regularized learning rates. | **Completed** |
+| **Aman Soni (Lead)** | **Model Training (RF & XGBoost)** | Tuned Random Forest and XGBoost tree ensembles, evaluated loss functions, split gain criteria, and regularized learning rates. | **Completed** |
+| **Mayank Sharma** | **EDA & Repository Architecture** | End-to-end ML pipeline orchestration, data ingestion architecture, transparent 3-part Parquet sharding, anti-leakage quarantine protocol, GitHub version control. | **Completed** |
 | **Aaryan Gera** | **Data Preprocessing & Audit** | Audited 2.82M records across 5 countries, detected sensor error dropouts, and enforced aquatic physical bounds screening (purging 8,360 corrupted values). | **Completed** |
 | **Chaitanya Kumar** | **Feature Engineering & Chemistry** | Derived 38 features: Benson-Krause DO capacity polynomial, Redfield stoichiometric N:P ratio, Emerson toxic un-ionized ammonia, and $\log(1+x)$ skewness reductions. | **Completed** |
 | **Ankit Kumar Pandey** | **Model Evaluation & Validation** | Stratified 70/15/15 dataset partitioning, quantitative metric benchmarking (MAE, RMSE, $R^2$), and Dual-Head MLP evaluation. | **Completed** |

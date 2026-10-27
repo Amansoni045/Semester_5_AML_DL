@@ -4,7 +4,7 @@
 > **Project Title:** Project 18 — Water Quality Prediction via Gradient Boosting and Deep Neural Networks  
 > **Scope:** Phase 1 Machine Learning Evaluation (Exclusive Focus)  
 > **Repository:** [MAYANKSHARMA01010/Semester_5_AML_DL](https://github.com/MAYANKSHARMA01010/Semester_5_AML_DL)  
-> **Team Composition:** Exactly 6 Members (Lead: Mayank Sharma + 5 Specialized Domain Members)  
+> **Team Composition:** Exactly 6 Members (Lead: Aman Soni + 5 Specialized Domain Members)  
 
 ---
 
@@ -41,10 +41,10 @@ To ensure full marks for all 6 members, this guide is divided into:
 
 ---
 
-### Member 1: Mayank Sharma (Project Lead & EDA / Repository Architecture)
+### Member 1: Aman Soni (Project Lead & Model Training Lead)
 
 #### Core Responsibility:
-End-to-end pipeline architecture, data ingestion across 5 countries, Parquet sharding, GitHub version control, and anti-leakage quarantine protocol.
+Machine learning model training, Random Forest and XGBoost ensemble optimization, loss functions (MSE vs Huber), split criteria (MDI vs Gain), and quantitative regression benchmarking.
 
 #### Potential Faculty Questions & Model Answers:
 
@@ -55,36 +55,36 @@ End-to-end pipeline architecture, data ingestion across 5 countries, Parquet sha
 > $$\tilde{\mathcal{L}}^{(t)} \approx \sum_{i=1}^N \left[ g_i f_t(\mathbf{x}_i) + \frac{1}{2} h_i f_t^2(\mathbf{x}_i) \right] + \gamma T_L + \frac{1}{2}\lambda \sum_{j=1}^{T_L} w_j^2$$
 > In our project, Random Forest achieved slightly higher precision ($\text{MAE} = 0.052$ vs. $0.137$), while XGBoost demonstrated $9\times$ faster inference latency ($0.42\text{ s}$ vs. $3.85\text{ s}$ for 422k rows), making XGBoost ideal for edge IoT sensor deployment."
 
-##### Q2: How did you solve GitHub's strict 100 MB file limit without losing training data?
-> **Answer:** "Our 1.97-million-row training set was ~190 MB, which GitHub rejects because of its 100 MB hard limit. Rather than sub-sampling or discarding data, I engineered a **transparent 3-part Parquet sharding architecture** (`train_part0.parquet`, `train_part1.parquet`, `train_part2.parquet`), each under 60 MB. In `src/utils.py`, `pd.read_parquet("train.parquet")` automatically detects and streams all shards as a single cohesive DataFrame without requiring manual user concatenation."
-
-##### Q3: How do you mathematically guarantee that your model does not suffer from target leakage?
-> **Answer:** "Because the CCME WQI is calculated from chemical exceedances, naive models that retain intermediate exceedance counters ($F_1, F_2, F_3$) achieve artificial $R^2 = 1.0$ through circular arithmetic. In `src/utils.py`, `separate_features_and_targets` programmatically isolates all target columns (`ccme_values`, `ccme_wqi`, `ccme_wqi_code`, $F_1, F_2, F_3$). Automated unit tests in `tests/test_leakage.py` assert that zero target columns exist inside the 38-feature predictor matrix."
+##### Q2: How did you select the hyperparameters for Random Forest and XGBoost?
+> **Answer:** "For **Random Forest**, we tuned:
+> - `n_estimators = 100`: Provided variance reduction without prohibitive serialization footprint ($31\text{ MB}$).
+> - `max_depth = 20`: Prevents leaf memorization while capturing deep feature interactions.
+> - `min_samples_split = 10`, `min_samples_leaf = 4`: Regularizes against single-sample noise.
+> - `max_features = sqrt(p)`: De-correlates candidate decision trees.
+> 
+> For **XGBoost**, we configured:
+> - `n_estimators = 300`, `learning_rate = 0.05`: Ensures gradual, stable gradient convergence.
+> - `max_depth = 8`: Constrains individual tree complexity.
+> - `subsample = 0.8`, `colsample_bytree = 0.8`: Injects stochastic regularization.
+> - `reg_lambda = 1.0`: L2 ridge penalty on leaf weights preventing extreme predictions."
 
 ---
 
-### Member 2: Pranav (Research, Documentation, Environmental Standards & CCME Math)
+### Member 2: Mayank Sharma (EDA & Repository Architecture Lead)
 
 #### Core Responsibility:
-Literature synthesis on ML in aquatic monitoring, formal mathematical derivation of the CCME WQI ($F_1, F_2, F_3, nse$), and comparison with international regulatory frameworks (WHO, US EPA, EU WFD).
+End-to-end pipeline architecture, data ingestion across 5 countries, Parquet sharding, GitHub version control, and anti-leakage quarantine protocol.
 
 #### Potential Faculty Questions & Model Answers:
 
-##### Q1: Derive the CCME Water Quality Index formula from first principles.
-> **Answer:** "The CCME WQI formula is:
-> $$\text{CCME WQI} = 100 - \left( \frac{\sqrt{F_1^2 + F_2^2 + F_3^2}}{1.732} \right)$$
-> It measures the Euclidean distance from an ideal vector $(0,0,0)$ where no guidelines are violated. The factor $1.732 = \sqrt{3}$ normalizes the distance because the maximum theoretical vector length is $\sqrt{100^2 + 100^2 + 100^2} = \sqrt{30,000} \approx 173.2$.
-> - **$F_1$ (Scope):** Percentage of variables failing guidelines: $F_1 = (\text{Failed Variables} / \text{Total Variables}) \times 100$.
-> - **$F_2$ (Frequency):** Percentage of individual tests failing guidelines: $F_2 = (\text{Failed Tests} / \text{Total Tests}) \times 100$.
-> - **$F_3$ (Amplitude):** Magnitude of exceedance via the normalized sum of excursions ($nse$):
->   $$\text{excursion}_i = \left(\frac{\text{Test Value}}{\text{Guideline}}\right) - 1, \quad nse = \frac{\sum \text{excursion}_i}{\text{Total Tests}}, \quad F_3 = \frac{nse}{0.01 \cdot nse + 0.01}$$
-> The asymptotic hyperbola maps unbounded excursions smoothly into the $[0, 100]$ range."
+##### Q1: How did you solve GitHub's strict 100 MB file limit without losing training data?
+> **Answer:** "Our 1.97-million-row training set was ~190 MB, which GitHub rejects because of its 100 MB hard limit. Rather than sub-sampling or discarding data, I engineered a **transparent 3-part Parquet sharding architecture** (`train_part0.parquet`, `train_part1.parquet`, `train_part2.parquet`), each under 60 MB. In `src/utils.py`, `pd.read_parquet("train.parquet")` automatically detects and streams all shards as a single cohesive DataFrame without requiring manual user concatenation."
 
-##### Q2: Why is Machine Learning superior to traditional laboratorygrab sampling?
-> **Answer:** "Conventional grab sampling relies on discrete field visits and multi-day laboratory assays. For example, standard Biochemical Oxygen Demand ($\text{BOD}_5$) requires a 5-day microbiological incubation period ($120\text{ hours}$). By the time lab results confirm severe organic hypoxia, fish kills and contamination have already spread downstream. Machine learning acts as an instantaneous surrogate sensor, mapping real-time electronic probe telemetry (pH, DO, temperature, conductivity) directly to continuous index scores in under 1 millisecond, providing early warning telemetry."
+##### Q2: How do you mathematically guarantee that your model does not suffer from target leakage?
+> **Answer:** "Because the CCME WQI is calculated from chemical exceedances, naive models that retain intermediate exceedance counters ($F_1, F_2, F_3$) achieve artificial $R^2 = 1.0$ through circular arithmetic. In `src/utils.py`, `separate_features_and_targets` programmatically isolates all target columns (`ccme_values`, `ccme_wqi`, `ccme_wqi_code`, $F_1, F_2, F_3$). Automated unit tests in `tests/test_leakage.py` assert that zero target columns exist inside the 38-feature predictor matrix."
 
-##### Q3: How do international water quality frameworks compare with CCME?
-> **Answer:** "The US EPA and EU Water Framework Directive (WFD) historically relied on single-parameter deterministic pass/fail thresholds or the Horton/Brown National Sanitation Foundation (NSF) additive index. The CCME index is globally preferred because it combines scope, frequency, and non-linear amplitude simultaneously into a single standardized metric, avoiding the 'eclipsing' problem where one severe excursion is hidden by several pristine parameters."
+##### Q3: How is the multi-country repository organized for reproducibility?
+> **Answer:** "We structured the repository cleanly with standard engineering modules under `src/` (`features.py`, `models.py`, `metrics.py`, `utils.py`), accompanied by an automated 12-test suite in `tests/`. This separation of concerns ensures that any developer can clone the repo and reproduce our complete Phase 1 ingestion, preprocessing, training, and evaluation with a single command."
 
 ---
 
@@ -137,42 +137,10 @@ Derivation of 38 features grounded in aquatic chemistry: Benson-Krause DO satura
 
 ---
 
-### Member 5: Aman Soni (Model Training Lead: Baseline, Random Forest & XGBoost Benchmarking)
+### Member 5: Ankit Kumar Pandey (Model Evaluation, Validation, TreeSHAP & Testing Lead)
 
 #### Core Responsibility:
-Model training, hyperparameter optimization, class-stratified 70/15/15 splitting, baseline benchmarks, and comparative evaluation metrics (MAE, RMSE, $R^2$).
-
-#### Potential Faculty Questions & Model Answers:
-
-##### Q1: How did you select the hyperparameters for Random Forest and XGBoost?
-> **Answer:** "For **Random Forest**, we tuned:
-> - `n_estimators = 100`: Provided variance reduction without prohibitive serialization footprint ($31\text{ MB}$).
-> - `max_depth = 20`: Prevents leaf memorization while capturing deep feature interactions.
-> - `min_samples_split = 10`, `min_samples_leaf = 4`: Regularizes against single-sample noise.
-> - `max_features = sqrt(p)`: De-correlates candidate decision trees.
-> 
-> For **XGBoost**, we configured:
-> - `n_estimators = 300`, `learning_rate = 0.05`: Ensures gradual, stable gradient convergence.
-> - `max_depth = 8`: Constrains individual tree complexity.
-> - `subsample = 0.8`, `colsample_bytree = 0.8`: Injects stochastic regularization.
-> - `reg_lambda = 1.0`: L2 ridge penalty on leaf weights preventing extreme predictions."
-
-##### Q2: Walk us through the exact benchmark metrics across your models.
-> **Answer:** "On the 422,943 validation records:
-> 1. **Mean Baseline:** $\text{MAE} = 14.130$, $\text{RMSE} = 17.656$, $R^2 = 0.0000$. (Predicts training mean $\bar{y} \approx 67.24$).
-> 2. **XGBoost:** $\text{MAE} = \mathbf{0.137}$, $\text{RMSE} = \mathbf{0.374}$, $R^2 = \mathbf{0.9996}$, inference latency = $0.42\text{ s}$.
-> 3. **Random Forest:** $\text{MAE} = \mathbf{0.052}$, $\text{RMSE} = \mathbf{0.208}$, $R^2 = \mathbf{0.9999}$, inference latency = $3.85\text{ s}$.
-> Both models reduce baseline error by over $99.6\%$. Random Forest has the highest numerical precision, but XGBoost evaluates 422k rows in $0.42\text{ s}$ ($\sim 1\,\mu\text{s}$ per query), making it optimal for streaming deployment."
-
-##### Q3: Why did you use stratified splitting instead of random splitting?
-> **Answer:** "Surface water quality is heavily imbalanced: pristine 'Excellent' waters and heavily degraded 'Poor' waters represent extreme tails, while 'Fair' and 'Good' waters dominate the center. A naive random split risks uneven representation of rare ecological distress events. Our stratified 70/15/15 split partitions 2,819,617 rows based on the 5 CCME ecological tiers, guaranteeing identical class proportions across Train (1,973,731), Val (422,943), and Test (422,943)."
-
----
-
-### Member 6: Ankit Kumar Pandey (Model Evaluation, Validation, TreeSHAP & Testing)
-
-#### Core Responsibility:
-Game-theoretic TreeSHAP feature attribution, multi-class probability calibration metrics (Brier Score and ECE), and developing the 12-test automated unit test suite under `pytest`.
+Quantitative evaluation metrics (MAE, RMSE, $R^2$), stratified 70/15/15 dataset partitioning, TreeSHAP feature attribution analysis, and 12-test automated unit test suite under `pytest`.
 
 #### Potential Faculty Questions & Model Answers:
 
@@ -193,7 +161,32 @@ Game-theoretic TreeSHAP feature attribution, multi-class probability calibration
 > - `test_leakage.py`: Tests target quarantine assertions and verifies zero target columns in metadata.
 > - `test_metrics.py`: Verifies regression metrics (MAE, RMSE, $R^2$), classification metrics (Macro F1), multi-class Brier score ($0.0533$), and Expected Calibration Error ($1.27\%$).
 > - `test_models.py`: Tests model architecture tensor dimensions and checkpoint loading.
-> All 12 unit tests execute in **1.65 seconds with 100% pass rate**."
+> All 12 unit tests execute in under 3 seconds with **100% pass rate**."
+
+---
+
+### Member 6: Pranav (Research, Documentation, Environmental Standards & CCME Math)
+
+#### Core Responsibility:
+Literature synthesis on ML in aquatic monitoring, formal mathematical derivation of the CCME WQI ($F_1, F_2, F_3, nse$), and comparison with international regulatory frameworks (WHO, US EPA, EU WFD).
+
+#### Potential Faculty Questions & Model Answers:
+
+##### Q1: Derive the CCME Water Quality Index formula from first principles.
+> **Answer:** "The CCME WQI formula is:
+> $$\text{CCME WQI} = 100 - \left( \frac{\sqrt{F_1^2 + F_2^2 + F_3^2}}{1.732} \right)$$
+> It measures the Euclidean distance from an ideal vector $(0,0,0)$ where no guidelines are violated. The factor $1.732 = \sqrt{3}$ normalizes the distance because the maximum theoretical vector length is $\sqrt{100^2 + 100^2 + 100^2} = \sqrt{30,000} \approx 173.2$.
+> - **$F_1$ (Scope):** Percentage of variables failing guidelines: $F_1 = (\text{Failed Variables} / \text{Total Variables}) \times 100$.
+> - **$F_2$ (Frequency):** Percentage of individual tests failing guidelines: $F_2 = (\text{Failed Tests} / \text{Total Tests}) \times 100$.
+> - **$F_3$ (Amplitude):** Magnitude of exceedance via the normalized sum of excursions ($nse$):
+>   $$\text{excursion}_i = \left(\frac{\text{Test Value}}{\text{Guideline}}\right) - 1, \quad nse = \frac{\sum \text{excursion}_i}{\text{Total Tests}}, \quad F_3 = \frac{nse}{0.01 \cdot nse + 0.01}$$
+> The asymptotic hyperbola maps unbounded excursions smoothly into the $[0, 100]$ range."
+
+##### Q2: Why is Machine Learning superior to traditional laboratory grab sampling?
+> **Answer:** "Conventional grab sampling relies on discrete field visits and multi-day laboratory assays. For example, standard Biochemical Oxygen Demand ($\text{BOD}_5$) requires a 5-day microbiological incubation period ($120\text{ hours}$). By the time lab results confirm severe organic hypoxia, fish kills and contamination have already spread downstream. Machine learning acts as an instantaneous surrogate sensor, mapping real-time electronic probe telemetry (pH, DO, temperature, conductivity) directly to continuous index scores in under 1 millisecond, providing early warning telemetry."
+
+##### Q3: How do international water quality frameworks compare with CCME?
+> **Answer:** "The US EPA and EU Water Framework Directive (WFD) historically relied on single-parameter deterministic pass/fail thresholds or the Horton/Brown National Sanitation Foundation (NSF) additive index. The CCME index is globally preferred because it combines scope, frequency, and non-linear amplitude simultaneously into a single standardized metric, avoiding the 'eclipsing' problem where one severe excursion is hidden by several pristine parameters."
 
 ---
 

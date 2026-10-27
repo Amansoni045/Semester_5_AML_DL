@@ -164,8 +164,8 @@ def build_presentation_pptx():
 
     p = tf1.add_paragraph()
     p.text = (
-        "• Mayank Sharma (Lead – EDA & Repository Management Lead)\n"
-        "• Aman Soni (Model Training Lead – Baseline, RF, XGBoost)\n"
+        "• Aman Soni (Lead – Model Training Lead: RF, XGBoost)\n"
+        "• Mayank Sharma (EDA & Repository Management)\n"
         "• Aaryan Gera (Data Preprocessing Lead – Cleaning & Audit)\n"
         "• Chaitanya Kumar (Feature Engineering & Stoichiometry Lead)\n"
         "• Ankit Kumar Pandey (Model Evaluation & Validation Lead)\n"
@@ -381,8 +381,8 @@ def build_presentation_pptx():
     s14 = create_blank(prs)
     add_header(s14, "Six-Member Project Allocation & Viva Voce Defense Matrix")
     members = [
-        ("Mayank Sharma (Lead)", "EDA & Repository Management Lead", "Orchestrated end-to-end ML pipeline, data ingestion architecture, Parquet sharding, and anti-leakage quarantine.", ACCENT_CYAN),
-        ("Aman Soni", "Model Training Lead (RF, XGBoost)", "Tuned tree ensembles, optimized loss functions and split criteria (MDI vs Gain), and led regression training.", ACCENT_BLUE),
+        ("Aman Soni (Lead)", "Model Training Lead (RF, XGBoost)", "Tuned tree ensembles, optimized loss functions and split criteria (MDI vs Gain), and led regression training.", ACCENT_CYAN),
+        ("Mayank Sharma", "EDA & Repository Management", "Orchestrated end-to-end ML pipeline, data ingestion architecture, Parquet sharding, and anti-leakage quarantine.", ACCENT_BLUE),
         ("Aaryan Gera", "Data Preprocessing Lead (Cleaning & Audit)", "Executed 5-country dataset audit, enforced thermodynamic screening boundaries, and eliminated telemetry errors.", ACCENT_EMERALD),
         ("Chaitanya Kumar", "Feature Engineering & Stoichiometry Lead", "Engineered 38 features: Benson-Krause DO sat, Redfield N:P, Emerson toxic NH3, log(1+x) normalization, and station lags.", ACCENT_GOLD),
         ("Ankit Kumar Pandey", "Model Evaluation & Validation Lead", "Managed stratified 70/15/15 partitioning, continuous metric benchmarks (MAE, RMSE, R²), and Dual-Head MLP evaluation.", ACCENT_BLUE),
@@ -738,12 +738,12 @@ def build_report_pdf():
   
   <div class="authors-grid">
     <div class="author-box">
-      <div class="author-name">Mayank Sharma (Lead)</div>
-      <div class="author-role">EDA & Repository Management Lead</div>
+      <div class="author-name">Aman Soni (Lead)</div>
+      <div class="author-role">Model Training Lead (RF, XGBoost)</div>
     </div>
     <div class="author-box">
-      <div class="author-name">Aman Soni</div>
-      <div class="author-role">Model Training Lead (RF, XGBoost)</div>
+      <div class="author-name">Mayank Sharma</div>
+      <div class="author-role">EDA & Repository Management</div>
     </div>
     <div class="author-box">
       <div class="author-name">Aaryan Gera</div>
@@ -766,7 +766,6 @@ def build_report_pdf():
   <div class="affiliation">
     Department of Computer Science & Artificial Intelligence, School of Engineering and Technology<br>
     Rishihood University | Semester 5 Applied Machine Learning & Deep Learning | Project 18: Water Quality Prediction<br>
-    Emails: {{mayank.sharma, aman.soni, aaryan.gera, chaitanya.kumar, ankit.pandey, pranav}}@nst.rishihood.edu.in<br>
     Repository: <strong>https://github.com/MAYANKSHARMA01010/Semester_5_AML_DL</strong>
   </div>
 </div>
@@ -890,8 +889,8 @@ def build_report_pdf():
   <div class="table-title">Table IV: Six-Member Allocation & Viva Voce Defense Matrix</div>
   <table>
     <tr><th>Team Member</th><th>Core Module Responsibility</th><th>Viva Voce Defense Zone</th></tr>
-    <tr><td><strong>Mayank Sharma</strong> (Lead)</td><td>EDA & Repository Management Lead; Pipeline Architecture & Sharding</td><td>End-to-end pipeline orchestration, data ingestion architecture, anti-leakage protocol.</td></tr>
-    <tr><td><strong>Aman Soni</strong></td><td>Model Training Lead (Baseline, Random Forest, XGBoost)</td><td>Loss functions, tree pruning, MDI vs Gain, hyperparameter optimization.</td></tr>
+    <tr><td><strong>Aman Soni</strong> (Lead)</td><td>Model Training Lead (Baseline, Random Forest, XGBoost)</td><td>Loss functions, tree pruning, MDI vs Gain, hyperparameter optimization.</td></tr>
+    <tr><td><strong>Mayank Sharma</strong></td><td>EDA & Repository Management; Pipeline Architecture & Sharding</td><td>End-to-end pipeline orchestration, data ingestion architecture, anti-leakage protocol.</td></tr>
     <tr><td><strong>Aaryan Gera</strong></td><td>Data Preprocessing Lead (Cleaning & Dataset Preparation)</td><td>5-country repository audit, physical bounds screening (pH, DO, Temp), outlier diagnostics.</td></tr>
     <tr><td><strong>Chaitanya Kumar</strong></td><td>Feature Engineering & Pipeline Lead (Stoichiometry & Skewness)</td><td>Benson-Krause DO sat, Redfield N:P, Emerson NH3, log(1+x) normalization.</td></tr>
     <tr><td><strong>Ankit Kumar Pandey</strong></td><td>Model Evaluation & Validation Lead (MAE, RMSE, R²)</td><td>Quantitative metric comparison, error trade-offs, test partition validation.</td></tr>

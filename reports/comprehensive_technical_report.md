@@ -3,7 +3,7 @@
 **Course:** Semester 5 Applied Machine Learning & Deep Learning (AML / DL)  
 **Project Title:** Project 18 — Water Quality Prediction via Gradient Boosting and Deep Neural Networks  
 **Repository:** [MAYANKSHARMA01010/Semester_5_AML_DL](https://github.com/MAYANKSHARMA01010/Semester_5_AML_DL)  
-**Authors (6-Member Team):** Mayank Sharma (Lead), Aman Soni, Aaryan Gera, Chaitanya Kumar, Ankit Kumar Pandey, Pranav  
+**Authors (6-Member Team):** Aman Soni (Lead), Mayank Sharma, Aaryan Gera, Chaitanya Kumar, Ankit Kumar Pandey, Pranav  
 **Date:** October 2026  
 
 ---
@@ -491,8 +491,8 @@ In compliance with CSAI Course Project Guidelines (Phase 1 & Phase 2), the proje
 
 | Team Member | Official Project Role | Technical Deliverables & Codebase Modules | Individual Viva Voce Defense Specialization |
 |---|---|---|---|
-| **Mayank Sharma** (Lead) | EDA & Repository Management Lead | Orchestrated end-to-end ML pipeline, data ingestion architecture, Parquet sharding, anti-leakage quarantine protocol, and GitHub versioning. | End-to-end architecture, multi-country ingestion pipeline, target quarantine verification, and repository scalability. |
-| **Aman Soni** | Model Training Lead (Baseline, RF, XGBoost) | Tuned Random Forest and XGBoost tree ensembles, evaluated loss functions (MSE vs Huber), split criteria (MDI vs Gain), and regularized learning rates. | Ensemble tree mechanics, bagging vs boosting, tree pruning parameters, split gain equations, and hyperparameter optimization. |
+| **Aman Soni** (Lead) | Model Training Lead (Baseline, RF, XGBoost) | Tuned Random Forest and XGBoost tree ensembles, evaluated loss functions (MSE vs Huber), split criteria (MDI vs Gain), and regularized learning rates. | Ensemble tree mechanics, bagging vs boosting, tree pruning parameters, split gain equations, and hyperparameter optimization. |
+| **Mayank Sharma** | EDA & Repository Management | Orchestrated end-to-end ML pipeline, data ingestion architecture, Parquet sharding, anti-leakage quarantine protocol, and GitHub versioning. | End-to-end architecture, multi-country ingestion pipeline, target quarantine verification, and repository scalability. |
 | **Aaryan Gera** | Data Preprocessing Lead (Cleaning & Audit) | Executed multi-national dataset audit across 5 countries (`notebooks/01.EDA/`), established physical screening boundaries (pH, DO, Temp, Nutrients), and purged 8,360 corrupted values. | Multi-country data architecture, thermodynamic bounds screening rationale, outlier diagnostics, and verification of 0% missingness. |
 | **Chaitanya Kumar** | Feature Engineering & Pipeline Lead | Derived 38 predictive features: Benson-Krause DO capacity polynomial, Redfield stoichiometric N:P ratio, Emerson toxic un-ionized ammonia equilibrium, and $\log(1+x)$ skewness reductions (`src/features.py`). | Aquatic chemical and thermodynamic equations, Henry's law gas solubility, algal limitation stoichiometry, and skewness normalization. |
 | **Ankit Kumar Pandey** | Model Evaluation & Validation Lead | Managed stratified 70/15/15 dataset partitioning, quantitative continuous metric benchmarking (MAE, RMSE, $R^2$), and Dual-Head MLP evaluation. | Regression metric trade-offs (MAE vs RMSE vs $R^2$), residual distributions, validation partitioning, and neural multi-task metrics. |
