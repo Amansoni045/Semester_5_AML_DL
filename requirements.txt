@@ -14,9 +14,6 @@ xgboost
 torch
 joblib
 
-# Testing & Quality Assurance
-pytest
-
 # Notebook & Environment Support
 nbformat
 ipykernel

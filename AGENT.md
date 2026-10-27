@@ -105,13 +105,6 @@ Semester_5_AML_DL/
 ├── reports/
 │   ├── dataset_audit_report.md
 │   └── figures/
-├── src/
-│   ├── __init__.py                               # Package exports
-│   └── preprocessing.py                          # Data cleaning, feature engineering, split & scaling
-└── tests/
-    ├── __init__.py
-    ├── test_preprocessing.py                     # Unit tests for preprocessing & cleaning (52 tests)
-    └── test_model_training.py                    # Unit tests for tree models & predictions (3 tests)
 ```
 
 ---

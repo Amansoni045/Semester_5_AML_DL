@@ -32,9 +32,6 @@ You can run individual notebooks directly or use the provided automation scripts
 .venv/bin/python scripts/run_notebook.py notebooks/01.EDA/02_data_patterns_and_target.ipynb
 .venv/bin/python scripts/run_notebook.py "notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb"
 .venv/bin/python scripts/run_notebook.py notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb
-
-# Run automated tests:
-.venv/bin/pytest tests/
 ```
 
 ---
@@ -114,13 +111,6 @@ Semester_5_AML_DL/
 │   ├── setup_environment.sh                      # Virtual environment setup script
 │   ├── run_eda_pipeline.py                       # Automated EDA notebook runner
 │   └── run_notebook.py                           # CLI notebook executor
-├── src/
-│   ├── __init__.py                               # Package exports
-│   └── preprocessing.py                          # Data cleaning, feature engineering, split & scaling
-├── tests/
-│   ├── __init__.py
-│   ├── test_preprocessing.py                     # Unit tests for preprocessing & cleaning
-│   └── test_model_training.py                    # Unit tests for tree models & predictions
 ├── data/
 │   ├── Dataset/
 │   │   ├── Parquet/                              # Tracked parquet master dataset
