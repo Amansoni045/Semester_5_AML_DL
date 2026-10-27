@@ -233,6 +233,9 @@ f_{\text{toxic}} = \frac{1}{10^{(0.09018 + \frac{2729.92}{T + 273.15} - \text{pH
 \text{NH}_{3,\text{toxic}} = \text{Ammonia} \times f_{\text{toxic}}
 \end{equation}
 
+\subsection{Stoichiometric Features \& Preprocessing Decisions}
+All 38 predictors deliberately avoid standard scaling ($\mu=0, \sigma=1$) because tree-based architectures are invariant to monotonic scaling; maintaining unscaled physical units ($^\circ\text{C}$, mg/L, pH) preserves direct interpretability in SHAP analyses. Categorical features (\texttt{country}, \texttt{waterbody\_type}) are encoded via integer label mapping rather than one-hot encoding, eliminating high-dimensional sparsity across 2.8 million observations.
+
 \subsection{Skewness Mitigation via $\log(1+x)$}
 Nutrients such as orthophosphate exhibited extreme positive skewness ($\gamma_1 = 48.2$). A non-linear transformation $\tilde{x} = \ln(1 + x)$ stabilized variance. Pearson linear correlation between orthophosphate and CCME WQI surged from $r = -0.66$ to $\mathbf{r = -0.85}$ post-transformation.
 
@@ -246,13 +249,14 @@ Because the CCME WQI is mathematically defined over water quality thresholds, na
 \subsection{Data Splitting Strategy}
 We executed a stratified 70/15/15 partition on the 2,819,617 cleaned observations:
 \begin{itemize}
-    \item \textbf{Training Set:} 1,973,731 observations (70.0\%)
+    \item \textbf{Training Set:} 1,973,731 observations (70.0\%, sharded into 3 partitions $<100\text{MB}$ for GitHub compliance).
     \item \textbf{Validation Set:} 422,943 observations (15.0\%)
     \item \textbf{Test Set:} 422,943 observations (15.0\%)
 \end{itemize}
 
-\subsection{Hyperparameter Specifications}
+\subsection{Model Specifications}
 \begin{itemize}
+    \item \textbf{Mean Baseline:} Null model predicting constant empirical target mean ($\bar{y} = 85.05$) across all 1,973,731 training rows without using features.
     \item \textbf{Random Forest:} 100 estimators, max depth 20, min samples split 10, min samples leaf 4, $m = \sqrt{p}$.
     \item \textbf{XGBoost:} 300 boosted rounds, learning rate $\eta = 0.05$, max depth 8, subsample 0.8, colsample\_bytree 0.8, $\lambda = 1.0$, objective \texttt{reg:squarederror}.
 \end{itemize}
