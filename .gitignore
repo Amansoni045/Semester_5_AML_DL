@@ -226,13 +226,17 @@ __marimo__/
 ~$*
 .DS_Store
 
+# Whitelist evaluation metric CSVs and documentation spreadsheets
+!data/GeneratedOutput/**/*.csv
+!data/Data Collection Sources/*.xlsx
+
 # Raw source Parquet files (remain local)
 data/Dataset/Parquet/**/*.parquet
 !data/Dataset/Parquet/**/.gitkeep
-
 
 # Code directory ignored (write custom code locally)
 data/Code/
 data/Code/**
 **/Code/
 code/
+
