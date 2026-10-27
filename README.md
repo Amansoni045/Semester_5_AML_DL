@@ -67,13 +67,13 @@ All required Phase 1 CSAI evaluation deliverables are compiled and verified insi
 
 | Deliverable | File Path | Description |
 |---|---|---|
-| **Official IEEE LaTeX Report** | [`reports/phase1_ieee_report.tex`](reports/phase1_ieee_report.tex) | Complete two-column IEEE Conference paper with 6 authors, mathematical derivations, tables, and citations. |
+| **Project Report (PDF)** | [`reports/Project_Report.pdf`](reports/Project_Report.pdf) | Publication-grade IEEE conference report with 6 authors, mathematical derivations, tables, and 5 embedded figures. |
+| **Project Presentation (.pptx)** | [`reports/Project_Presentation.pptx`](reports/Project_Presentation.pptx) | 15-slide widescreen PowerPoint deck for 6 members with embedded high-resolution figures. |
+| **Project Presentation (.pdf)** | [`reports/Project_Presentation.pdf`](reports/Project_Presentation.pdf) | 15-page landscape PDF presentation matching the slide deck. |
+| **Official IEEE LaTeX Report** | [`reports/Project_Report_IEEE.tex`](reports/Project_Report_IEEE.tex) | Complete two-column IEEE Conference LaTeX paper. |
 | **BibTeX Bibliography** | [`reports/references.bib`](reports/references.bib) | Academic bibliography (Breiman 2001, Chen 2016, Lundberg 2017, CCME 2001, etc.). |
-| **Phase 1 Presentation (.pptx)** | [`reports/phase1_presentation.pptx`](reports/phase1_presentation.pptx) | 15-slide widescreen presentation deck for 6 members with embedded high-resolution figures. |
-| **Interactive HTML Slides** | [`reports/phase1_presentation_slides.html`](reports/phase1_presentation_slides.html) | Standalone browser slide deck with glassmorphic cards and keyboard navigation. |
-| **Markdown Presentation** | [`reports/phase1_presentation_slides.md`](reports/phase1_presentation_slides.md) | Marp-compatible Markdown presentation deck with speaker notes. |
-| **Viva Voce Master Guide** | [`reports/phase1_viva_preparation_guide.md`](reports/phase1_viva_preparation_guide.md) | Individual viva dossiers for all 6 members and 25 toughest faculty questions with model answers. |
-| **Comprehensive Technical Report** | [`reports/comprehensive_final_report.md`](reports/comprehensive_final_report.md) | 15-section master technical report documenting the complete project lifecycle. |
+| **Viva Voce Master Guide** | [`reports/viva_preparation_guide.md`](reports/viva_preparation_guide.md) | Individual viva dossiers for all 6 members and 25 toughest faculty questions with model answers. |
+| **Comprehensive Technical Report** | [`reports/comprehensive_technical_report.md`](reports/comprehensive_technical_report.md) | 15-section master technical report documenting the complete project lifecycle. |
 | **One-Click Pipeline Runner** | [`scripts/run_phase1_pipeline.py`](scripts/run_phase1_pipeline.py) | Standalone verification runner tying together `src/` modules and running tests. |
 
 ---
