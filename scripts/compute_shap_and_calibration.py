@@ -30,7 +30,7 @@ def run_shap_analysis():
     print("--- 1. Computing TreeSHAP Values for XGBoost Regressor ---")
     xgb_path = DATA_DIR / "03.ModelTraining" / "xgboost_model.json"
     meta_path = DATA_DIR / "02.Preprocessing&FeatureSelection" / "preprocessing_metadata.json"
-    val_path = DATA_DIR / "02.Preprocessing&FeatureSelection" / "val_scaled.parquet"
+    val_path = DATA_DIR / "02.Preprocessing&FeatureSelection" / "val.parquet"
 
     features = json.loads(meta_path.read_text())["input_features_ordered"]
     xgb_model = XGBRegressor()

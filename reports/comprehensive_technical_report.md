@@ -224,7 +224,6 @@ remote: error: File data/GeneratedOutput/02.Preprocessing&FeatureSelection/train
 ```
 Git LFS was avoided due to free-tier bandwidth caps that lock public repositories. Instead, we implemented **transparent multi-part Parquet directory sharding**:
 - `train.parquet/` was written as a directory containing 3 Parquet shards (`part-0.parquet`, `part-1.parquet`, `part-2.parquet`), each containing ~657,910 rows and weighing **~51–53 MB** (well below GitHub's 100 MB hard limit).
-- `train_scaled.parquet/` was similarly partitioned into 3 shards of ~53 MB each.
 - **Zero Client-Side Impact:** Modern columnar readers (Pandas and PyArrow via `pd.read_parquet('.../train.parquet')`) automatically ingest multi-file directories seamlessly as a single contiguous DataFrame without requiring code modifications.
 
 ---
@@ -422,21 +421,15 @@ All figures, models, tables, and parquets are verified and live in the repositor
 - `04.ModelEvaluation/model_comparison.png`: Baseline vs. RF vs. XGBoost bar plots.
 - `04.ModelEvaluation/feature_importance.png`: Top-10 feature importance rankings.
 - `04.ModelEvaluation/shap_summary.png`: TreeSHAP beeswarm and feature impact distribution.
-- `04.ModelEvaluation/dl_calibration_curve.png`: Multi-class probability calibration reliability diagram.
-
 ### 11.2 Core Data Partitions (`data/GeneratedOutput/`)
 - `01.EDA/final_eda_cleaned_dataset.parquet`: 2,819,617 rows × 14 columns.
 - `02.Preprocessing&FeatureSelection/train.parquet/`: 1,973,731 rows × 45 columns (sharded in 3 parts).
 - `02.Preprocessing&FeatureSelection/val.parquet`: 422,943 rows × 45 columns.
 - `02.Preprocessing&FeatureSelection/test.parquet`: 422,943 rows × 45 columns.
-- `02.Preprocessing&FeatureSelection/train_scaled.parquet/`: 1,973,731 rows × 45 columns (sharded in 3 parts).
-- `02.Preprocessing&FeatureSelection/val_scaled.parquet`: 422,943 rows × 45 columns.
-- `02.Preprocessing&FeatureSelection/test_scaled.parquet`: 422,943 rows × 45 columns.
 
 ### 11.3 Trained Model Checkpoints (`data/GeneratedOutput/03.ModelTraining/`)
 - `random_forest_model.joblib`: Serialized Scikit-Learn Random Forest (33 MB).
 - `xgboost_model.json`: Serialized XGBoost booster (1.1 MB).
-- `deep_learning_mlp_model.pt`: Serialized PyTorch state dict (238 KB).
 
 ---
 
