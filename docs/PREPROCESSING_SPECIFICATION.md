@@ -128,6 +128,6 @@ pytest tests/ -v
 # Run Phase 1 ML Training (Baseline, Random Forest, XGBoost)
 python scripts/run_notebook.py "notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb"
 
-# Re-build all submission artifacts and reports
-python scripts/build_submission_artifacts.py
+# Execute end-to-end verification and evaluation
+python scripts/run_phase1_pipeline.py
 ```
