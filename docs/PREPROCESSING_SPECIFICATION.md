@@ -88,7 +88,7 @@ Every transformation addresses a specific empirical anomaly identified during th
   - **Authoritative 15-Feature Input Matrix (`MODEL_INPUT_FEATURES`)**:
     - **Base Physical/Chemical (8)**: `ph`, `temperature_c`, `do_mg_l`, `bod_mg_l`, `ammonia_mg_l`, `orthophosphate_mg_l`, `nitrogen_mg_l`, `nitrate_mg_l`.
     - **Engineered Geochemical/Seasonal (7)**: `np_ratio`, `bod_do_ratio`, `do_deficit`, `month`, `quarter`, `month_sin`, `month_cos`.
-  - **Cyclical Month Encoding**: Generated using $\sin(2\pi(m-1)/12)$ and $\cos(2\pi(m-1)/12)$ alongside raw integer `month` and `quarter` so that January ($0^\circ$) and December ($330^\circ$) are adjacent in circular space. Missing dates yield `NaN`, subsequently imputed during train-only imputation.
+  - **Cyclical Month Encoding**: Generated using $\sin(2\pi(m-1)/12)$ and $\cos(2\pi(m-1)/12)$ alongside raw integer `month` and `quarter` so that January ($0^\circ$) and December ($330^\circ$) are adjacent in circular space. In the complete-case cohort, all records have valid timestamps (zero synthetic date imputation required).
   - **Safe Ratio Calculations**: `np_ratio` and `bod_do_ratio` set undefined denominators ($P \le 0$ or $DO \le 0$) to `np.nan` rather than adding arbitrary epsilon constants that distort stoichiometric chemical relationships.
   - **Signed Dissolved Oxygen Deficit & Sub-Zero Saturation**: Computed as $DO_{\text{sat}}(T) - DO$. Theoretical saturation $DO_{\text{sat}}(T)$ is calculated via the APHA Standard Methods / Elmore & Hayes polynomial and Benson & Krause (1984) USGS thermodynamic standard over the supported liquid domain [$0.0^\circ\text{C}, 45.0^\circ\text{C}$]. Valid sub-zero temperature measurements ($-10.0^\circ\text{C} \le T < 0.0^\circ\text{C}$, such as winter freeze conditions in Canada and Ireland) are evaluated at the freezing point saturation ($0.0^\circ\text{C}$, $14.652$ mg/L) representing the thermodynamic phase boundary of liquid freshwater, avoiding unphysical polynomial extrapolation. Depletion yields $D > 0$; photosynthetic supersaturation yields $D < 0$.
   - **Target Segregation**: Continuous target `ccme_values` (regression) and categorical target `ccme_wqi` / `ccme_wqi_code` (classification) are strictly separated from `MODEL_INPUT_FEATURES`. Because CCME WQI is an algebraic index of component chemical exceedances, predicting it from contemporaneous measurements is documented as surrogate index reconstruction.
@@ -132,7 +132,15 @@ Execution results on the master dataset:
 2. **Imbalanced Classification Target (`ccme_wqi`)**:
    - Class ratios: ~50% *Excellent*, ~32% *Good*, ~7% *Marginal*, ~7% *Fair*, ~3% *Poor*.
 3. **Phase 1 ML Performance**:
-   - Tree models achieve high fidelity on continuous CCME index reconstruction ($R^2 > 0.999$, RMSE $\approx 0.52$).
+   - Tree models achieve high fidelity on continuous CCME index reconstruction ($R^2 > 0.999$, RMSE $\approx 0.45-0.69$).
+4. **Geographic Coverage & Cohort Representation**:
+   - The complete-case cohort (2,817,500 rows) represents monitoring stations from 5 countries: England, USA, Ireland, China, and Canada.
+   - Raw records from Australia and India lacked complete reporting for the full 8-parameter chemical panel (particularly BOD, orthophosphate, or nitrate) and were consequently dropped during complete-case filtering.
+   - Models trained on this dataset should not be claimed to generalize to unseen countries or monitoring sites with divergent water chemistry regimes without local recalibration.
+5. **Surrogate Index Reconstruction vs Future Forecasting**:
+   - The CCME WQI target is an algebraic composite calculated from the same physical/chemical measurements taken at that instant.
+   - Tree models act as high-capacity surrogate function approximators for this mathematical formulation.
+   - Because partitioning uses a stratified random split across observations, records from the same monitoring stations appear across splits. Performance metrics demonstrate high-accuracy index approximation, not multi-year forward forecasting.
 
 ---
 
