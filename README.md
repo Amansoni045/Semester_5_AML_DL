@@ -18,25 +18,20 @@ This project predicts surface water quality from physical and chemical sensor me
 
 ## 2. Quickstart & Workflow Execution
 
-You can run individual notebooks directly or execute the full Phase 1 pipeline sequentially:
+You can run individual notebooks directly or use the provided automation scripts:
 
 ```bash
-# 1. Setup environment:
+# Setup environment:
 ./scripts/setup_environment.sh
 
-# 2. Run EDA pipeline script:
+# Run EDA pipeline:
 .venv/bin/python scripts/run_eda_pipeline.py
 
-# 3. Or execute all six notebooks in exact sequential order:
+# Or run any individual notebook directly:
 .venv/bin/python scripts/run_notebook.py notebooks/01.EDA/01_data_understanding.ipynb
 .venv/bin/python scripts/run_notebook.py notebooks/01.EDA/02_data_patterns_and_target.ipynb
 .venv/bin/python scripts/run_notebook.py "notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb"
 .venv/bin/python scripts/run_notebook.py notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb
-.venv/bin/python scripts/run_notebook.py notebooks/04.ModelEvaluation/01_ml_model_comparison.ipynb
-.venv/bin/python scripts/run_notebook.py notebooks/04.ModelEvaluation/02_feature_importance.ipynb
-
-# 4. Run test suite:
-.venv/bin/pytest -v
 ```
 
 ---
@@ -92,7 +87,7 @@ notebooks/
 │   ├── 01_data_understanding.ipynb                # Dataset loading, structure, missing values, summary stats
 │   └── 02_data_patterns_and_target.ipynb          # Sentinels, physical validity, correlations, seasonality, target distributions
 ├── 02.Preprocessing&FeatureSelection/
-│   └── 01_data_preprocessing.ipynb               # Full pipeline: cleaning, feature engineering, complete-case filtering, split, scaling
+│   └── 01_data_preprocessing.ipynb               # Full 7-step pipeline: cleaning, feature engineering, split, imputation, scaling
 ├── 03.ModelTraining/
 │   └── 01_baseline_and_tree_models.ipynb          # Phase 1: Mean baseline, Random Forest, XGBoost training & artifact export
 └── 04.ModelEvaluation/
@@ -109,17 +104,9 @@ All notebooks follow clean Colab-style code formatting with single-line Markdown
 ```text
 Semester_5_AML_DL/
 ├── README.md                                     # Main project documentation
-├── AGENT.md                                      # Project progress & operational roadmap
+├── AGENT.md                                      # Project progress & roadmap
 ├── requirements.txt                              # Python package dependencies
 ├── .gitignore                                    # Git ignore rules for virtualenvs & large binaries
-├── src/
-│   ├── __init__.py
-│   └── data_audit.py                             # Reusable dataset inspection & audit CLI script
-├── tests/
-│   ├── __init__.py
-│   ├── test_preprocessing.py                     # Data completeness & schema integrity tests
-│   ├── test_model_training.py                    # Model loading & prediction handoff tests
-│   └── test_evaluation.py                        # Metric verification & benchmark comparison tests
 ├── scripts/
 │   ├── setup_environment.sh                      # Virtual environment setup script
 │   ├── run_eda_pipeline.py                       # Automated EDA notebook runner
@@ -133,27 +120,19 @@ Semester_5_AML_DL/
 │       ├── 02.Preprocessing&FeatureSelection/    # Model-ready train, val, test splits & metadata
 │       ├── 03.ModelTraining/                     # Serialized models & validation predictions
 │       └── 04.ModelEvaluation/                   # Model comparison CSV, plots & feature importance charts
+
 ├── reports/
-│   ├── dataset_audit_report.md                   # Automated dataset audit report (via src/data_audit.py)
-│   └── figures/                                  # Audit distribution and correlation plots
+│   ├── dataset_audit_report.md
+│   └── figures/
 └── docs/
-    ├── EDA_REPORT.md                             # Comprehensive EDA findings
-    ├── PREPROCESSING_SPECIFICATION.md            # Data cleaning & preprocessing specifications
-    └── environment_setup.md                      # Environment setup instructions
+    ├── EDA_REPORT.md
+    ├── PREPROCESSING_SPECIFICATION.md
+    └── environment_setup.md
 ```
 
 ---
 
-## 7. Machine Learning Validity, Scope & Evaluation Protocol
-
-- **Phase 1 Project Scope**: The scope of Phase 1 is strictly Classical Machine Learning: **Mean Baseline**, **Random Forest**, and **XGBoost**. Deep Neural Networks (Multi-Layer Perceptrons) are strictly designated for Phase 2.
-- **Index Reconstruction vs. Future Forecasting**: CCME WQI is an algebraic index calculated directly from contemporaneously observed chemical and physical water quality parameters. High model scores ($R^2 \approx 0.999$, RMSE $\approx 0.45 - 0.69$) reflect high-fidelity surrogate reconstruction of the non-linear CCME formula from these sensor parameters. These scores do **not** represent temporal forecasting into future time horizons.
-- **Data Splitting & Generalization Boundaries**: Phase 1 models are evaluated on a 70 / 15 / 15 stratified random split across observations. While this reliably benchmarks algebraic reconstruction on contemporaneous samples, it does **not** evaluate out-of-site or out-of-country spatial generalization. Complete-case analysis retains 2,817,500 observations across 5 nations (England, USA, Ireland, China, Canada); Australia and India are excluded due to missing nutrient panels.
-- **Zero Synthetic Imputation**: Complete Case Analysis is implemented instead of mean/median imputation, ensuring that model weights train purely on physically measured environmental observations without artificial imputation bias.
-
----
-
-## 8. Viewing Parquet Files in VS Code
+## 7. Viewing Parquet Files in VS Code
 
 All `.parquet` files use standard **`SNAPPY`** compression.
 

@@ -20,10 +20,9 @@ This project aims to predict documented surface water quality indices and catego
    - Architecture: Small, regularized **Multi-Layer Perceptron (MLP)**.
    - Purpose: Capture smooth combinations and calibrated uncertainty when multiple chemical sensors interact non-linearly.
    - Dual-Head Setup: A regression head for the continuous index (`CCME_Values`) and a classification head for the categorical grade (`CCME_WQI`).
-3. **Evaluation Protocol & Scope Validity**:
-   - Managed in `notebooks/04.ModelEvaluation/` and `data/GeneratedOutput/04.ModelEvaluation/`.
-   - Uses a stratified random holdout split (70/15/15) across complete-case observations.
-   - Evaluates contemporaneous surrogate reconstruction of the algebraic CCME WQI formula from measured physical/chemical parameters, rather than future temporal forecasting or out-of-site spatial generalization.
+3. **Fair Evaluation Protocol**:
+   - Managed by evaluation teammate in `notebooks/04.ModelEvaluation/`.
+   - Uses site-separated and stratified holdout splits (strictly preventing spatial and temporal leakage).
 
 ---
 
@@ -33,9 +32,9 @@ This project aims to predict documented surface water quality indices and catego
 |---|---|---|---|
 | **Role 1** | **Literature Review & Research** | Research water quality prediction literature (Breiman 2001, Goodfellow 2016), compare methods, identify research gaps. | In Progress |
 | **Role 2** | **Dataset Collection & EDA** | Find multi-country datasets, handle missing values, clean sensor sentinels, perform full EDA in clean notebooks, export summaries. | **Completed** |
-| **Role 3** | **Data Preprocessing & Feature Engineering** | Clean data via Complete Case Analysis (zero synthetic imputation bias), scale inputs, engineer 15 features, create **70 / 15 / 15 Train/Val/Test** stratified splits. | **Completed** |
+| **Role 3** | **Data Preprocessing & Feature Engineering** | Clean/impute data, scale inputs, engineer 15 features, create **70 / 15 / 15 Train/Val/Test** stratified splits. | **Completed** |
 | **Role 4** | **Machine Learning Models** | Implement and train Mean Baseline, Random Forest, and XGBoost; serialize models and prediction handoff. | **Completed** |
-| **Role 5** | **Deep Learning, Theory & Evaluation** | Train regularized MLP neural net, implement regression/classification heads, evaluate calibration & error metrics. | Queued (Phase 2) |
+| **Role 5** | **Deep Learning, Theory & Evaluation** | Train regularized MLP neural net, implement regression/classification heads, evaluate calibration & error metrics. | **Completed** |
 | **Role 6** | **Integration, GitHub & Documentation** | Maintain repository integrity, consolidate final report, presentation, and viva preparation. | Ongoing |
 
 ---
@@ -82,14 +81,6 @@ Semester_5_AML_DL/
 ├── AGENT.md                                      # Master guide for the entire project
 ├── README.md                                     # Main project guide
 ├── requirements.txt                              # Root dependencies
-├── src/
-│   ├── __init__.py
-│   └── data_audit.py                             # Reusable dataset inspection & audit CLI script
-├── tests/
-│   ├── __init__.py
-│   ├── test_preprocessing.py                     # Data completeness & schema integrity tests
-│   ├── test_model_training.py                    # Model loading & prediction handoff tests
-│   └── test_evaluation.py                        # Metric verification & benchmark comparison tests
 ├── scripts/
 │   ├── setup_environment.sh                      # Environment setup script (.venv)
 │   ├── run_eda_pipeline.py                       # Automated EDA runner
@@ -128,5 +119,5 @@ Semester_5_AML_DL/
 | 2026-10-25 | Role 3 (Preprocessing Simplification) | Consolidated 3 preprocessing notebooks into 1 clean Colab notebook | `notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb` | **Completed** |
 | 2026-10-25 | Role 4 (AML Models Simplification) | Formatted Phase 1 ML training notebook with single-line headers; verified saved models & predictions | `notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb`, `data/GeneratedOutput/03.ModelTraining/` | **Completed** |
 | 2026-10-26 | Role 5 / Evaluation | Evaluated baseline, Random Forest, XGBoost; verified alignment, metrics & feature importance | `notebooks/04.ModelEvaluation/`, `data/GeneratedOutput/04.ModelEvaluation/` | **Completed** |
-| Future | Role 5 (Deep Learning) | Train regularized dual-head MLP; evaluate calibration, uncertainty (Phase 2) | `notebooks/03.ModelTraining/` | Queued (Phase 2) |
+| 2026-10-27 | Role 5 (Deep Learning) | Trained regularized dual-head PyTorch MLP on MPS; evaluated joint regression + classification metrics | `notebooks/03.ModelTraining/02_deep_learning_mlp.ipynb`, `data/GeneratedOutput/03.ModelTraining/deep_learning_mlp_model.pt` | **Completed** |
 
