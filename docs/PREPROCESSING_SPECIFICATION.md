@@ -4,6 +4,7 @@
 > **Executable Notebook**: [`notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb`](../notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb)  
 > **Audited Dataset Source**: `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet`  
 > **Generated Outputs**: `data/GeneratedOutput/02.Preprocessing&FeatureSelection/`  
+> **Evaluation Phase**: Phase 1 — Applied Machine Learning  
 > **Strategy**: Complete Case Analysis (100% Ground Truth, Zero Synthetic Imputation Bias)  
 > **Production Scale**: 2,827,977 raw rows $\to$ 2,819,617 clean observations across 5 nations  
 
@@ -11,7 +12,7 @@
 
 ## 1. Overview & Objective
 
-This document formalizes the deterministic, reproducible 9-stage data cleaning and feature engineering pipeline for **Project 18: Water Quality Prediction via Gradient Boosting & Deep Neural Networks**.
+This document formalizes the deterministic, reproducible 9-stage data cleaning and feature engineering pipeline for **Project 18: Water Quality Prediction (Phase 1 Machine Learning)**.
 
 The pipeline ingests the authoritative multi-country surface water monitoring repository (2,827,977 records spanning 83 years across England, USA, Ireland, China, and Canada) and transforms raw sensor telemetry into a 38-feature machine learning predictor matrix while enforcing aquatic thermodynamic screening, non-linear normalization, anti-leakage target quarantine, and stratified 70/15/15 partitioning.
 
@@ -50,14 +51,14 @@ The pipeline ingests the authoritative multi-country surface water monitoring re
 
 ### Stage 1: Standardized snake_case Aliasing
 - **Transformation**: Maps verbose, bracketed column headers to clean snake_case strings (`ph`, `temperature_c`, `do_mg_l`, `ammonia_mg_l`, etc.).
-- **Rationale**: Eliminates quoting bugs across Polars, PyArrow, DuckDB, PyTorch, and XGBoost while storing bi-directional mappings in metadata.
+- **Rationale**: Eliminates quoting bugs across Polars, PyArrow, DuckDB, scikit-learn, and XGBoost while storing bi-directional mappings in metadata.
 
 ### Stage 2: Semantic Data Type Casting
 - **Transformation**:
   - `date`: Converted via `pd.to_datetime(dayfirst=True)`.
   - `ccme_wqi`: Cast to `pd.CategoricalDtype(categories=["Poor", "Marginal", "Fair", "Good", "Excellent"], ordered=True)`.
   - Encoded integer alias `ccme_wqi_code` (0 for Poor through 4 for Excellent).
-- **Rationale**: Guarantees correct ordinal ranking for multiclass classification metrics (Macro F1, Expected Calibration Error).
+- **Rationale**: Guarantees correct ordinal ranking for multiclass classification metrics (Macro F1, confusion matrices).
 
 ### Stage 3: Data Quality & Null Value Verification (Complete Case Analysis)
 - **Verification**: Evaluates `df.isnull().sum()`. The authentic 5-country dataset contains **0 null entries across all 14 columns**.

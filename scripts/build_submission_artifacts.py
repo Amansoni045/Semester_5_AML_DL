@@ -385,7 +385,7 @@ def build_presentation_pptx():
         ("Mayank Sharma", "EDA & Repository Management", "Orchestrated end-to-end ML pipeline, data ingestion architecture, Parquet sharding, and anti-leakage quarantine.", ACCENT_BLUE),
         ("Aaryan Gera", "Data Preprocessing Lead (Cleaning & Audit)", "Executed 5-country dataset audit, enforced thermodynamic screening boundaries, and eliminated telemetry errors.", ACCENT_EMERALD),
         ("Chaitanya Kumar", "Feature Engineering & Stoichiometry Lead", "Engineered 38 features: Benson-Krause DO sat, Redfield N:P, Emerson toxic NH3, log(1+x) normalization, and station lags.", ACCENT_GOLD),
-        ("Ankit Kumar Pandey", "Model Evaluation & Validation Lead", "Managed stratified 70/15/15 partitioning, continuous metric benchmarks (MAE, RMSE, R²), and Dual-Head MLP evaluation.", ACCENT_BLUE),
+        ("Ankit Kumar Pandey", "Model Evaluation & Validation Lead", "Managed stratified 70/15/15 partitioning, continuous metric benchmarks (MAE, RMSE, R²), and TreeSHAP validation.", ACCENT_BLUE),
         ("Pranav", "Research, Documentation & Presentation Lead", "Derived formal CCME WQI formulation (F1, F2, F3, nse), analyzed TreeSHAP attribution, and led viva preparation.", ACCENT_CYAN),
     ]
     for i, (name, role, desc, color) in enumerate(members):
@@ -862,15 +862,14 @@ def build_report_pdf():
     <tr><td>Mean Baseline</td><td>14.130</td><td>17.656</td><td>0.0000</td><td>0.02 s</td></tr>
     <tr><td>Random Forest Regressor</td><td><strong>0.052</strong></td><td><strong>0.208</strong></td><td><strong>0.9999</strong></td><td>3.85 s</td></tr>
     <tr><td>XGBoost Regressor</td><td>0.137</td><td>0.374</td><td>0.9996</td><td><strong>0.42 s</strong></td></tr>
-    <tr><td>Dual-Head MLP (PyTorch)</td><td>0.706</td><td>1.156</td><td>0.9957</td><td>1.12 s</td></tr>
   </table>
 
   <div class="figure-box">
     <img src="{fig4}" alt="Model Comparison">
-    <div class="figure-caption">Fig. 4. Empirical validation error comparison: Random Forest, XGBoost, and Dual-Head MLP vs. Baseline.</div>
+    <div class="figure-caption">Fig. 4. Empirical validation error comparison: Random Forest and XGBoost vs. Baseline.</div>
   </div>
 
-  <p style="font-size: 8.5pt; margin-top: 4px; color: #222;"><em>Note:</em> The Dual-Head MLP concurrently performs 5-class discrete ecological tier classification: Accuracy = 96.09%, Macro F1 = 0.9485, Brier Score = 0.0533, and Expected Calibration Error (ECE) = 1.27%.</p>
+  <p style="font-size: 8.5pt; margin-top: 4px; color: #222;">Both tree ensembles eliminate over 99.6% of baseline prediction variance. Random Forest achieves exceptional point estimation accuracy (MAE = 0.052), while XGBoost executes inference 9&times; faster (0.42 s for 422k records), providing the optimal low-latency solution for telemetry edge nodes.</p>
 
   <p style="font-size: 8pt; color: #333; background: #f8fafc; padding: 6px; border-left: 3px solid #0284c7; margin-top: 4px;"><strong>Scientific Reliability & Validity Qualification:</strong> These scores measure how well each machine learning architecture re-computes a complex, non-linear deterministic formula across randomly held-out rows. High R² &approx; 0.9999 demonstrates successful mathematical approximation of the composite index rather than independent hydrological forecasting across unmonitored catchments. Orthophosphate's 88% share represents an intrinsic property of the regulatory index and data distribution rather than a direct interventional causal claim. Future extensions will test strict station-held-out and time-forward splits.</p>
 

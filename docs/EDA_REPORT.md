@@ -1,7 +1,8 @@
 # Exploratory Data Analysis (EDA) Comprehensive Technical Report
 
-> **Project**: Project 18 — Water Quality Prediction via Gradient Boosting & Deep Neural Networks  
-> **Course**: Semester 5 Applied Machine Learning & Deep Learning (AML / DL)  
+> **Project**: Project 18 — Water Quality Prediction via Applied Machine Learning (Phase 1)  
+> **Course**: Semester 5 Applied Machine Learning & Deep Learning (CSAI Course Project)  
+> **Evaluation Phase**: Phase 1 — Machine Learning Evaluation  
 > **Dataset**: 2,827,977 raw records × 14 parameters across 5 nations (1940–2023)  
 > **Cleaned Volume**: 2,819,617 complete-case observations after physical screening (8,360 corrupted values purged, 0.296%)  
 > **Executed Notebooks**: [`notebooks/01.EDA/01_data_understanding.ipynb`](../notebooks/01.EDA/01_data_understanding.ipynb), [`02_data_patterns_and_target.ipynb`](../notebooks/01.EDA/02_data_patterns_and_target.ipynb)  
@@ -13,7 +14,7 @@
 
 Automated surface water quality monitoring is fundamental to environmental preservation, agricultural safety, and public water supply management. Conventional water sampling workflows are constrained by laboratory incubation latency (e.g., 5-day Biochemical Oxygen Demand, $\text{BOD}_5$) and discrete geospatial coverage. 
 
-This Exploratory Data Analysis (EDA) establishes the empirical, statistical, and geochemical foundation for Phase 1 (Applied Machine Learning) and Phase 2 (Deep Learning) predictive modeling. 
+This Exploratory Data Analysis (EDA) establishes the empirical, statistical, and geochemical foundation for **Phase 1 Applied Machine Learning** predictive modeling.
 
 Our analysis investigates **2,827,977 raw monitoring records** collected across **5 sovereign nations** over an **83-year temporal span (1940–2023)**. Rather than relying on superficial summary statistics, this investigation validates sensor physics, empirical distributions, geochemical laws (Henry's Law gas solubility, nutrient stoichiometry), long-term temporal trends, and anti-leakage target quarantine protocols.
 
@@ -106,7 +107,7 @@ Summary statistics for the 8 chemical parameters across the 2,819,617 clean comp
 
 ### Key Distributional Insights:
 - **Physical Probes:** pH, Temperature, and Dissolved Oxygen exhibit near-Gaussian bell curves ($\gamma_1 \in [-0.45, +0.18]$) centered around natural equilibrium states.
-- **Nutrient Concentrations:** Orthophosphate, Ammonia, and $\text{BOD}_5$ span up to 4 orders of magnitude with severe positive skewness ($\gamma_1 > 9$). Applying non-linear $\log(1+x)$ transformations compresses this dynamic range, stabilizing gradient propagation in neural networks and amplifying linear feature correlation.
+- **Nutrient Concentrations:** Orthophosphate, Ammonia, and $\text{BOD}_5$ span up to 4 orders of magnitude with severe positive skewness ($\gamma_1 > 9$). Applying non-linear $\log(1+x)$ transformations compresses this dynamic range, stabilizing gradient calculations and amplifying linear feature correlation.
 
 ---
 
@@ -140,7 +141,7 @@ Linear (Pearson $r$), non-linear monotonic (Spearman $\rho$), and transformed co
 | **pH** | $+0.12$ | $+0.15$ | $+0.12$ | Weak correlation; extreme alkaline/acidic values penalized. |
 | **Temperature** | $-0.18$ | $-0.21$ | $-0.19$ | Negative driver; warmer water holds less oxygen. |
 
-*Observation:* Applying $\log(1+x)$ to orthophosphate increases linear correlation with CCME WQI from $-0.66$ to $\mathbf{-0.85}$ (a $+28.8\%$ gain), providing tree models and neural networks with an exceptionally strong predictive signal.
+*Observation:* Applying $\log(1+x)$ to orthophosphate increases linear correlation with CCME WQI from $-0.66$ to $\mathbf{-0.85}$ (a $+28.8\%$ gain), providing tree models with an exceptionally strong predictive signal.
 
 ---
 
@@ -163,9 +164,9 @@ $$\text{CCME WQI} = 100 - \left( \frac{\sqrt{F_1^2 + F_2^2 + F_3^2}}{1.732} \rig
 
 ---
 
-## 9. Modeling Implications for Applied ML & Deep Learning
+## 9. Phase 1 Modeling Implications
 
 1. **Stratified Partitioning:** The class imbalance (Poor represents 3.4% vs Excellent 49.8%) mandates stratified 70/15/15 sampling to ensure identical tier representation across Train (1,973,731), Validation (422,943), and Test (422,943) sets.
 2. **Target Quarantine Protocol:** Naive retention of guideline excursion intermediate terms ($F_1, F_2, F_3$) causes 100% circular target leakage. Intermediate exceedance counters must be strictly quarantined from predictor matrices.
-3. **Feature Importance Expectation:** Given orthophosphate's $-0.85$ correlation with WQI, TreeSHAP feature attribution is expected to identify phosphorus as the dominant split variable across gradient boosted ensembles.
-4. **Multi-Task Neural Architecture:** Combining continuous Smooth L1 regression with class-weighted cross-entropy in a Dual-Head MLP enables simultaneous score estimation and robust minority-tier ('Poor') recall.
+3. **Feature Importance Expectation:** Given orthophosphate's $-0.85$ correlation with WQI, TreeSHAP feature attribution identifies phosphorus as the dominant split variable across gradient boosted ensembles.
+4. **Phase 2 Deep Learning Outlook:** As planned in the course syllabus, deep multi-task neural networks and hybrid architectures will be explored in Phase 2 evaluation.

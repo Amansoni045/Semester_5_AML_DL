@@ -276,12 +276,11 @@ Table \ref{tab:model_comparison} reports empirical metrics on the 422,943 valida
 Mean Baseline & 14.130 & 17.656 & 0.0000 & 0.02 s \\
 Random Forest Regressor & \textbf{0.052} & \textbf{0.208} & \textbf{0.9999} & 3.85 s \\
 XGBoost Regressor & 0.137 & 0.374 & 0.9996 & \textbf{0.42 s} \\
-Dual-Head MLP (PyTorch) & 0.706 & 1.156 & 0.9957 & 1.12 s \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The Dual-Head MLP concurrently performs 5-class discrete tier classification, achieving Accuracy = 96.09\%, Macro F1 = 0.9485, Brier Score = 0.0533, and Expected Calibration Error (ECE) = 1.27\%.
+Both tree ensembles dramatically outperform the empirical baseline mean floor ($\text{MAE} = 14.130$), eliminating over 99.6\% of prediction error variance across the 422,943 validation records. Random Forest achieves exceptional sub-0.06 index precision, while XGBoost demonstrates 9$\times$ faster inference latency, making it optimal for resource-constrained edge deployments.
 
 \textit{Scientific Reliability \& Validity Qualification:} These scores reflect each model's capacity to re-compute a complex, non-linear deterministic formula across randomly held-out rows. High $R^2 \approx 0.9999$ demonstrates successful approximation of the composite standard rather than independent forecasting skill across unmonitored catchments. Orthophosphate's dominance represents an intrinsic property of the regulatory index and data distribution rather than a direct interventional causal claim. Future extensions will incorporate strict station-held-out and time-forward splits.
 

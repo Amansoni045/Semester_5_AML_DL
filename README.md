@@ -18,7 +18,7 @@ In accordance with CSAI Course Guidelines for Phase 1 & Phase 2 project evaluati
 | **Mayank Sharma** | EDA & Repository Management | End-to-end ML pipeline orchestration, data ingestion architecture, Parquet sharding, anti-leakage quarantine protocol, and GitHub versioning. | Pipeline orchestration, data ingestion architecture, anti-leakage quarantine protocol, and repository scalability. |
 | **Aaryan Gera** | Data Preprocessing Lead (Cleaning & Audit) | Multi-national dataset audit across 5 countries (`notebooks/01.EDA/`), confirming 100% complete-case ground truth with zero missing values across all parameters, and establishing aquatic physics screening bounds. | 5-country dataset audit, physical bound enforcement (pH, DO, Temp, Nutrients), sensor error purging, and exploratory distributions. |
 | **Chaitanya Kumar** | Feature Engineering & Pipeline Lead | Derived 38 predictive features: Benson-Krause DO capacity polynomial, Redfield stoichiometric N:P ratio, Emerson toxic un-ionized ammonia equilibrium, and $\log(1+x)$ skewness reductions (`src/features.py`). | Aquatic chemical and thermodynamic equations, Henry's law gas solubility, algal limitation stoichiometry, and skewness normalization. |
-| **Ankit Kumar Pandey** | Model Evaluation & Validation Lead | Stratified 70/15/15 dataset partitioning, quantitative continuous metric benchmarking (MAE, RMSE, $R^2$), and Dual-Head MLP evaluation. | Regression metric trade-offs (MAE vs RMSE vs $R^2$), residual distributions, validation partitioning, and neural multi-task metrics. |
+| **Ankit Kumar Pandey** | Model Evaluation & Validation Lead | Stratified 70/15/15 dataset partitioning, quantitative continuous metric benchmarking (MAE, RMSE, $R^2$), and TreeSHAP validation. | Regression metric trade-offs (MAE vs RMSE vs $R^2$), residual distributions, validation partitioning, and TreeSHAP feature attributions. |
 | **Pranav** | Research, Documentation & Presentation Lead | Comprehensive literature review on ML in water quality, formal mathematical derivation of CCME WQI ($F_1, F_2, F_3, nse$), TreeSHAP analysis, and viva preparation. | CCME WQI mathematical formulation, excursion equations, normalized sum of excursions ($nse$), TreeSHAP axioms, and environmental standards. |
 
 ---
@@ -129,15 +129,15 @@ Semester_5_AML_DL/
 ├── src/                                               # Modular Python production package
 │   ├── __init__.py                                    # Package exports
 │   ├── features.py                                    # Physical bounds screening & geochemical features
-│   ├── models.py                                      # Model interface abstractions & MultiTaskLoss
-│   ├── metrics.py                                     # Numerical evaluation metrics (MAE, RMSE, R², Brier, ECE)
+│   ├── models.py                                      # Phase 1 ML model wrappers (Baseline, RF, XGBoost)
+│   ├── metrics.py                                     # Numerical evaluation metrics (MAE, RMSE, R²)
 │   └── utils.py                                       # Multi-part parquet loader & anti-leakage quarantine
 ├── tests/                                             # Automated unit test suite (12 tests, 100% pass)
 │   ├── __init__.py
 │   ├── test_features.py                               # Physics bounds, log1p & stoichiometry tests
 │   ├── test_leakage.py                                # Target quarantine & anti-leakage assertions
 │   ├── test_metrics.py                                # Regression & classification metric calculations
-│   └── test_models.py                                 # Model tensor shapes & checkpoint loading
+│   └── test_models.py                                 # Phase 1 ML model instantiation & loading tests
 ├── notebooks/                                         # Executable Jupyter notebooks
 │   ├── 01.EDA/
 │   │   ├── 01_data_understanding.ipynb                # Ingestion, schema verification, null checks
@@ -145,8 +145,7 @@ Semester_5_AML_DL/
 │   ├── 02.Preprocessing&FeatureSelection/
 │   │   └── 01_data_preprocessing.ipynb               # Cleaning, 38 features, stratified split
 │   ├── 03.ModelTraining/
-│   │   ├── 01_baseline_and_tree_models.ipynb          # Random Forest & XGBoost training
-│   │   └── 02_deep_learning_mlp.ipynb                 # Phase 2 Dual-Head PyTorch MLP
+│   │   └── 01_baseline_and_tree_models.ipynb          # Random Forest & XGBoost training
 │   └── 04.ModelEvaluation/
 │       ├── 01_ml_model_comparison.ipynb               # Metric comparison & validation
 │       └── 02_feature_importance.ipynb                # TreeSHAP & feature attribution
@@ -155,18 +154,16 @@ Semester_5_AML_DL/
 │   └── GeneratedOutput/                               # Preprocessed partitions, models, and figures
 │       ├── 01.EDA/figures/                            # 13 high-resolution EDA figures
 │       ├── 02.Preprocessing&FeatureSelection/        # Sharded train/val/test splits & metadata
-│       ├── 03.ModelTraining/                         # Serialized models (.joblib, .json, .pt)
-│       └── 04.ModelEvaluation/                       # TreeSHAP beeswarm, calibration curve, metrics
+│       ├── 03.ModelTraining/                         # Serialized models (RF .joblib, XGBoost .json)
+│       └── 04.ModelEvaluation/                       # TreeSHAP beeswarm, comparison metrics
 └── reports/                                           # Phase 1 submission deliverables
-    ├── phase1_ieee_report.tex                         # Official IEEE two-column conference paper
-    ├── references.bib                                 # Academic BibTeX bibliography
-    ├── phase1_presentation.pptx                       # 15-slide PowerPoint deck for 6 members
-    ├── phase1_presentation_slides.html                # Interactive dark-mode web slide deck
-    ├── phase1_presentation_slides.md                  # Marp Markdown presentation slides
-    ├── phase1_viva_preparation_guide.md               # 6-member viva cheatsheet & 25 faculty Q&As
-    ├── comprehensive_final_report.md                  # Complete 15-section master technical report
-    ├── dataset_audit_report.md                        # Initial data quality audit report
-    └── generate_phase1_pptx.py                        # Script generating phase1_presentation.pptx
+    ├── Project_Report.pdf                             # Canonical Phase 1 IEEE report (4 pages)
+    ├── Project_Report_IEEE.tex                        # LaTeX IEEE conference paper source
+    ├── Project_Presentation.pptx                      # 15-slide PowerPoint deck for 6 members
+    ├── Project_Presentation.pdf                       # Presentation slides PDF
+    ├── comprehensive_technical_report.md              # Full technical reference document
+    ├── viva_preparation_guide.md                      # Comprehensive viva preparation dossiers
+    └── references.bib                                 # Academic BibTeX bibliography
 ```
 
 ---

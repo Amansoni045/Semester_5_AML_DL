@@ -159,8 +159,8 @@ Quantitative evaluation metrics (MAE, RMSE, $R^2$), stratified 70/15/15 dataset 
 > **Answer:** "We built 12 comprehensive unit tests under `tests/` executed via `pytest`:
 > - `test_features.py`: Tests physical bounds screening (asserts that out-of-range pH, temp, DO, and negative nutrients are purged), $\log(1+x)$ transformations, and stoichiometric calculations.
 > - `test_leakage.py`: Tests target quarantine assertions and verifies zero target columns in metadata.
-> - `test_metrics.py`: Verifies regression metrics (MAE, RMSE, $R^2$), classification metrics (Macro F1), multi-class Brier score ($0.0533$), and Expected Calibration Error ($1.27\%$).
-> - `test_models.py`: Tests model architecture tensor dimensions and checkpoint loading.
+> - `test_metrics.py`: Verifies regression metrics (MAE, RMSE, $R^2$), classification functions, and metric mathematical consistency.
+> - `test_models.py`: Tests MeanBaselineRegressor fitting, tree model hyperparameter instantiation, and loading serialized Random Forest and XGBoost models.
 > All 12 unit tests execute in under 3 seconds with **100% pass rate**."
 
 ---

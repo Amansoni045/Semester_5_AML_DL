@@ -1,7 +1,0 @@
-{
-  "shap_summary_path": "data/GeneratedOutput/04.ModelEvaluation/shap_summary.png",
-  "calibration": {
-    "brier_score": 0.0533004326097231,
-    "expected_calibration_error_pct": 1.2711804205179194
-  }
-}
