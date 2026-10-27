@@ -136,12 +136,12 @@ def main():
     shap_img = eval_dir / "shap_summary.png"
     feat_img = eval_dir / "feature_importance.png"
     comp_img = eval_dir / "model_comparison.png"
-    calib_json = eval_dir / "calibration_and_shap_metrics.json"
+    calib_json = eval_dir / "shap_top_features.json"
 
     for img, name in [(shap_img, "TreeSHAP Beeswarm Plot"), 
                       (feat_img, "MDI / Gain Feature Importance Chart"),
                       (comp_img, "Model Comparison Benchmarks"),
-                      (calib_json, "Calibration & SHAP Metrics JSON")]:
+                      (calib_json, "TreeSHAP Top Features JSON")]:
         if img.exists():
             print(f"✓ Verified artifact: {name} ({img.name})")
         else:
@@ -149,7 +149,7 @@ def main():
 
     # Stage 6: Execute Automated Test Suite
     print_banner("Stage 6: Running Automated Unit Test Suite (pytest)")
-    ret_code = os.system(f"{sys.executable} -m pytest tests -v --tb=short")
+    ret_code = os.system(f'"{sys.executable}" -m pytest tests -v --tb=short')
     if ret_code != 0:
         print("❌ Unit tests failed! Please inspect logs above.")
         sys.exit(1)
@@ -160,7 +160,7 @@ def main():
     elapsed = time.time() - start_time
     print_banner("Phase 1 Pipeline Execution Complete")
     print(f"Status: ALL SYSTEMS OPERATIONAL (Elapsed time: {elapsed:.2f}s)")
-    print("Team Attribution: 6 Members (Lead: Mayank Sharma)")
+    print("Team Attribution: 6 Members (Lead: Aman Soni)")
     print("Phase 1 Deliverables: Ready for IEEE Report & Presentation compilation.\n")
 
 
