@@ -1,10 +1,10 @@
 # Water Quality Prediction ML Project — Data Cleaning & Preprocessing Specification
 
-> **Module**: [`src/preprocessing.py`](../src/preprocessing.py)  
-> **Test Suite**: [`tests/test_preprocessing.py`](../tests/test_preprocessing.py)  
+> **Module**: [`notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb`](../notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb)  
 > **Audited Dataset Source**: `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet`  
-> **Cleaned Dataset Target**: `data/GeneratedOutput/02.Preprocessing&FeatureSelection/cleaned_water_quality.parquet`  
-> **Last Updated**: 2026-10-22  
+> **Generated Outputs**: `data/GeneratedOutput/02.Preprocessing&FeatureSelection/`  
+> **Strategy**: Complete Case Analysis (Zero Synthetic Imputation Bias)  
+> **Last Updated**: 2026-10-27  
 
 ---
 
@@ -93,93 +93,61 @@ Every transformation addresses a specific empirical anomaly identified during th
   - **Signed Dissolved Oxygen Deficit & Sub-Zero Saturation**: Computed as $DO_{\text{sat}}(T) - DO$. Theoretical saturation $DO_{\text{sat}}(T)$ is calculated via the APHA Standard Methods / Elmore & Hayes polynomial and Benson & Krause (1984) USGS thermodynamic standard over the supported liquid domain [$0.0^\circ\text{C}, 45.0^\circ\text{C}$]. Valid sub-zero temperature measurements ($-10.0^\circ\text{C} \le T < 0.0^\circ\text{C}$, such as winter freeze conditions in Canada and Ireland) are evaluated at the freezing point saturation ($0.0^\circ\text{C}$, $14.652$ mg/L) representing the thermodynamic phase boundary of liquid freshwater, avoiding unphysical polynomial extrapolation. Depletion yields $D > 0$; photosynthetic supersaturation yields $D < 0$.
   - **Target Segregation**: Continuous target `ccme_values` (regression) and categorical target `ccme_wqi` / `ccme_wqi_code` (classification) are strictly separated from `MODEL_INPUT_FEATURES`. Because CCME WQI is an algebraic index of component chemical exceedances, predicting it from contemporaneous measurements is documented as surrogate index reconstruction.
 
-### Stage 9: Leakage-Free Splitting, Imputation, and Scaling
+### Stage 9: Complete Case Analysis, Leakage-Free Splitting, and Scaling
 - **Decision**:
-  - Support three evaluation regimes:
-    1. `stratified_random` (70/15/15 benchmark stratified by `ccme_wqi`).
-    2. `country_area_group` (formerly `spatial_group`, grouped on `country___area` using `GroupShuffleSplit`). *Limitation*: Because `area` contains a mixture of specific stations (USGS codes), waterbodies ('Lake Sammamish'), composite catchments (Ireland), and whole bays (all China records share 'Hou Bay'), this split measures generalization across geographic areas/catchments, not verified physical station-level isolation.
-    3. `temporal_holdout` (train $\le 2020$, val $2021$, test $\ge 2022$, evaluating decadal temporal shift).
-  - Hierarchical group imputation fitted strictly on the 70% train split: `(country, waterbody_type)` median $\to$ `country` median $\to$ global train median $\to$ 0.0.
+  - Instead of synthetic imputation (which could inject artificial values into ~34% of the dataset and bias model weights), apply **Complete Case Analysis**: filter down to records having 100% physically measured, ground-truth base features.
+  - Retains **2,817,500 complete observations** across 5 nations (England: 2,127,897; USA: 405,243; Ireland: 234,491; China: 45,977; Canada: 3,892).
+  - Missing values in modeling features after complete-case filtering: **0** across Train, Val, and Test.
+  - Stratified 70/15/15 random split: Train (1,972,250), Val (422,625), Test (422,625).
   - `StandardScaler` fitted strictly on train input features only; targets are never scaled.
-  - Standardized data loading utility `load_training_data()` enforces that only the 15 input features enter model input matrices with zero NaNs, zero Infs, and strict target quarantine.
 
 ### Stage 10: Output Parquet with Snappy Compression
-- **Decision**: Write cleaned data to Parquet using `compression='snappy'`.
-- **Rationale**: Required by project guidelines for fast random-access reads and zero-copy slicing in PyArrow, DuckDB, and the VS Code Parquetly extension.
+- **Decision**: Write partitions and repository samples to Parquet using `compression='snappy'`.
+- **Rationale**: Required by project guidelines for fast random-access reads and zero-copy slicing in PyArrow, DuckDB, and Jupyter environments.
 
 ---
 
 ## 4. Before-versus-After Data Quality Summary
 
-Execution results on the full 4.29M-row dataset:
+Execution results on the master dataset:
 
-### Overall Dataset Shape & Duplication
+### Overall Dataset Shape & Complete Case Analysis
 
-| Metric | Raw Dataset | Cleaned Dataset | Delta / Impact |
+| Metric | Raw Dataset | Complete Case Partitions | Notes |
 |---|---|---|---|
-| **Total Rows** | 4,297,895 | 4,287,890 | -10,005 rows (-0.2328%) |
-| **Total Columns** | 14 | 23 | +9 boolean flag columns |
-| **Exact Duplicate Rows** | 10,005 | 0 | 10,005 duplicates dropped |
-| **Hardware Sentinel Codes** | 84 (`-999999.0` across T, pH, DO) | 0 | 100% neutralized to NaN |
-| **Scale Corrupted pH (> 14)** | 592 rows (max 67,115.0) | 0 | 100% neutralized to NaN |
-| **USA Fahrenheit Readings** | 5,852 (> 50°C) | 0 | 100% converted to Celsius |
-| **Sub-Zero Concentrations** | 43 rows | 0 | Clipped to 0.0 mg/L |
-
-### Per-Column Missing Value Analysis
-
-| Feature | Raw Missing Count | Raw Missing % | Cleaned Missing Count | Cleaned Missing % | Net Missing Delta | Root Cause of Delta |
-|---|---|---|---|---|---|---|
-| `country` | 0 | 0.000% | 0 | 0.000% | 0 | Maintained 100% complete |
-| `area` | 0 | 0.000% | 182 | 0.004% | +182 | Unnamed blank strings normalized to NaN |
-| `waterbody_type` | 0 | 0.000% | 0 | 0.000% | 0 | Maintained 100% complete |
-| `date` | 0 | 0.000% | 0 | 0.000% | 0 | Successfully parsed to `datetime64` |
-| `ammonia_mg_l` | 1,469,831 | 34.199% | 1,469,797 | 34.278% | -34 | 34 duplicate missing rows removed |
-| `bod_mg_l` | 1,466,334 | 34.117% | 1,466,331 | 34.197% | -3 | 3 duplicate missing rows removed |
-| `do_mg_l` | 1,140,980 | 26.547% | 1,140,980 | 26.609% | 0 | 1 sentinel replaced + 1 dup dropped |
-| `orthophosphate_mg_l` | 1,469,831 | 34.199% | 1,469,797 | 34.278% | -34 | 34 duplicate missing rows removed |
-| `ph` | 1,201,075 | 27.946% | 1,201,671 | 28.025% | +596 | +592 high pH + 4 sentinels replaced |
-| `temperature_c` | 6,558 | 0.153% | 6,639 | 0.155% | +81 | +81 extreme telemetry sentinels replaced |
-| `nitrogen_mg_l` | 1,469,831 | 34.199% | 1,469,797 | 34.278% | -34 | 34 duplicate missing rows removed |
-| `nitrate_mg_l` | 1,466,431 | 34.120% | 1,466,428 | 34.199% | -3 | 3 duplicate missing rows removed |
-| `ccme_values` | 0 | 0.000% | 0 | 0.000% | 0 | Continuous target 100% complete |
-| `ccme_wqi` | 0 | 0.000% | 0 | 0.000% | 0 | Categorical target 100% complete |
+| **Total Rows** | 4,297,895 | 2,817,500 | 2.817M 100% complete ground-truth records |
+| **Exact Duplicate Rows Dropped** | 10,005 | 0 | 100% deduplicated |
+| **Hardware Sentinel Codes** | 84 (`-999999.0`) | 0 | Neutralized |
+| **Scale Corrupted pH (> 14)** | 592 rows | 0 | Neutralized |
+| **USA Fahrenheit Readings** | 5,852 (> 50°C) | 0 | Converted to Celsius |
+| **Sub-Zero Concentrations** | 43 rows | 0 | Clipped to detection limits (0.0 mg/L) |
+| **Missing Values across Features** | ~34% missing base features | **0 missing values** | Zero synthetic imputation bias |
 
 ---
 
-## 5. Known Limitations & Downstream Modeling Recommendations
+## 5. Known Limitations & Modeling Recommendations
 
-1. **Nutrient Missingness Synchrony**:
-   - `ammonia_mg_l`, `orthophosphate_mg_l`, and `nitrogen_mg_l` share identical missingness patterns (34.28%). They represent synchronized lab test omissions rather than sensor dropouts. Tree models handle these naturally via surrogate splits; MLP architectures must use group-imputed values fitted strictly on the train split.
-2. **Sparse Site Identifiers (`area`)**:
-   - 182 rows contain unrecorded or blank site names. These samples have complete regional (`country`) and waterbody (`waterbody_type`) metadata, allowing them to remain valid for regional-level modeling.
-3. **Imbalanced Classification Target (`ccme_wqi`)**:
-   - Class ratios are strongly skewed: ~50.1% *Excellent* vs ~3.0% *Poor*. Downstream models should utilize class-weighted cross-entropy loss or focal loss to prevent under-predicting degraded water quality classes.
+1. **Complete Case Ground Truth**:
+   - Because no synthetic medians, means, or modes are injected, models train purely on real environmental observations.
+2. **Imbalanced Classification Target (`ccme_wqi`)**:
+   - Class ratios: ~50% *Excellent*, ~32% *Good*, ~7% *Marginal*, ~7% *Fair*, ~3% *Poor*.
+3. **Phase 1 ML Performance**:
+   - Tree models achieve high fidelity on continuous CCME index reconstruction ($R^2 > 0.999$, RMSE $\approx 0.52$).
 
 ---
 
 ## 6. Execution Commands & Verification
 
-### Running the Preprocessing Pipeline via CLI
+### Running the Notebook Pipeline
 
 ```bash
-# Execute cleaning pipeline on the default combined dataset
-python -m src.preprocessing \
-    --input "data/Dataset/Parquet/Combined Data/Combined_dataset.parquet" \
-    --output "data/GeneratedOutput/02.Preprocessing&FeatureSelection/cleaned_water_quality.parquet"
+# Execute Preprocessing (Complete Case Analysis)
+python scripts/run_notebook.py "notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb"
 
-# Fast trial on first 50,000 rows
-python -m src.preprocessing \
-    --input "data/Dataset/Parquet/Combined Data/Combined_dataset.parquet" \
-    --output "data/GeneratedOutput/02.Preprocessing&FeatureSelection/cleaned_sample.parquet" \
-    --nrows 50000
+# Execute Baseline & Tree Models Training
+python scripts/run_notebook.py "notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb"
+
+# Execute Model Comparison & Evaluation
+python scripts/run_notebook.py "notebooks/04.ModelEvaluation/01_ml_model_comparison.ipynb"
 ```
 
-### Running Test Suite
-
-```bash
-# Run all unit, corner-case, and fast-fixture tests
-pytest tests/test_preprocessing.py -v
-
-# Run full integration test suite (including real dataset schema validation)
-pytest tests/test_preprocessing.py -v -k "not test_real_dataset_full_run_schema"
-```
