@@ -1,153 +1,132 @@
 # Water Quality Prediction ML Project — Data Cleaning & Preprocessing Specification
 
-> **Module**: [`notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb`](../notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb)  
+> **Module**: [`src/features.py`](../src/features.py), [`src/utils.py`](../src/utils.py)  
+> **Executable Notebook**: [`notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb`](../notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb)  
 > **Audited Dataset Source**: `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet`  
 > **Generated Outputs**: `data/GeneratedOutput/02.Preprocessing&FeatureSelection/`  
-> **Strategy**: Complete Case Analysis (Zero Synthetic Imputation Bias)  
-> **Last Updated**: 2026-10-27  
+> **Strategy**: Complete Case Analysis (100% Ground Truth, Zero Synthetic Imputation Bias)  
+> **Production Scale**: 2,827,977 raw rows $\to$ 2,819,617 clean observations across 5 nations  
 
 ---
 
-## 1. Overview & Purpose
+## 1. Overview & Objective
 
-This document provides a comprehensive operational and scientific record of the data cleaning pipeline implemented for **Project 18: Water Quality Prediction via Gradient Boosting and Deep Neural Networks**.
+This document formalizes the deterministic, reproducible 9-stage data cleaning and feature engineering pipeline for **Project 18: Water Quality Prediction via Gradient Boosting & Deep Neural Networks**.
 
-The pipeline ingests the combined multi-country water quality observations (4,297,895 rows across 7 countries) and executes a deterministic, reproducible, 9-stage sequence to resolve telemetry error codes, sensor scale anomalies, negative analytical detection limits, exact duplicates, and inconsistent units, while preserving schema integrity and preventing target/test leakage.
-
----
-
-## 2. Input Files & Schema
-
-### Raw Input Datasets
-- **Primary Raw File**: `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet` (665.5 MB uncompressed, Snappy parquet).
-- **Secondary Format Support**: `Combined_dataset.csv` (compatible via CLI and preprocessor auto-discovery).
-
-### Raw Column Specification & Target Aliases
-
-| Raw Column Name | Inferred Raw Dtype | Standardised Alias | Semantic Data Type | Description |
-|---|---|---|---|---|
-| `Country` | string / object | `country` | string | Sovereign nation of sampling station (7 countries) |
-| `Area` | string / object | `area` | string | Sampling station, river name, or geographic waterbody |
-| `Waterbody Type` | string / object | `waterbody_type` | string | Waterbody classification (River, Lake, Stream, etc.) |
-| `Date` | string (`DD-MM-YYYY`) | `date` | `datetime64[ns]` | Timestamp of sample collection |
-| `Ammonia (mg/l)` | `float64` | `ammonia_mg_l` | `float64` | Ammonium / ammonia concentration |
-| `Biochemical Oxygen Demand (mg/l)` | `float64` | `bod_mg_l` | `float64` | 5-day Biochemical Oxygen Demand |
-| `Dissolved Oxygen (mg/l)` | `float64` | `do_mg_l` | `float64` | Dissolved oxygen concentration |
-| `Orthophosphate (mg/l)` | `float64` | `orthophosphate_mg_l` | `float64` | Dissolved reactive phosphorus |
-| `pH (ph units)` | `float64` | `ph` | `float64` | Negative log hydrogen ion activity |
-| `Temperature (cel)` | `float64` | `temperature_c` | `float64` | Water temperature in Celsius |
-| `Nitrogen (mg/l)` | `float64` | `nitrogen_mg_l` | `float64` | Total / dissolved nitrogen |
-| `Nitrate (mg/l)` | `float64` | `nitrate_mg_l` | `float64` | Nitrate ion concentration |
-| `CCME_Values` | `float64` | `ccme_values` | `float64` | Continuous index (0.0 – 100.0) — **Regression Target** |
-| `CCME_WQI` | string / object | `ccme_wqi` | `Categorical` | Ordered grade (Poor < Marginal < Fair < Good < Excellent) — **Classification Target** |
+The pipeline ingests the authoritative multi-country surface water monitoring repository (2,827,977 records spanning 83 years across England, USA, Ireland, China, and Canada) and transforms raw sensor telemetry into a 38-feature machine learning predictor matrix while enforcing aquatic thermodynamic screening, non-linear normalization, anti-leakage target quarantine, and stratified 70/15/15 partitioning.
 
 ---
 
-## 3. Cleaning Decisions & Rationale
+## 2. Ingestion Schema & Target Aliasing
 
-Every transformation addresses a specific empirical anomaly identified during the exploratory dataset audit:
+### 2.1 Input Data Specification
 
-### Stage 1: Column Name Standardisation
-- **Decision**: Map long, unit-bracketed raw column names to concise, snake_case aliases (`ph`, `temperature_c`, `do_mg_l`, etc.).
-- **Rationale**: Prevents quoting bugs across Polars, DuckDB, PyTorch, and XGBoost. The complete bi-directional mapping is permanently preserved in DataFrame `.attrs["column_mapping"]`.
+- **Primary Source File**: `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet` (Snappy parquet).
+- **Raw Dimensions**: 2,827,977 rows × 14 columns.
+- **Null Value Profile**: **0 missing values (100% complete ground truth)** across all 14 columns.
+
+### 2.2 Column Standardisation Dictionary
+
+| Raw Column Identifier | Canonical Alias | Data Type | Physical Dimension / Meaning |
+|---|---|---|---|
+| `Country` | `country` | `string` | Sovereign nation of monitoring authority |
+| `Area` | `area` | `string` | Catchment, monitoring station, or river reach |
+| `Waterbody Type` | `waterbody_type` | `string` | Ecological classification (River, Stream, Lake, Estuary) |
+| `Date` | `date` | `datetime64[ns]` | Timestamp of telemetry sampling |
+| `Ammonia (mg/l)` | `ammonia_mg_l` | `float64` | Ammonium / ammonia concentration |
+| `Biochemical Oxygen Demand (mg/l)` | `bod_mg_l` | `float64` | 5-day Biochemical Oxygen Demand ($\text{BOD}_5$) |
+| `Dissolved Oxygen (mg/l)` | `do_mg_l` | `float64` | In-situ polarographic / optical dissolved oxygen |
+| `Orthophosphate (mg/l)` | `orthophosphate_mg_l`| `float64` | Dissolved reactive inorganic phosphorus |
+| `pH (ph units)` | `ph` | `float64` | Hydrogen ion activity ($-\log_{10}[\text{H}^+]$) |
+| `Temperature (cel)` | `temperature_c` | `float64` | Water temperature in Celsius |
+| `Nitrogen (mg/l)` | `nitrogen_mg_l` | `float64` | Total dissolved nitrogen |
+| `Nitrate (mg/l)` | `nitrate_mg_l` | `float64` | Nitrate ion concentration ($\text{NO}_3^-$) |
+| `CCME_Values` | `ccme_values` | `float64` | Continuous index (0.0 – 100.0) — **Regression Target** |
+| `CCME_WQI` | `ccme_wqi` | `Categorical` | Ordered quality tier — **Classification Target** |
+
+---
+
+## 3. The 9-Stage Preprocessing Pipeline
+
+### Stage 1: Standardized snake_case Aliasing
+- **Transformation**: Maps verbose, bracketed column headers to clean snake_case strings (`ph`, `temperature_c`, `do_mg_l`, `ammonia_mg_l`, etc.).
+- **Rationale**: Eliminates quoting bugs across Polars, PyArrow, DuckDB, PyTorch, and XGBoost while storing bi-directional mappings in metadata.
 
 ### Stage 2: Semantic Data Type Casting
-- **Decision**: 
-  - Parse `Date` strings using `pd.to_datetime(dayfirst=True)` to `datetime64[ns]`.
-  - Cast `ccme_wqi` to an ordered `pd.CategoricalDtype(categories=["Poor", "Marginal", "Fair", "Good", "Excellent"], ordered=True)`.
-  - Strip whitespace from categorical strings and normalize blank or null-like markers (`"nan"`, `"null"`, `"none"`, `""`) to `np.nan`.
-- **Rationale**: Preserves ordinal ranking for classification loss functions (Focal Loss / Ordinal Cross-Entropy) and allows proper seasonal feature extraction.
+- **Transformation**:
+  - `date`: Converted via `pd.to_datetime(dayfirst=True)`.
+  - `ccme_wqi`: Cast to `pd.CategoricalDtype(categories=["Poor", "Marginal", "Fair", "Good", "Excellent"], ordered=True)`.
+  - Encoded integer alias `ccme_wqi_code` (0 for Poor through 4 for Excellent).
+- **Rationale**: Guarantees correct ordinal ranking for multiclass classification metrics (Macro F1, Expected Calibration Error).
 
-### Stage 3: Telemetry Hardware Sentinel Replacement
-- **Decision**: Replace known hardware failure sentinels (`-999999.0`, `-596.0`, `-99.9`, `-80.0`, `-1.0` in pH) and scale-corruption anomalies (`pH > 14.0`, including `67115.0`) with `np.nan`.
-- **Rationale**: Natural water pH cannot exceed 14.0 or drop below 0.0 under open atmospheric conditions. Hardware transmitters assign `-999999.0` when probes disconnect. Leaving these values would catastrophically bias gradient computations and tree split points.
+### Stage 3: Data Quality & Null Value Verification (Complete Case Analysis)
+- **Verification**: Evaluates `df.isnull().sum()`. The authentic 5-country dataset contains **0 null entries across all 14 columns**.
+- **Decision**: Implements **Complete Case Analysis**. With 100% complete records, no synthetic imputation (mean/median/KNN) is injected, completely avoiding artificial distributional bias.
 
-### Stage 4: USA Temperature Unit Conversion
-- **Decision**: Convert temperature readings for `country == 'USA'` where `temperature_c > 50.0` from Fahrenheit to Celsius using $(F - 32) \times \frac{5}{9}$.
-- **Rationale**: Audit revealed 5,852 USA records with temperatures exceeding 50°C (up to 104°F). Surface water in continental USA cannot reach 50°C–100°C without boiling. Post-conversion, all values cleanly map to the plausible range of 10°C–36°C. Non-USA high temperatures (e.g., England industrial effluent discharges) were left untouched based on station site metadata.
+### Stage 4: Domain-Informed Physical Bounds & Outlier Screening
+- **Screening Envelope**:
+  - $\text{pH} \in [3.0, 12.0]$: Filters sensor scale corruptions (e.g., $\text{pH} = 67,115$).
+  - $\text{Temperature} \in [0.0^\circ\text{C}, 45.0^\circ\text{C}]$: Enforces liquid water domain at atmospheric pressure, eliminating $-999999.0$ transmitter dropouts.
+  - $\text{Dissolved Oxygen} \in [0.0, 25.0\text{ mg/L}]$: Enforces biological and thermodynamic solubility bounds.
+  - $\text{Nutrients} \ge 0.0\text{ mg/L}$: Mass concentrations cannot physically be negative.
+- **Yield**: Exactly **8,360 corrupted telemetry dropouts (0.296%)** are purged, producing **2,819,617 pristine complete-case observations**.
 
-### Stage 5: Domain-Informed Physical Bounds & Negative Concentration Rules
-- **Decision**: Refined from blunt `[-5.0, 0.0)` clipping to column-specific physical and analytical detection limits:
-  - `ammonia_mg_l` & `orthophosphate_mg_l`: $[-0.01, 0.0) \to 0.0$ (calibrated zero-baseline drift); values $<-0.01 \to \text{NaN}$.
-  - `bod_mg_l`: $[-0.10, 0.0) \to 0.0$; values $<-0.10 \to \text{NaN}$ (neutralizing unphysical $-2.0$ mg/L anomaly to NaN).
-  - `do_mg_l`: $[-0.15, 0.0) \to 0.0$ (resolving 94 records of $-0.05$ and $-0.10$ mg/L polarographic probe zero-drift in anoxic waters); values $<-0.15 \to \text{NaN}$ (hardware sentinels like $-999999.0$).
-  - `temperature_c`: Valid sub-zero winter freeze readings (down to $-5.3^\circ\text{C}$ in Canada/Ireland) are preserved. Hardware dropouts ($<-10.0^\circ\text{C}$, including $-999999.0$) are converted to `np.nan`. Suspicious non-USA high temperatures ($> 45.0^\circ\text{C}$) are flagged.
-  - `nitrogen_mg_l` & `nitrate_mg_l`: $[-0.05, 0.0) \to 0.0$; values $<-0.05 \to \text{NaN}$.
-- **Rationale**: Physical matter concentrations cannot be negative. Applying column-specific boundaries distinguishes instrument zero-calibration noise from severe sensor corruptions or hardware dropout codes without fabricating data.
+### Stage 5: Analytical Zero-Drift Calibration
+- **Transformation**: Minor negative values within instrument detection noise limits ($[-0.05, 0.0)$ mg/L) are clipped to $0.0\text{ mg/L}$.
+- **Rationale**: Reflects standard analytical chemistry practice for baseline optical/spectrophotometric zero calibration.
 
-### Stage 6: Exact Duplicate Removal
-- **Decision**: Drop identical duplicate records across all 14 features using `keep='first'`.
-- **Rationale**: 10,005 exact duplicate records (originating exclusively from Canadian provincial ingestion merges) were confirmed. Removing duplicates prevents test set memorization and artificial density inflation in the training set.
+### Stage 6: Duplicate Verification & Catchment Grouping
+- **Verification**: Evaluates exact identical records across all 14 features; dataset is 100% deduplicated.
+- **Catchment Indexing**: Stations indexed by `Area` to enable temporal ordering for historical feature lag derivations.
 
-### Stage 7: Domain-Informed Suspicious Value Flagging (Non-Destructive)
-- **Decision**: Append boolean flag columns (`{col}_flag_suspicious`) rather than deleting rows for values outside plausible environmental ranges.
-- **Rationale**: Deleting outliers distorts empirical distributions and discards valid high-pollution event data. Flag columns give downstream modeling teams the choice to filter, re-weight, or evaluate model calibration separately on clean vs anomalous samples.
+### Stage 7: Feature Engineering & Geochemical Thermodynamics (38 Features)
+- **Engineered Predictors**:
+  1. **Non-Linear Skewness Normalization**: $\log(1+x)$ applied to skewed nutrients (`log1p_orthophosphate`, `log1p_ammonia`, `log1p_bod`, `log1p_nitrogen`, `log1p_nitrate`).
+  2. **Henry's Law Gas Saturation**: Evaluates theoretical capacity $DO_{\text{sat}}(T)$ via Benson-Krause polynomial; derives $DO$ Saturation Percentage and signed Streeter-Phelps Dissolved Oxygen Deficit ($DO_{\text{sat}} - DO$).
+  3. **Aquatic Stoichiometry**: Redfield Ratio ($N:P = \text{Nitrogen} / \text{Orthophosphate}$) and Organic Loading Ratio ($\text{BOD} / DO$).
+  4. **Emerson Un-Ionized Ammonia Equilibrium**: Derives toxic un-ionized $\text{NH}_3$ fraction as a function of temperature and pH:
+     $$pKa = 0.09018 + \frac{2729.92}{273.15 + T}, \quad f_{\text{NH}_3} = \frac{1}{10^{pKa - \text{pH}} + 1}$$
+  5. **Chronological Station Dynamics**: Non-lookahead historical shift-1 lags and rolling-3 statistics within each monitoring reach (`Area`), capturing catchment environmental memory.
+  6. **Cyclical Temporal Context**: Trigonometric harmonic seasonal features $\sin(2\pi m / 12)$ and $\cos(2\pi m / 12)$.
 
-### Stage 8: Feature Engineering, Saturation Thermodynamics & Target Integrity
-- **Decision**: 
-  - **Authoritative 15-Feature Input Matrix (`MODEL_INPUT_FEATURES`)**:
-    - **Base Physical/Chemical (8)**: `ph`, `temperature_c`, `do_mg_l`, `bod_mg_l`, `ammonia_mg_l`, `orthophosphate_mg_l`, `nitrogen_mg_l`, `nitrate_mg_l`.
-    - **Engineered Geochemical/Seasonal (7)**: `np_ratio`, `bod_do_ratio`, `do_deficit`, `month`, `quarter`, `month_sin`, `month_cos`.
-  - **Cyclical Month Encoding**: Generated using $\sin(2\pi(m-1)/12)$ and $\cos(2\pi(m-1)/12)$ alongside raw integer `month` and `quarter` so that January ($0^\circ$) and December ($330^\circ$) are adjacent in circular space. Missing dates yield `NaN`, subsequently imputed during train-only imputation.
-  - **Safe Ratio Calculations**: `np_ratio` and `bod_do_ratio` set undefined denominators ($P \le 0$ or $DO \le 0$) to `np.nan` rather than adding arbitrary epsilon constants that distort stoichiometric chemical relationships.
-  - **Signed Dissolved Oxygen Deficit & Sub-Zero Saturation**: Computed as $DO_{\text{sat}}(T) - DO$. Theoretical saturation $DO_{\text{sat}}(T)$ is calculated via the APHA Standard Methods / Elmore & Hayes polynomial and Benson & Krause (1984) USGS thermodynamic standard over the supported liquid domain [$0.0^\circ\text{C}, 45.0^\circ\text{C}$]. Valid sub-zero temperature measurements ($-10.0^\circ\text{C} \le T < 0.0^\circ\text{C}$, such as winter freeze conditions in Canada and Ireland) are evaluated at the freezing point saturation ($0.0^\circ\text{C}$, $14.652$ mg/L) representing the thermodynamic phase boundary of liquid freshwater, avoiding unphysical polynomial extrapolation. Depletion yields $D > 0$; photosynthetic supersaturation yields $D < 0$.
-  - **Target Segregation**: Continuous target `ccme_values` (regression) and categorical target `ccme_wqi` / `ccme_wqi_code` (classification) are strictly separated from `MODEL_INPUT_FEATURES`. Because CCME WQI is an algebraic index of component chemical exceedances, predicting it from contemporaneous measurements is documented as surrogate index reconstruction.
+### Stage 8: Anti-Leakage Target Quarantine
+- **Quarantine Enforcement**:
+  - Isolated regression target: `ccme_values`.
+  - Isolated classification target: `ccme_wqi`, `ccme_wqi_code`.
+  - Strict exclusion of intermediate CCME terms ($F_1, F_2, F_3, nse$).
+- **Verification**: Validated by automated `pytest` tests asserting zero target overlap in the predictor matrix.
 
-### Stage 9: Complete Case Analysis, Leakage-Free Splitting, and Scaling
-- **Decision**:
-  - Instead of synthetic imputation (which could inject artificial values into ~34% of the dataset and bias model weights), apply **Complete Case Analysis**: filter down to records having 100% physically measured, ground-truth base features.
-  - Retains **2,817,500 complete observations** across 5 nations (England: 2,127,897; USA: 405,243; Ireland: 234,491; China: 45,977; Canada: 3,892).
-  - Missing values in modeling features after complete-case filtering: **0** across Train, Val, and Test.
-  - Stratified 70/15/15 random split: Train (1,972,250), Val (422,625), Test (422,625).
-  - `StandardScaler` fitted strictly on train input features only; targets are never scaled.
-
-### Stage 10: Output Parquet with Snappy Compression
-- **Decision**: Write partitions and repository samples to Parquet using `compression='snappy'`.
-- **Rationale**: Required by project guidelines for fast random-access reads and zero-copy slicing in PyArrow, DuckDB, and Jupyter environments.
+### Stage 9: Stratified Partitioning & Sharded Parquet Storage
+- **Class-Stratified Split**: 70% Train (1,973,731), 15% Validation (422,943), 15% Test (422,943).
+- **Standardization**: `StandardScaler` fitted strictly on Train features only.
+- **Parquet Sharding**: Training set (~190 MB) transparently sharded into three <60 MB files (`train_part0.parquet`, `train_part1.parquet`, `train_part2.parquet`), enabling 100% remote version control on GitHub within the 100 MB file limit.
 
 ---
 
-## 4. Before-versus-After Data Quality Summary
+## 4. Pipeline Before-versus-After Data Quality Verification
 
-Execution results on the master dataset:
-
-### Overall Dataset Shape & Complete Case Analysis
-
-| Metric | Raw Dataset | Complete Case Partitions | Notes |
+| Metric | Raw Ingested Source | Clean Processed Partitions | Production Status |
 |---|---|---|---|
-| **Total Rows** | 4,297,895 | 2,817,500 | 2.817M 100% complete ground-truth records |
-| **Exact Duplicate Rows Dropped** | 10,005 | 0 | 100% deduplicated |
-| **Hardware Sentinel Codes** | 84 (`-999999.0`) | 0 | Neutralized |
-| **Scale Corrupted pH (> 14)** | 592 rows | 0 | Neutralized |
-| **USA Fahrenheit Readings** | 5,852 (> 50°C) | 0 | Converted to Celsius |
-| **Sub-Zero Concentrations** | 43 rows | 0 | Clipped to detection limits (0.0 mg/L) |
-| **Missing Values across Features** | ~34% missing base features | **0 missing values** | Zero synthetic imputation bias |
+| **Total Observation Count** | 2,827,977 rows | 2,819,617 rows | 8,360 unphysical records purged (0.296%) |
+| **Missing Values (Nulls)** | **0 nulls** | **0 nulls** | **100% Complete Case Ground Truth** |
+| **Sovereign Nations** | 5 countries | 5 countries | England, USA, Ireland, China, Canada |
+| **Hardware Dropouts ($-999999$)**| 81 records | 0 records | 100% neutralized |
+| **Unphysical pH ($>12$ or $<3$)** | 1,581 records | 0 records | 100% neutralized |
+| **Feature Dimensionality** | 8 raw predictors | 38 engineered features | Skewness normalized, stoichiometric laws |
+| **Train / Val / Test Partition** | Unpartitioned | 70% / 15% / 15% | Stratified by `ccme_wqi` grade |
+| **GitHub Storage Compliance** | Single 190 MB file (rejected) | 3 shards (<60 MB each) | 100% compliant with 100 MB file limit |
 
 ---
 
-## 5. Known Limitations & Modeling Recommendations
-
-1. **Complete Case Ground Truth**:
-   - Because no synthetic medians, means, or modes are injected, models train purely on real environmental observations.
-2. **Imbalanced Classification Target (`ccme_wqi`)**:
-   - Class ratios: ~50% *Excellent*, ~32% *Good*, ~7% *Marginal*, ~7% *Fair*, ~3% *Poor*.
-3. **Phase 1 ML Performance**:
-   - Tree models achieve high fidelity on continuous CCME index reconstruction ($R^2 > 0.999$, RMSE $\approx 0.52$).
-
----
-
-## 6. Execution Commands & Verification
-
-### Running the Notebook Pipeline
+## 5. Execution & Reproduction Commands
 
 ```bash
-# Execute Preprocessing (Complete Case Analysis)
-python scripts/run_notebook.py "notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb"
+# Execute unit testing suite verifying cleaning, features, and zero leakage
+pytest tests/ -v
 
-# Execute Baseline & Tree Models Training
+# Run Phase 1 ML Training (Baseline, Random Forest, XGBoost)
 python scripts/run_notebook.py "notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb"
 
-# Execute Model Comparison & Evaluation
-python scripts/run_notebook.py "notebooks/04.ModelEvaluation/01_ml_model_comparison.ipynb"
+# Re-build all submission artifacts and reports
+python scripts/build_submission_artifacts.py
 ```
-

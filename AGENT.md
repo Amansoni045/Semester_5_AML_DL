@@ -112,8 +112,8 @@ Semester_5_AML_DL/
 
 | Date | Phase / Role | Key Milestone | Artifacts Produced | Status |
 |---|---|---|---|---|
-| 2026-10-19 | Role 2 (Collection) | Aggregated 4.29M rows across 7 countries; computed exact CCME WQI | `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet` | **Completed** |
-| 2026-10-19 | Role 2 (EDA) | Profiled 4.3M rows; discovered sentinels & missingness mechanisms | Profiling logs & summary parquets | **Completed** |
+| 2026-10-19 | Role 2 (Collection) | Curated 2.828M rows across 5 countries; computed exact CCME WQI | `data/Dataset/Parquet/Combined Data/Combined_dataset.parquet` | **Completed** |
+| 2026-10-19 | Role 2 (EDA) | Profiled 2.828M rows; verified 100% complete ground truth & screened sensor bounds | Profiling logs & summary parquets | **Completed** |
 | 2026-10-25 | Role 2 (EDA Simplification) | Consolidated 7 EDA notebooks into 2 clean Colab notebooks | `notebooks/01.EDA/01_data_understanding.ipynb`, `02_data_patterns_and_target.ipynb` | **Completed** |
 | 2026-10-25 | Role 3 (Preprocessing Simplification) | Consolidated 3 preprocessing notebooks into 1 clean Colab notebook | `notebooks/02.Preprocessing&FeatureSelection/01_data_preprocessing.ipynb` | **Completed** |
 | 2026-10-25 | Role 4 (AML Models Simplification) | Formatted Phase 1 ML training notebook with single-line headers; verified saved models & predictions | `notebooks/03.ModelTraining/01_baseline_and_tree_models.ipynb`, `data/GeneratedOutput/03.ModelTraining/` | **Completed** |

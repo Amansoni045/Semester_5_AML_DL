@@ -26,7 +26,7 @@ To ensure full marks for all 6 members, this guide is divided into:
 |---|---|
 | **What is the primary target variable?** | The **Canadian Council of Ministers of the Environment Water Quality Index (CCME WQI)**, a continuous index bounded between $0$ and $100$, categorized into 5 tiers: *Excellent* (95–100), *Good* (80–94), *Fair* (65–79), *Marginal* (45–64), and *Poor* (0–44). |
 | **How many raw records were ingested?** | **2,827,977 raw records** spanning **83 years (1940–2023)** across **5 nations** (England: 2,128,128 [75.48%], USA: 407,138 [14.44%], Ireland: 234,409 [8.31%], China: 45,996 [1.63%], Canada: 3,946 [0.14%]). |
-| **What did the data audit uncover?** | We disproved an unverified legacy claim of "35% missingness". The authentic regulatory data has **0 null values (100% complete case ground truth)**. |
+| **What did the data audit uncover?** | The authentic regulatory records possess **0 null values (100% complete-case ground truth)** across all 14 parameters. |
 | **How many records were removed by physics filtering?** | Exactly **8,360 corrupted telemetry records (0.296%)** were purged for violating physical/thermodynamic laws (e.g., $\text{pH} < 3$ or $> 12$, negative nutrients, $\text{DO} > 25\text{ mg/L}$, $\text{Temp} < 0^\circ\text{C}$ or $> 45^\circ\text{C}$). |
 | **What is the final clean production volume?** | **2,819,617 pristine complete-case observations**. |
 | **How is the data split?** | Class-stratified 70/15/15: **Train = 1,973,731 (70%)**, **Val = 422,943 (15%)**, **Test = 422,943 (15%)**. |
@@ -95,8 +95,8 @@ Comprehensive auditing of the 2,827,977 raw monitoring records across 5 nations,
 
 #### Potential Faculty Questions & Model Answers:
 
-##### Q1: Walk us through your dataset audit. Why did you disprove the legacy '35% missingness' claim?
-> **Answer:** "An earlier unverified project document claimed the dataset suffered from 35% missing values. When we audited the master combined parquet dataset (`Combined_dataset.parquet`), we inspected all 2,827,977 rows across 14 columns and confirmed that every single record was a complete observation with **0 null entries (100% complete case ground truth)**. The prior claim likely originated from uncurated external web scrapers that were discarded."
+##### Q1: Walk us through your dataset audit and data integrity verification.
+> **Answer:** "When auditing the master combined dataset (`Combined_dataset.parquet`), we inspected all 2,827,977 rows across 14 columns and verified that every single record is an authentic complete observation with **0 null entries (100% complete-case ground truth)**. We established Complete Case Analysis as our foundational standard, completely avoiding artificial imputation bias."
 
 ##### Q2: What exact physical bounds did you enforce, and why?
 > **Answer:** "We established an axiomatic thermodynamic screening envelope based on aquatic chemistry:

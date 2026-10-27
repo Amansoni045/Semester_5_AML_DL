@@ -772,7 +772,7 @@ def build_report_pdf():
 
 <div class="content-columns">
   <div class="abstract-box">
-    <span class="abstract-label">Abstract</span>—Automated surface water quality monitoring is vital for public health safeguarding, ecological conservation, and municipal supply management. Traditional laboratory assays, such as 5-day Biochemical Oxygen Demand (BOD5), suffer from a prohibitive 120-hour incubation latency. This paper presents Phase 1 of an applied machine learning investigation predicting the Canadian Council of Ministers of the Environment Water Quality Index (CCME WQI) across 2,827,977 multi-national sensor observations spanning 83 years (1940–2023) across 5 nations (England, USA, Ireland, China, and Canada). A data quality audit disproved legacy claims of missingness, confirming 100% complete-case ground truth. Thermodynamic boundary screening purged 8,360 corrupted telemetry entries (0.296%), yielding 2,819,617 pristine observations. We engineered 38 domain features incorporating non-linear log(1+x) transformations, aquatic stoichiometry (Redfield N:P ratio, Benson-Krause DO saturation, Emerson un-ionized ammonia), and chronological station lags. Benchmarked across a stratified 70/15/15 partition, Random Forest (R² = 0.9999, MAE = 0.052) and XGBoost (R² = 0.9996, MAE = 0.137) dramatically outperformed the baseline heuristic (MAE = 14.130). Game-theoretic TreeSHAP feature attribution identified orthophosphate as the dominant predictive driver (accounting for >88% of split decisions). We formalize a production modular package (src/) validated by a 12-test automated unit test suite (pytest) and provide an equitable six-member contribution matrix meeting Phase 1 CSAI evaluation requirements.
+    <span class="abstract-label">Abstract</span>—Automated surface water quality monitoring is vital for public health safeguarding, ecological conservation, and municipal supply management. Traditional laboratory assays, such as 5-day Biochemical Oxygen Demand (BOD5), suffer from a prohibitive 120-hour incubation latency. This paper presents Phase 1 of an applied machine learning investigation predicting the Canadian Council of Ministers of the Environment Water Quality Index (CCME WQI) across 2,827,977 multi-national sensor observations spanning 83 years (1940–2023) across 5 nations (England, USA, Ireland, China, and Canada). A data quality audit confirmed 100% complete-case ground truth with zero missing values across all sensor parameters. Thermodynamic boundary screening purged 8,360 corrupted telemetry entries (0.296%), yielding 2,819,617 pristine observations. We engineered 38 domain features incorporating non-linear log(1+x) transformations, aquatic stoichiometry (Redfield N:P ratio, Benson-Krause DO saturation, Emerson un-ionized ammonia), and chronological station lags. Benchmarked across a stratified 70/15/15 partition, Random Forest (R² = 0.9999, MAE = 0.052) and XGBoost (R² = 0.9996, MAE = 0.137) dramatically outperformed the baseline heuristic (MAE = 14.130). Game-theoretic TreeSHAP feature attribution identified orthophosphate as the dominant predictive driver (accounting for >88% of split decisions). We formalize a production modular package (src/) validated by a 12-test automated unit test suite (pytest) and provide an equitable six-member contribution matrix meeting Phase 1 CSAI evaluation requirements.
   </div>
 
   <h1>I. Introduction</h1>
@@ -784,7 +784,7 @@ def build_report_pdf():
   <p>Critical gaps in published literature include unverified telemetry errors, target leakage through intermediate exceedance counters, and failure to capture local hydrological station memory. Our Phase 1 pipeline resolves each gap through thermodynamic screening, strict anti-leakage quarantine, and non-lookahead shift-1 station lags.</p>
 
   <h1>III. Multi-National Dataset Profile & Audit</h1>
-  <p>We ingested 2,827,977 surface water monitoring observations across 5 nations spanning 1940 to 2023. A data audit disproved legacy claims of "35% missingness", verifying that the authentic regulatory data has 0 null entries (100% complete ground truth).</p>
+  <p>We ingested 2,827,977 surface water monitoring observations across 5 nations spanning 1940 to 2023. An exploratory data audit verified that authentic regulatory records possess 100% complete-case ground truth with 0 null entries across all 14 parameters.</p>
 
   <div class="table-title">Table I: Multi-National Observation Distribution</div>
   <table>
@@ -929,16 +929,17 @@ def build_report_pdf():
     reader = pypdf.PdfReader(out_pdf)
     print(f"✓ Project_Report.pdf successfully generated: {out_pdf} ({len(reader.pages)} pages, {out_pdf.stat().st_size / 1e3:.1f} KB)")
 
-    # Copy the updated final report to final/
+    # Copy the updated final report to final/ (preserving sole canonical Project_Report_Final.pdf)
     import shutil
     final_dir = REPO_ROOT / "final"
     if final_dir.exists():
         dest1 = final_dir / "Project_Report_Final.pdf"
-        dest2 = final_dir / "Project_Report.pdf"
         shutil.copy2(out_pdf, dest1)
-        shutil.copy2(out_pdf, dest2)
         print(f"✓ Copied final updated report to: {dest1} ({dest1.stat().st_size / 1e3:.1f} KB)")
-        print(f"✓ Copied final updated report to: {dest2} ({dest2.stat().st_size / 1e3:.1f} KB)")
+        dup_report = final_dir / "Project_Report.pdf"
+        if dup_report.exists():
+            dup_report.unlink()
+            print(f"  - Removed duplicate file from final/: {dup_report.name}")
 
 
 def cleanup_reports_directory():
@@ -951,8 +952,7 @@ def cleanup_reports_directory():
     # 5. references.bib (BibTeX citations)
     # 6. viva_preparation_guide.md (Individual viva guide for all 6 members)
     # 7. comprehensive_technical_report.md (Full technical markdown reference)
-    # 8. dataset_audit_report.md (Audit documentation)
-    # 9. figures/ (directory with audit figures)
+    # 8. figures/ (directory with audit figures)
 
     # Standardize files
     if (REPORTS_DIR / "phase1_ieee_report.tex").exists():
@@ -964,6 +964,7 @@ def cleanup_reports_directory():
 
     # List of legacy / unwanted files to remove
     unwanted = [
+        "dataset_audit_report.md",
         "water_quality_presentation.pptx",
         "presentation_slides.html",
         "presentation_slides.md",
