@@ -23,4 +23,5 @@ jupyter
 # Reporting, Presentation & Testing
 python-pptx
 pytest
+pypdf
 

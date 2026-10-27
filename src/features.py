@@ -11,12 +11,19 @@ from typing import List, Tuple
 PHYSICAL_BOUNDS = {
     "ph": (3.0, 12.0),
     "temperature": (0.0, 45.0),
+    "temperature_c": (0.0, 45.0),
     "dissolved_oxygen": (0.0, 25.0),
+    "do_mg_l": (0.0, 25.0),
     "conductivity": (0.0, np.inf),
     "bod5": (0.0, np.inf),
+    "bod_mg_l": (0.0, np.inf),
     "total_oxidised_nitrogen": (0.0, np.inf),
     "ammoniacal_nitrogen": (0.0, np.inf),
+    "ammonia_mg_l": (0.0, np.inf),
     "orthophosphate": (0.0, np.inf),
+    "orthophosphate_mg_l": (0.0, np.inf),
+    "nitrogen_mg_l": (0.0, np.inf),
+    "nitrate_mg_l": (0.0, np.inf),
 }
 
 SKEWED_NUTRIENTS = [

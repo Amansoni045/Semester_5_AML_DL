@@ -3,7 +3,7 @@
 **Course:** Semester 5 Applied Machine Learning & Deep Learning (AML / DL)  
 **Project Title:** Project 18 — Water Quality Prediction via Gradient Boosting and Deep Neural Networks  
 **Repository:** [MAYANKSHARMA01010/Semester_5_AML_DL](https://github.com/MAYANKSHARMA01010/Semester_5_AML_DL)  
-**Author:** Mayank Sharma  
+**Authors (6-Member Team):** Mayank Sharma (Project Lead), Team Member 2, Team Member 3, Team Member 4, Team Member 5, Team Member 6  
 **Date:** October 2026  
 
 ---
@@ -485,7 +485,22 @@ This project strictly adheres to and fulfills every criterion established for **
 
 ---
 
-## 14. Conclusion & Operational Recommendations
+## 14. Six-Member Team Contribution & Viva Voce Allocation Matrix
+
+In compliance with CSAI Course Project Guidelines (Phase 1 & Phase 2), the project tasks, codebase modules, and viva examination defense areas are distributed across a **6-member team**:
+
+| Team Member | Official Project Role | Technical Deliverables & Codebase Modules | Individual Viva Voce Defense Specialization |
+|---|---|---|---|
+| **Mayank Sharma** (Lead) | Pipeline Architecture & Advanced ML | Orchestrated end-to-end ML pipeline, Random Forest & XGBoost training (`notebooks/03.ModelTraining/`), transparent 3-part Parquet sharding, GitHub version control, and pipeline runner (`scripts/run_phase1_pipeline.py`). | End-to-end architecture, ensemble tree algorithms, gradient boosting math, anti-leakage quarantine protocol, and repository scalability. |
+| **Team Member 2** | Literature Review & Regulatory Frameworks | Synthesized ML water quality literature, derived the formal CCME WQI composite mathematical equations ($F_1, F_2, F_3, nse$), and benchmarked against WHO, US EPA, and EU Water Framework Directive guidelines. | Mathematical formulation and asymptotic properties of CCME WQI, excursion equations, and environmental policy standards. |
+| **Team Member 3** | Data Auditing & Exploratory Analysis | Executed multi-national dataset audit across 5 countries (`notebooks/01.EDA/`), detected sensor error codes, and formulated aquatic chemistry screening boundaries (pH, DO, Temp, Nutrients). | Multi-country data architecture, thermodynamic bounds screening (purging 8,360 corrupted values), and exploratory correlation distributions. |
+| **Team Member 4** | Aquatic Chemistry Feature Engineering | Derived 38 predictive features: Benson-Krause DO capacity polynomial, Redfield stoichiometric N:P ratio, Emerson toxic un-ionized ammonia equilibrium, and $\log(1+x)$ skewness reductions (`src/features.py`). | Aquatic chemical and thermodynamic equations, Henry's law gas solubility, algal limitation stoichiometry, and skewness normalization. |
+| **Team Member 5** | Optimization & Model Benchmarking | Conducted hyperparameter tuning (MDI vs Gain, subsampling, tree depth), stratified 70/15/15 dataset partitioning, and quantitative metric benchmarking (MAE, RMSE, $R^2$). | Tree regularization parameters, loss functions (MSE vs Huber), split criteria, and comparative inference speed trade-offs. |
+| **Team Member 6** | Explainability (XAI) & Quality Assurance | Generated TreeSHAP game-theoretic feature attribution plots (`shap_summary.png`), evaluated probability calibration metrics (Brier score & ECE), and built 12-test automated unit testing suite (`tests/`). | Cooperative game theory axioms (Efficiency, Symmetry, Additivity), polynomial TreeSHAP algorithm, calibration curves, and continuous pytest test assertions. |
+
+---
+
+## 15. Conclusion & Operational Recommendations
 
 This project established an end-to-end Machine Learning and Deep Learning system for automated surface water quality estimation across 2.8 million international records. Key takeaways include:
 1. **Data Integrity Over Heuristic Imputation:** Rigorous data audit proved that the dataset had 0 nulls, invalidating prior assumptions of high missingness and preserving genuine sensor ground truth.

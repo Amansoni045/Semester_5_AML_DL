@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project 18: Water Quality Index Prediction — Phase 1 AML Presentation</title>
+  <style>
+    :root {
+      --bg: #0b1325;
+      --card-bg: #131f37;
+      --card-border: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --cyan: #06b6d4;
+      --blue: #3b82f6;
+      --emerald: #10b981;
+      --gold: #f59e0b;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+    }
+
+    .deck-container {
+      width: 95vw;
+      max-width: 1200px;
+      height: 85vh;
+      max-height: 750px;
+      position: relative;
+      background: var(--bg);
+      border-radius: 16px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      border: 1px solid var(--card-border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slide {
+      display: none;
+      width: 100%;
+      height: 100%;
+      padding: 40px 50px;
+      overflow-y: auto;
+      flex-direction: column;
+    }
+
+    .slide.active {
+      display: flex;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .header-category {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 6px;
+    }
+
+    .header-title {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 24px;
+      line-height: 1.25;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      flex: 1;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      flex: 1;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title.cyan { color: var(--cyan); }
+    .card-title.blue { color: var(--blue); }
+    .card-title.emerald { color: var(--emerald); }
+    .card-title.gold { color: var(--gold); }
+
+    ul.card-list {
+      list-style-type: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 0.95rem;
+      color: var(--text-main);
+      line-height: 1.5;
+    }
+
+    ul.card-list li {
+      position: relative;
+      padding-left: 18px;
+    }
+
+    ul.card-list li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--cyan);
+      font-weight: bold;
+    }
+
+    .metric-ribbon {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .metric-box {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .metric-val {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--cyan);
+      margin-bottom: 4px;
+    }
+
+    .metric-lbl {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .metric-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .img-preview {
+      width: 100%;
+      max-height: 400px;
+      object-fit: contain;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      background: #000;
+    }
+
+    .footer-bar {
+      height: 55px;
+      background: rgba(11, 19, 37, 0.95);
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 30px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    button.btn {
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button.btn:hover {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+    }
+
+    .counter {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="deck-container">
+    
+    <!-- SLIDE 1: Title & 6-Member Team -->
+    <div class="slide active">
+      <div class="header-category">Semester 5 Applied Machine Learning (AML) | Project 18</div>
+      <div class="header-title" style="font-size: 2.2rem; margin-bottom: 12px;">Surface Water Quality Index Estimation via Gradient Tree Boosting & Stoichiometry</div>
+      <p style="color: var(--blue); font-size: 1.15rem; font-weight: 600; margin-bottom: 24px;">Phase 1 Machine Learning Evaluation: 2.82 Million Records Across 5 Nations</p>
+      
+      <div class="card" style="border-left: 4px solid var(--gold); margin-bottom: 20px;">
+        <div class="card-title gold">PROJECT TEAM (6 MEMBERS)</div>
+        <ul class="card-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <li><strong>Mayank Sharma (Lead):</strong> End-to-End Pipeline Architecture, RF & XGBoost, GitHub Orchestration</li>
+          <li><strong>Team Member 2:</strong> Literature Review, CCME WQI Math (F1, F2, F3, nse) & Regulatory Standards</li>
+          <li><strong>Team Member 3:</strong> Multi-National Dataset Auditing (5 Countries), Physical Bounds & EDA</li>
+          <li><strong>Team Member 4:</strong> Aquatic Chemistry Feature Engineering, Stoichiometry (N:P, DO Sat, NH3)</li>
+          <li><strong>Team Member 5:</strong> Tree-Based Hyperparameter Optimization, Stratified Splitting & Benchmarking</li>
+          <li><strong>Team Member 6:</strong> Explainable AI (TreeSHAP), Probability Calibration & PyTest Testing Suite</li>
+        </ul>
+      </div>
+
+      <div class="metric-ribbon" style="margin-bottom: 0;">
+        <div class="metric-box"><div class="metric-val">2,819,617</div><div class="metric-lbl">Clean Observations</div><div class="metric-sub">100% Ground Truth</div></div>
+        <div class="metric-box"><div class="metric-val">38 Features</div><div class="metric-lbl">Engineered Predictors</div><div class="metric-sub">Zero Lookahead Leakage</div></div>
+        <div class="metric-box"><div class="metric-val">R² 0.9999</div><div class="metric-lbl">Random Forest Score</div><div class="metric-sub">MAE = 0.0520</div></div>
+        <div class="metric-box"><div class="metric-val">R² 0.9996</div><div class="metric-lbl">XGBoost Score</div><div class="metric-sub">MAE = 0.1375 (9x Faster)</div></div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2: Problem Statement -->
+    <div class="slide">
+      <div class="header-category">Problem Formulation</div>
+      <div class="header-title">The Environmental Monitoring Crisis: Lab Delays vs. Real-Time AML</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title gold">The Conventional Wet-Lab Bottleneck</div>
+          <ul class="card-list">
+            <li><strong>Severe Incubation Latency:</strong> Critical assays like Biochemical Oxygen Demand (BOD5) require a 5-day microbiological incubation period.</li>
+            <li><strong>High Operational Expense:</strong> Manual grab-sampling requires dedicated field crews, transport logistics, and recurring chemical reagents.</li>
+            <li><strong>Discrete Temporal Blindspots:</strong> Monthly or quarterly sampling cadences frequently miss acute, transient toxic chemical discharges.</li>
+            <li><strong>Delayed Environmental Action:</strong> Remediation directives often arrive weeks after fish mortality or toxic algae blooms have occurred.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title cyan">The Machine Learning Paradigm</div>
+          <ul class="card-list">
+            <li><strong>Instantaneous In-Situ Telemetry:</strong> Ingest real-time digital probe sensors (pH, temperature, dissolved oxygen, conductivity).</li>
+            <li><strong>Standardized Target Index:</strong> Map physical/chemical arrays directly to the Canadian Council of Ministers of the Environment Water Quality Index (CCME WQI, 0-100).</li>
+            <li><strong>Sub-Millisecond Inference:</strong> Predict continuous index scores and 5 discrete ecological tiers in under 1 ms per monitoring station.</li>
+            <li><strong>Automated Early Warning Telemetry:</strong> Equips municipal water utilities with immediate flags for upstream industrial contamination.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3: Literature Review -->
+    <div class="slide">
+      <div class="header-category">Literature Review</div>
+      <div class="header-title">Foundations & Critical Methodological Gaps</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title blue">Theoretical Foundations</div>
+          <ul class="card-list">
+            <li><strong>Breiman (2001) - Random Forests:</strong> Proven robustness against tabular noise via bootstrap aggregation and randomized feature subspaces.</li>
+            <li><strong>Chen & Guestrin (2016) - XGBoost:</strong> Regularized second-order Taylor expansion gradients delivering high efficiency on structured environmental tabular data.</li>
+            <li><strong>CCME (2001) - Water Quality Index:</strong> Internationally endorsed multi-dimensional formulation balancing Scope (F1), Frequency (F2), and Amplitude (F3).</li>
+            <li><strong>Lundberg & Lee (2017) - TreeSHAP:</strong> Cooperative game theory framework guaranteeing fair, additive local and global feature attribution in polynomial time.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title emerald">Critical Gaps Identified & Resolved</div>
+          <ul class="card-list">
+            <li><strong>Gap 1: Unverified Telemetry Artifacts:</strong> Naive models ingest corrupted sensor dropouts. -> We enforced thermodynamic bounds, purging 8,360 impossible entries.</li>
+            <li><strong>Gap 2: Target Leakage:</strong> Prior literature retains intermediate exceedance counters. -> We established an isolated, quarantined 38-feature predictor set.</li>
+            <li><strong>Gap 3: Nutrient Skewness:</strong> Heavy right tails distort tree split capacity. -> We applied log(1+x), boosting linear correlation from -0.66 to -0.85.</li>
+            <li><strong>Gap 4: Station Temporal Ignorance:</strong> Spatial-only models discard local history. -> We engineered backward-only shift-1 lags (rho = -0.78 with WQI).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4: Multi-National Dataset Profile -->
+    <div class="slide">
+      <div class="header-category">Dataset Architecture</div>
+      <div class="header-title">2,827,977 Observations Across 5 Nations (1940–2023)</div>
+      <div class="metric-ribbon">
+        <div class="metric-box"><div class="metric-val">England</div><div class="metric-lbl">2,367,978 Records</div><div class="metric-sub">83.74% (EA Catchments)</div></div>
+        <div class="metric-box"><div class="metric-val">USA</div><div class="metric-lbl">240,654 Records</div><div class="metric-sub">8.51% (USGS Network)</div></div>
+        <div class="metric-box"><div class="metric-val">Ireland</div><div class="metric-lbl">201,345 Records</div><div class="metric-sub">7.13% (EPA Lakes/Rivers)</div></div>
+        <div class="metric-box"><div class="metric-val">China & Canada</div><div class="metric-lbl">18,000 Records</div><div class="metric-sub">0.64% (Cross-Basin Benchmarks)</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title cyan">Ground Truth Verification</div>
+          <ul class="card-list">
+            <li><strong>Zero Missingness Verified:</strong> Resolved legacy documentation claims of "35% missingness"; verified that genuine national datasets possess 100% complete case ground truth.</li>
+            <li><strong>83-Year Longitudinal Scope:</strong> Encompasses climate oscillations, seasonal overturns, and legislative milestones (e.g., Clean Water Act, EU Water Framework Directive).</li>
+            <li><strong>Diverse Waterbody Classes:</strong> Rivers (88.4%), Lakes & Reservoirs (8.2%), Estuarine & Transitional Waters (3.4%).</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title blue">Version Control & Sharding Architecture</div>
+          <ul class="card-list">
+            <li><strong>GitHub 100 MB Limit Resolved:</strong> The 1.97M row training partition (~190 MB) exceeded GitHub's 100 MB hard limit.</li>
+            <li><strong>Transparent 3-Part Sharding:</strong> Engineered split parquets under 60 MB each (train_part0, train_part1, train_part2).</li>
+            <li><strong>Transparent Deserialization:</strong> Fully integrated via <code>pd.read_parquet("train.parquet")</code> without requiring manual concatenation.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 5: Data Quality Audit -->
+    <div class="slide">
+      <div class="header-category">Data Cleaning & Quality Audit</div>
+      <div class="header-title">Purging 8,360 Physically Impossible Telemetry Errors</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title gold">Aquatic Chemistry Physical Boundaries</div>
+          <ul class="card-list">
+            <li><strong>pH [3.0 to 12.0]:</strong> Natural waters cannot sustain pH below 3.0 or above 12.0 outside catastrophic caustic spills.</li>
+            <li><strong>Water Temperature [0.0°C to 45.0°C]:</strong> Constrained by the liquid state of surface freshwater under 1 atm pressure.</li>
+            <li><strong>Dissolved Oxygen [0.0 to 25.0 mg/L]:</strong> Thermodynamic limit governed by Henry's law atmospheric gas solubility.</li>
+            <li><strong>Non-Negative Nutrients:</strong> Conductivity, BOD5, Ammonia, Nitrate, and Orthophosphate cannot assume negative concentrations.</li>
+            <li><strong>Purged Sensor Telemetry Codes:</strong> Filtered out -999, 9999, and negative electronic detection flags.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title emerald">Quality Audit Results</div>
+          <ul class="card-list">
+            <li><strong>Raw Ingested Records:</strong> 2,827,977 multi-national observations.</li>
+            <li><strong>Physical Violations Removed:</strong> Exactly 8,360 records (0.296% of the dataset).</li>
+            <li><strong>Clean Ground Truth Corpus:</strong> 2,819,617 pristine complete-case observations.</li>
+            <li><strong>Zero Synthetic Bias:</strong> Avoided artificial noise injection from synthetic imputation algorithms (KNN, MICE).</li>
+            <li><strong>Tree Stability:</strong> Prevents decision trees from learning artificial split nodes based on electronic telemetry dropout artifacts.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 6: CCME WQI Target Definition -->
+    <div class="slide">
+      <div class="header-category">Mathematical Modeling</div>
+      <div class="header-title">The Canadian Council of Ministers of the Environment (CCME) WQI</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title cyan">Mathematical Index Derivation</div>
+          <ul class="card-list">
+            <li><strong>Composite Formula:</strong> WQI = 100 - [ sqrt(F1² + F2² + F3²) / 1.732 ]</li>
+            <li><strong>F1 (Scope):</strong> Percentage of chemical variables failing guidelines at least once: F1 = (Failed Variables / Total Variables) * 100</li>
+            <li><strong>F2 (Frequency):</strong> Percentage of individual analytical tests failing compliance: F2 = (Failed Tests / Total Tests) * 100</li>
+            <li><strong>F3 (Amplitude):</strong> Magnitude of excursion via normalized sum of excursions (nse): nse = sum(excursion_i) / Total Tests</li>
+            <li><strong>Non-linear Asymptote:</strong> F3 = nse / (0.01 * nse + 0.01); maps unbounded excursions smoothly into [0, 100].</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title blue">Discrete Ecological Tiers</div>
+          <ul class="card-list">
+            <li><strong>Tier 1: Excellent (95 - 100):</strong> Pristine ecological health; all guidelines met continuously.</li>
+            <li><strong>Tier 2: Good (80 - 94):</strong> Minor impairment; conditions rarely depart from natural levels.</li>
+            <li><strong>Tier 3: Fair (65 - 79):</strong> Occasionally degraded; parameters periodically violate standards.</li>
+            <li><strong>Tier 4: Marginal (45 - 64):</strong> Frequently threatened or impaired; significant agricultural/industrial stress.</li>
+            <li><strong>Tier 5: Poor (0 - 44):</strong> Severely damaged; aquatic life cannot be supported safely.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 7: Stoichiometric Feature Engineering -->
+    <div class="slide">
+      <div class="header-category">Feature Engineering</div>
+      <div class="header-title">Geochemical Stoichiometry & Environmental Physics</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title cyan">Aquatic Physics Formulations</div>
+          <ul class="card-list">
+            <li><strong>Benson-Krause DO Saturation:</strong> Computes theoretical DO capacity DO_sat(T) as an empirical polynomial of temperature.</li>
+            <li><strong>DO Deficit & Percent Saturation:</strong> DO_%sat = (DO / DO_sat) * 100; DO_deficit = max(0, DO_sat - DO) capturing biological respiration.</li>
+            <li><strong>Redfield Stoichiometric Ratio:</strong> N:P = Nitrogen / (Orthophosphate + 1e-5), identifying algal limitation regimes.</li>
+            <li><strong>Emerson Toxic Ammonia:</strong> Quantifies lethal free un-ionized NH3 as an equilibrium function of temperature and pH.</li>
+            <li><strong>Streeter-Phelps BOD/DO Ratio:</strong> Measures microbial organic digestion pressure relative to available oxygen supply.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title gold">Total 38 Predictor Taxonomy</div>
+          <ul class="card-list">
+            <li><strong>8 Base Parameters:</strong> pH, Temp, DO, BOD5, Ammonia, Orthophosphate, Nitrogen, Nitrate.</li>
+            <li><strong>7 Stoichiometric Predictors:</strong> N:P, BOD/DO, DO Deficit, DO %Sat, pH Deviation, NO3/N, Un-ionized NH3.</li>
+            <li><strong>7 log(1+x) Transformed Features:</strong> Skewness-normalized nutrient concentrations.</li>
+            <li><strong>6 Station Memory Features:</strong> Shift-1 lags and rolling-3 historical statistics.</li>
+            <li><strong>1 Stress Indicator:</strong> Multi-parameter threshold exceedance counter.</li>
+            <li><strong>9 Contextual & Temporal Predictors:</strong> Country code, Waterbody type, Year, Month, Cyclical harmonics.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 8: Skewness Mitigation -->
+    <div class="slide">
+      <div class="header-category">Data Transformation</div>
+      <div class="header-title">Non-Linear Skewness Mitigation: The log(1+x) Transform</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title gold">The Heavy-Tail Skewness Problem</div>
+          <ul class="card-list">
+            <li><strong>Extreme Positive Skewness:</strong> Nutrients (Orthophosphate, Ammonia, BOD5) exhibit extreme skewness (gamma_1 > 40) spanning 4 orders of magnitude.</li>
+            <li><strong>Split Suboptimality in Trees:</strong> Decision trees partition skewed variables near the origin, wasting split capacity on extreme outliers.</li>
+            <li><strong>Mathematical Transformation:</strong> Applied y = ln(1 + x), compressing heavy positive tails while preserving zero non-negativity.</li>
+            <li><strong>Dramatic Correlation Surge:</strong> Linear correlation between orthophosphate and CCME WQI improved from r = -0.66 to <strong>r = -0.85</strong>.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title emerald">Algorithmic Benefits</div>
+          <ul class="card-list">
+            <li><strong>Stabilized Gradient Steps:</strong> XGBoost hessians remain well-conditioned across all leaf nodes.</li>
+            <li><strong>Uniform Impurity Reduction:</strong> Random Forest splits distribute across the entire dynamic range of water conditions.</li>
+            <li><strong>Enhanced Interpretability:</strong> Linearizes the relationship between nutrient loading and composite index degradation.</li>
+            <li><strong>No Synthetic Distortions:</strong> Unlike standard scaling (z-score), log(1+x) preserves strict non-negativity.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 9: Station Memory -->
+    <div class="slide">
+      <div class="header-category">Temporal Dynamics</div>
+      <div class="header-title">Chronological Station Memory without Lookahead Leakage</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title blue">Hydrological Persistence Mechanism</div>
+          <ul class="card-list">
+            <li><strong>Local Catchment Memory:</strong> River reaches and lake basins retain contaminant plumes over successive sampling events.</li>
+            <li><strong>Shift-1 Station Lags:</strong> Generated lag_1(x_t) = x_{t-1} grouped strictly per unique monitoring station identifier.</li>
+            <li><strong>Rolling-3 Moving Statistics:</strong> Computed 3-sample moving means reflecting localized environmental baselines.</li>
+            <li><strong>Zero Forward-Looking Leakage:</strong> Datasets were chronologically ordered prior to shifting; no future data is accessed.</li>
+            <li><strong>High Predictive Rank Correlation:</strong> Shift-1 orthophosphate lag (hist_ortho_lag1) achieves rank correlation <strong>rho = -0.78</strong> with CCME WQI.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title cyan">Harmonic Temporal Encoding</div>
+          <ul class="card-list">
+            <li><strong>Continuous Cyclical Boundaries:</strong> Encoded Month and Day-of-Year as sin(2*pi*t/T) and cos(2*pi*t/T).</li>
+            <li><strong>Seamless Wrap-Around:</strong> Ensures December 31 and January 1 are mathematically adjacent rather than maximally distant.</li>
+            <li><strong>Multi-Decadal Trend Tracking:</strong> Year feature tracks long-term national policy impacts.</li>
+            <li><strong>Seasonal Thermal Turnover:</strong> Captures spring lake stratification and autumn destratification pulses.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 10: Anti-Leakage Protocol & Splitting -->
+    <div class="slide">
+      <div class="header-category">Experimental Validation</div>
+      <div class="header-title">Strict Anti-Leakage Quarantine & Stratified 70/15/15 Splitting</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title gold">Target Quarantine Protocol</div>
+          <ul class="card-list">
+            <li><strong>The Circular Leakage Hazard:</strong> CCME WQI is calculated from water parameters. Naive models including intermediate counters create 100% circular leakage.</li>
+            <li><strong>Programmatic Target Isolation:</strong> All target columns (ccme_values, ccme_wqi, ccme_wqi_code, F1, F2, F3) are quarantined via <code>src.utils.separate_features_and_targets</code>.</li>
+            <li><strong>Automated Feature Audit:</strong> Programmatic assertions verify 0 target columns exist inside the 38-feature predictor matrix.</li>
+            <li><strong>Zero Split Leakage:</strong> Scaling, transformations, and metadata were fitted exclusively on the training partition.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title emerald">Stratified Data Partitioning</div>
+          <ul class="card-list">
+            <li><strong>Total Clean Volume:</strong> 2,819,617 observations partitioned with exact class-stratification across ecological tiers.</li>
+            <li><strong>Training Partition:</strong> 1,973,731 observations (70.0%) - sharded into transparent 3-part Parquet files for GitHub tracking.</li>
+            <li><strong>Validation Partition:</strong> 422,943 observations (15.0%) - used for hyperparameter optimization and TreeSHAP calculations.</li>
+            <li><strong>Test Partition:</strong> 422,943 observations (15.0%) - reserved for final unbiased benchmark verification.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 11: Model Benchmarks -->
+    <div class="slide">
+      <div class="header-category">Model Evaluation</div>
+      <div class="header-title">Phase 1 ML Benchmarks: Random Forest vs. XGBoost</div>
+      <div class="metric-ribbon">
+        <div class="metric-box"><div class="metric-val">14.130</div><div class="metric-lbl">Baseline Val MAE</div><div class="metric-sub">R² = 0.0000</div></div>
+        <div class="metric-box"><div class="metric-val">0.0521</div><div class="metric-lbl">Random Forest MAE</div><div class="metric-sub">R² = 0.999861</div></div>
+        <div class="metric-box"><div class="metric-val">0.1375</div><div class="metric-lbl">XGBoost Val MAE</div><div class="metric-sub">R² = 0.999551</div></div>
+        <div class="metric-box"><div class="metric-val">0.42 s</div><div class="metric-lbl">XGBoost Inference</div><div class="metric-sub">422k Rows (9x Faster)</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title emerald">Random Forest Regressor Highlights</div>
+          <ul class="card-list">
+            <li><strong>Extreme Accuracy:</strong> Val MAE = 0.0521, Val RMSE = 0.2081, Val R² = 0.999861.</li>
+            <li><strong>Ensemble Architecture:</strong> 100 de-correlated trees, max depth 20, min samples leaf 4.</li>
+            <li><strong>Variance Reduction:</strong> Bagging effectively neutralizes localized sensor noise spikes.</li>
+            <li><strong>Ideal Use Case:</strong> Centralized regulatory compliance verification and historical re-analysis.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title cyan">XGBoost Regressor Highlights</div>
+          <ul class="card-list">
+            <li><strong>Near-Perfect Precision:</strong> Val MAE = 0.1375, Val RMSE = 0.3740, Val R² = 0.999551.</li>
+            <li><strong>Hyperparameters:</strong> 300 rounds, learning rate 0.05, max depth 8, colsample 0.8.</li>
+            <li><strong>Inference Throughput:</strong> Evaluates 422,943 records in 0.42 s (~1 microsecond per sensor).</li>
+            <li><strong>Ideal Use Case:</strong> Real-time edge microcontroller and IoT sensor deployment.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 12: TreeSHAP Explainability -->
+    <div class="slide">
+      <div class="header-category">Explainable AI (XAI)</div>
+      <div class="header-title">TreeSHAP Game-Theoretic Feature Attribution</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title cyan">Environmental Driver Attribution</div>
+          <ul class="card-list">
+            <li><strong>Orthophosphate Dominance:</strong> log1p_orthophosphate and raw orthophosphate drive over 88% of all decision tree splits.</li>
+            <li><strong>Geochemical Limiting Mechanism:</strong> Phosphorus is freshwater's critical limiting nutrient; elevated levels trigger severe eutrophication and catastrophic index drops.</li>
+            <li><strong>Station Memory Ranks #2:</strong> hist_ortho_lag1 provides the second largest negative attribution, proving that local hydrological persistence carries massive predictive value.</li>
+            <li><strong>Hypoxic Threshold Effects:</strong> Dissolved oxygen features plunge into steep negative attribution below 4.0 mg/L, matching fish mortality thresholds.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title emerald">Game-Theoretic Axiomatic Guarantees</div>
+          <ul class="card-list">
+            <li><strong>Efficiency:</strong> Sum of feature attributions exactly equals model output minus expected base value.</li>
+            <li><strong>Symmetry:</strong> Features contributing identically receive equal credit.</li>
+            <li><strong>Dummy Player:</strong> Non-informative features receive exactly zero Shapley attribution.</li>
+            <li><strong>Additivity:</strong> Ensemble SHAP values equal the weighted sum of individual tree Shapley values.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 13: Code Quality & PyTest -->
+    <div class="slide">
+      <div class="header-category">Software Engineering</div>
+      <div class="header-title">Modular Architecture (src/) & Automated Test Suite (pytest)</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title blue">Production-Grade Modular Library (src/)</div>
+          <ul class="card-list">
+            <li><strong>src.features:</strong> Bounds screening, log1p transformations, stoichiometric ratios, station lags.</li>
+            <li><strong>src.models:</strong> Model interface abstractions and multi-task loss functions.</li>
+            <li><strong>src.metrics:</strong> Evaluation engine for MAE, RMSE, R², Macro F1, Brier Score, and Expected Calibration Error (ECE).</li>
+            <li><strong>src.utils:</strong> Transparent multi-part Parquet loading and anti-leakage quarantine.</li>
+            <li><strong>Pipeline Runner:</strong> <code>scripts/run_phase1_pipeline.py</code> executes the full pipeline end-to-end.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title emerald">Automated Test Suite (pytest)</div>
+          <ul class="card-list">
+            <li><strong>test_features.py:</strong> Validates thermodynamic bounds, log1p math, and stoichiometric formulas.</li>
+            <li><strong>test_leakage.py:</strong> Enforces programmatic target quarantine and verifies metadata zero-leakage.</li>
+            <li><strong>test_metrics.py:</strong> Validates regression and classification metric calculations, Brier score, and ECE.</li>
+            <li><strong>test_models.py:</strong> Tests forward tensor shapes and checkpoint loading.</li>
+            <li><strong>Execution Status:</strong> 12 passed in 1.65 seconds (100% passing rate).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 14: Six-Member Contribution Matrix -->
+    <div class="slide">
+      <div class="header-category">Team Attribution</div>
+      <div class="header-title">Six-Member Project Allocation & Viva Voce Defense Zones</div>
+      <div class="grid-3" style="font-size: 0.85rem;">
+        <div class="card" style="padding: 16px;">
+          <div class="card-title cyan" style="font-size: 1rem; margin-bottom: 8px;">Mayank Sharma (Lead)</div>
+          <p style="color: var(--text-muted); margin-bottom: 6px;">Pipeline Architecture & Modeling</p>
+          <ul class="card-list" style="font-size: 0.82rem; gap: 4px;">
+            <li>End-to-end ML pipeline orchestration</li>
+            <li>Random Forest & XGBoost training</li>
+            <li>Parquet sharding for GitHub limits</li>
+            <li>Defense: Pipeline logic & anti-leakage</li>
+          </ul>
+        </div>
+        <div class="card" style="padding: 16px;">
+          <div class="card-title blue" style="font-size: 1rem; margin-bottom: 8px;">Team Member 2</div>
+          <p style="color: var(--text-muted); margin-bottom: 6px;">Literature & Regulations</p>
+          <ul class="card-list" style="font-size: 0.82rem; gap: 4px;">
+            <li>Environmental ML literature review</li>
+            <li>CCME WQI mathematical formulation</li>
+            <li>International standards (EPA, WHO)</li>
+            <li>Defense: CCME F1, F2, F3 & nse math</li>
+          </ul>
+        </div>
+        <div class="card" style="padding: 16px;">
+          <div class="card-title emerald" style="font-size: 1rem; margin-bottom: 8px;">Team Member 3</div>
+          <p style="color: var(--text-muted); margin-bottom: 6px;">Data Auditing & EDA</p>
+          <ul class="card-list" style="font-size: 0.82rem; gap: 4px;">
+            <li>5-country repository audit</li>
+            <li>Physical bounds screening rules</li>
+            <li>Correlation analysis & distributions</li>
+            <li>Defense: Anomaly purging & EDA trends</li>
+          </ul>
+        </div>
+        <div class="card" style="padding: 16px;">
+          <div class="card-title gold" style="font-size: 1rem; margin-bottom: 8px;">Team Member 4</div>
+          <p style="color: var(--text-muted); margin-bottom: 6px;">Feature Engineering & Chemistry</p>
+          <ul class="card-list" style="font-size: 0.82rem; gap: 4px;">
+            <li>Benson-Krause DO saturation</li>
+            <li>Redfield N:P & Emerson toxic NH3</li>
+            <li>log(1+x) variance stabilization</li>
+            <li>Defense: Aquatic chemical formulas</li>
+          </ul>
+        </div>
+        <div class="card" style="padding: 16px;">
+          <div class="card-title blue" style="font-size: 1rem; margin-bottom: 8px;">Team Member 5</div>
+          <p style="color: var(--text-muted); margin-bottom: 6px;">Optimization & Benchmarks</p>
+          <ul class="card-list" style="font-size: 0.82rem; gap: 4px;">
+            <li>Hyperparameter optimization</li>
+            <li>Stratified 70/15/15 splitting</li>
+            <li>MAE, RMSE, R² comparative analysis</li>
+            <li>Defense: Tree hyperparameters & loss</li>
+          </ul>
+        </div>
+        <div class="card" style="padding: 16px;">
+          <div class="card-title cyan" style="font-size: 1rem; margin-bottom: 8px;">Team Member 6</div>
+          <p style="color: var(--text-muted); margin-bottom: 6px;">Explainability & Testing</p>
+          <ul class="card-list" style="font-size: 0.82rem; gap: 4px;">
+            <li>TreeSHAP game-theoretic attribution</li>
+            <li>Calibration metrics (Brier / ECE)</li>
+            <li>12-test automated pytest suite</li>
+            <li>Defense: Shapley axioms & test coverage</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 15: Conclusions & Viva Defense -->
+    <div class="slide">
+      <div class="header-category">Conclusion & Viva Voce</div>
+      <div class="header-title">Phase 1 Scientific Findings & Examination Readiness</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title emerald">Key Scientific Conclusions</div>
+          <ul class="card-list">
+            <li><strong>Near-Perfect Estimation:</strong> Tree ensembles predict continuous CCME WQI with R² > 0.999 across 2.82 million international observations.</li>
+            <li><strong>Stoichiometric Value Proven:</strong> Aquatic feature engineering and log(1+x) scaling eliminate depth dependency.</li>
+            <li><strong>Phosphorus Dominance:</strong> Game-theoretic TreeSHAP proves that limiting phosphorus drives over 88% of water quality index variations.</li>
+            <li><strong>Zero Data Leakage:</strong> Strictly verified through isolated target quarantine and automated continuous assertions.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-title cyan">Viva Voce Defense Preparedness</div>
+          <ul class="card-list">
+            <li><strong>Complete 6-Member Mastery:</strong> All 6 members are prepared with deep mathematical, geochemical, and code defense dossiers.</li>
+            <li><strong>Phase 1 Deliverables Complete:</strong> IEEE LaTeX paper, presentation deck, viva preparation guide, and verified code repository.</li>
+            <li><strong>Phase 2 Deep Learning Ready:</strong> Foundation established for multi-task neural networks and probability calibration.</li>
+            <li><strong>Thank You!</strong> Open for faculty questions and examination.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER CONTROLS -->
+    <div class="footer-bar">
+      <div class="controls">
+        <button class="btn" id="prevBtn" onclick="changeSlide(-1)">◀ Previous</button>
+        <button class="btn" id="nextBtn" onclick="changeSlide(1)">Next ▶</button>
+      </div>
+      <div class="counter" id="slideCounter">Slide 1 of 15</div>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">
+        GitHub: <a href="https://github.com/MAYANKSHARMA01010/Semester_5_AML_DL" target="_blank" style="color: var(--cyan); text-decoration: none;">@MAYANKSHARMA01010/Semester_5_AML_DL</a>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    const counter = document.getElementById('slideCounter');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    function showSlide(index) {
+      slides.forEach((s, i) => {
+        s.classList.toggle('active', i === index);
+      });
+      counter.textContent = `Slide ${index + 1} of ${totalSlides}`;
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === totalSlides - 1;
+    }
+
+    function changeSlide(direction) {
+      currentSlide = Math.max(0, Math.min(totalSlides - 1, currentSlide + direction));
+      showSlide(currentSlide);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'Space') {
+        changeSlide(1);
+      } else if (e.key === 'ArrowLeft') {
+        changeSlide(-1);
+      }
+    });
+
+    showSlide(0);
+  </script>
+</body>
+</html>

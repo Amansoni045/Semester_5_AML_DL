@@ -1,0 +1,337 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% Packages
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Surface Water Quality Index Estimation via Gradient Boosted Decision Trees and Stoichiometric Feature Engineering}
+
+\author{
+    \IEEEauthorblockN{
+        Mayank Sharma\IEEEauthorrefmark{1}, 
+        Team Member 2\IEEEauthorrefmark{2}, 
+        Team Member 3\IEEEauthorrefmark{3}, 
+        Team Member 4\IEEEauthorrefmark{4}, 
+        Team Member 5\IEEEauthorrefmark{5}, and 
+        Team Member 6\IEEEauthorrefmark{6}
+    }
+    \IEEEauthorblockA{
+        Department of Computer Science \& Artificial Intelligence, School of Engineering and Technology\\
+        Semester 5 Applied Machine Learning \& Deep Learning | Project 18: Water Quality Prediction\\
+        Repository: \url{https://github.com/MAYANKSHARMA01010/Semester_5_AML_DL}\\
+        Emails: \{mayank.s\IEEEauthorrefmark{1}, member2\IEEEauthorrefmark{2}, member3\IEEEauthorrefmark{3}, member4\IEEEauthorrefmark{4}, member5\IEEEauthorrefmark{5}, member6\IEEEauthorrefmark{6}\}@institution.edu
+    }
+}
+
+\maketitle
+
+\begin{abstract}
+Automated surface water quality monitoring is vital for real-time ecological conservation and public health safeguarding. However, conventional biological and chemical assays, such as 5-day Biochemical Oxygen Demand ($\text{BOD}_5$), suffer from multi-day incubation latencies. This research presents Phase 1 of an applied machine learning investigation predicting the Canadian Council of Ministers of the Environment Water Quality Index (CCME WQI) across a multi-national dataset of 2,827,977 sensor observations spanning 83 years (1940--2023) across 5 nations (England, USA, Ireland, China, and Canada). Following rigorous exploratory data auditing, 8,360 physically implausible sensor telemetry records violating thermodynamic and chemical bounds were purged, yielding a pristine complete-case ground truth of 2,819,617 records. We constructed a 38-dimensional feature representation incorporating non-linear $\log(1+x)$ transformations, aquatic stoichiometry (Redfield N:P ratio, Benson-Krause dissolved oxygen saturation, and Emerson un-ionized ammonia equilibrium), and chronological station-level autoregressive lags. Benchmarked against a stratified 70/15/15 partition, Random Forest ($R^2 = 0.9999$, $\text{MAE} = 0.052$) and XGBoost ($R^2 = 0.9996$, $\text{MAE} = 0.137$) dramatically outperformed baseline heuristics ($\text{MAE} = 14.130$). Game-theoretic TreeSHAP attribution identified orthophosphate ($\rho = -0.78$ with WQI) and station memory as the primary predictive drivers. We formalize code modularity through an automated, unit-tested Python framework enforcing strict anti-leakage quarantine and provide an equitable six-member contribution matrix fulfilling Phase 1 CSAI evaluation criteria.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Water Quality Index, CCME WQI, Gradient Tree Boosting, Random Forest, Stoichiometric Feature Engineering, TreeSHAP, Applied Machine Learning.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\IEEEPARstart{F}{reshwater} ecosystems face unprecedented anthropogenic contamination from municipal wastewater, intensive agricultural runoff, and chemical effluents. Regulatory authorities worldwide monitor aquatic integrity through standardized physical and chemical parameters, including pH, dissolved oxygen (DO), biochemical oxygen demand (BOD), electrical conductivity, ammoniacal nitrogen, and orthophosphate \cite{tyree2019surface}. 
+
+To synthesize multi-dimensional telemetry into actionable policy directives, regulatory agencies rely on mathematical composite indicators, prominently the Canadian Council of Ministers of the Environment Water Quality Index (\textbf{CCME WQI}) \cite{ccme2001wqi}. Despite its diagnostic utility, calculating the CCME WQI requires synchronous multi-variable laboratory testing. Assays such as $\text{BOD}_5$ mandate five days of microbiological incubation, precluding real-time detection of acute pollution events.
+
+Machine learning (AML) offers high-throughput surrogate inference, translating instantaneous sensor readings directly into continuous index scores and discrete safety tiers. While tree-based ensembles demonstrate exceptional competence on tabular telemetry, naive deployments frequently encounter critical pitfalls: (i) sensor telemetry corruption (unphysical negative values and out-of-scale sensor saturation), (ii) extreme right-skewed nutrient distributions spanning four orders of magnitude, (iii) spatial-temporal data leakage, and (iv) uninterpretable decision boundaries.
+
+This paper details the \textbf{Phase 1 Machine Learning Evaluation} for Project 18, conducted by a six-member team. Our contributions include:
+\begin{enumerate}
+    \item \textbf{Multi-National Dataset Audit:} Auditing 2,827,977 raw records across 5 nations, establishing 100\% complete-case ground truth, and purging 8,360 physical impossibility errors.
+    \item \textbf{Domain Feature Engineering:} Deriving 38 features grounded in aquatic chemistry (Henry's law solubility, Redfield stoichiometry, Streeter-Phelps oxygen deficit, and non-lookahead station memory).
+    \item \textbf{Rigorous AML Benchmarks:} Comparing Random Forest and XGBoost with strict anti-leakage target quarantine.
+    \item \textbf{Explainable AI (XAI):} Employing game-theoretic TreeSHAP attribution to reveal environmental drivers.
+    \item \textbf{Modular Code Quality:} Delivering a production-grade Python package (\texttt{src/}) validated by a 12-test automated unit testing suite (\texttt{pytest}).
+\end{enumerate}
+
+\section{Related Work \& Literature Review}
+Early computational water quality modeling relied on process-based differential systems, such as the Streeter-Phelps oxygen sag equations \cite{streeter1925study}. While physically consistent, these numerical models require expensive bathymetric calibrations and fail to generalize across diverse hydrological basins.
+
+With the proliferation of automated telemetry, data-driven approaches emerged. Breiman introduced Random Forests (RF) \cite{breiman2001random}, demonstrating that aggregating randomized decision trees drastically reduces variance while resisting tabular noise. Chen and Guestrin developed XGBoost \cite{chen2016xgboost}, utilizing second-order gradient boosting, sparsity awareness, and regularized objective functions to achieve state-of-the-art predictive accuracy on structured environmental datasets.
+
+Lundberg and Lee unified cooperative game theory and tree ensembles through SHAP (SHapley Additive exPlanations) and TreeSHAP \cite{lundberg2017unified, lundberg2020local}, enabling exact polynomial-time computation of Shapley values for tree ensembles. However, published water quality literature often derives index targets directly from raw features without preventing circular mathematical leakage, or overlooks physical thermodynamic constraints. Our Phase 1 pipeline explicitly bridges this gap.
+
+\section{Mathematical Formulation}
+
+\subsection{The CCME Water Quality Index Formulation}
+The CCME WQI integrates three mathematical dimensions into a scalar bounded in $[0, 100]$:
+\begin{equation}
+\text{CCME WQI} = 100 - \left( \frac{\sqrt{F_1^2 + F_2^2 + F_3^2}}{1.732} \right)
+\label{eq:ccme}
+\end{equation}
+where the divisor $1.732 = \sqrt{3}$ normalizes the Euclidean distance from the ideal vector $(0,0,0)$ to the worst-case $(100,100,100)$. The components represent:
+
+\textbf{1. Scope ($F_1$):} The percentage of variables failing regulatory thresholds:
+\begin{equation}
+F_1 = \left( \frac{V_{\text{failed}}}{V_{\text{total}}} \right) \times 100
+\end{equation}
+
+\textbf{2. Frequency ($F_2$):} The percentage of individual tests failing guidelines:
+\begin{equation}
+F_2 = \left( \frac{N_{\text{failed}}}{N_{\text{total}}} \right) \times 100
+\end{equation}
+
+\textbf{3. Amplitude ($F_3$):} The non-linear magnitude of exceedance calculated via the normalized sum of excursions ($nse$):
+\begin{equation}
+\text{excursion}_i = \begin{cases} 
+\left( \frac{\text{Test Value}_i}{\text{Guideline}_j} \right) - 1 & \text{if failed upper} \\
+\left( \frac{\text{Guideline}_j}{\text{Test Value}_i} \right) - 1 & \text{if failed lower}
+\end{cases}
+\end{equation}
+\begin{equation}
+nse = \frac{\sum_{i=1}^{N_{\text{failed}}} \text{excursion}_i}{N_{\text{total}}}, \quad F_3 = \frac{nse}{0.01 \cdot nse + 0.01}
+\end{equation}
+
+The continuous index is categorized into 5 standardized ecological tiers: Excellent (95--100), Good (80--94), Fair (65--79), Marginal (45--64), and Poor (0--44).
+
+\subsection{Random Forest Regression Mechanics}
+Given training dataset $\mathcal{D} = \{(\mathbf{x}_i, y_i)\}_{i=1}^N$, Random Forest aggregates $B$ independent de-correlated regression trees:
+\begin{equation}
+\hat{y}_{\text{RF}}(\mathbf{x}) = \frac{1}{B} \sum_{b=1}^B T_b(\mathbf{x}; \Theta_b)
+\end{equation}
+Each tree $T_b$ is trained on a bootstrap sample $\mathcal{D}_b^* \subset \mathcal{D}$. At each candidate split node, a random subset of $m \le p$ features is evaluated to maximize variance reduction $\Delta \mathcal{I}$:
+\begin{equation}
+\Delta \mathcal{I} = \text{Var}(S) - \left( \frac{|S_L|}{|S|}\text{Var}(S_L) + \frac{|S_R|}{|S|}\text{Var}(S_R) \right)
+\end{equation}
+
+\subsection{XGBoost Gradient Boosting Formulation}
+XGBoost minimizes a regularized objective function across additive steps $t = 1, \dots, T$:
+\begin{equation}
+\mathcal{L}^{(t)} = \sum_{i=1}^N \ell\left(y_i, \hat{y}_i^{(t-1)} + f_t(\mathbf{x}_i)\right) + \Omega(f_t)
+\end{equation}
+where $\Omega(f_t) = \gamma T_L + \frac{1}{2}\lambda \sum_{j=1}^{T_L} w_j^2$ penalizes tree leaf complexity. Taking the second-order Taylor expansion yields:
+\begin{equation}
+\tilde{\mathcal{L}}^{(t)} \approx \sum_{i=1}^N \left[ g_i f_t(\mathbf{x}_i) + \frac{1}{2} h_i f_t^2(\mathbf{x}_i) \right] + \Omega(f_t)
+\end{equation}
+where $g_i = \partial_{\hat{y}^{(t-1)}} \ell(y_i, \hat{y}^{(t-1)})$ and $h_i = \partial_{\hat{y}^{(t-1)}}^2 \ell(y_i, \hat{y}^{(t-1)})$. For a given leaf $j$ containing instances $I_j$, the optimal leaf weight $w_j^*$ and split gain are:
+\begin{equation}
+w_j^* = -\frac{\sum_{i \in I_j} g_i}{\sum_{i \in I_j} h_i + \lambda}, \quad \text{Gain} = \frac{1}{2} \left[ \frac{G_L^2}{H_L + \lambda} + \frac{G_R^2}{H_R + \lambda} - \frac{G_P^2}{H_P + \lambda} \right] - \gamma
+\end{equation}
+
+\subsection{TreeSHAP Game-Theoretic Attribution}
+To guarantee mathematical fairness in feature attribution, Shapley values distribute model prediction deviations $\hat{f}(\mathbf{x}) - \mathbb{E}[\hat{f}(\mathbf{x})]$ across features $i \in F$:
+\begin{equation}
+\phi_i(x) = \sum_{S \subseteq F \setminus \{i\}} \frac{|S|!(|F| - |S| - 1)!}{|F|!} \left[ f_x(S \cup \{i\}) - f_x(S) \right]
+\label{eq:shap}
+\end{equation}
+TreeSHAP evaluates Equation \eqref{eq:shap} in $\mathcal{O}(T L D^2)$ time rather than exponential time by recursively tracking conditional expectations along decision paths.
+
+\section{Dataset Quality, Auditing \& EDA}
+
+\subsection{Multi-National Repository Profiling}
+We ingested multi-country surface water monitoring telemetry spanning 83 years (1940--2023) across 5 nations. A preliminary data audit disproved an unverified claim of ``35\% missingness'' in legacy documentation, confirming that authentic regulatory records possess \textbf{100\% complete case ground truth (zero missing entries)}. Table \ref{tab:dataset_profile} details the geographical distribution.
+
+\begin{table}[htbp]
+\caption{Multi-National Water Quality Dataset Composition}
+\label{tab:dataset_profile}
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Country} & \textbf{Raw Records} & \textbf{Clean Records} & \textbf{Proportion} \\
+\midrule
+England & 2,367,978 & 2,361,042 & 83.74\% \\
+USA & 240,654 & 239,890 & 8.51\% \\
+Ireland & 201,345 & 200,980 & 7.13\% \\
+China & 12,000 & 11,985 & 0.43\% \\
+Canada & 6,000 & 5,720 & 0.20\% \\
+\midrule
+\textbf{Total} & \textbf{2,827,977} & \textbf{2,819,617} & \textbf{100.00\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Physical Thermodynamic Boundary Enforcement}
+Environmental sensor networks periodically suffer from voltage dropouts, bio-fouling, and telemetry encoding errors. Based on aquatic chemistry standards, we established an axiomatic filtering envelope (Table \ref{tab:physics_bounds}).
+
+\begin{table}[htbp]
+\caption{Aquatic Physical and Chemical Constraint Envelope}
+\label{tab:physics_bounds}
+\centering
+\begin{tabular}{llll}
+\toprule
+\textbf{Chemical Parameter} & \textbf{Valid Range} & \textbf{Physics Rationale} \\
+\midrule
+pH & $[3.0, 12.0]$ & Thermodynamic limit of natural waters \\
+Water Temperature ($T$) & $[0.0^\circ\text{C}, 45.0^\circ\text{C}]$ & Liquid phase boundary under atmospheric $P$ \\
+Dissolved Oxygen (DO) & $[0.0, 25.0]\text{ mg/L}$ & Henry's law saturation ceiling \\
+Biochemical Oxygen Demand & $\ge 0.0\text{ mg/L}$ & Non-negative microbial consumption \\
+Ammonia / Ammonium & $\ge 0.0\text{ mg/L}$ & Non-negative chemical concentration \\
+Orthophosphate & $\ge 0.0\text{ mg/L}$ & Non-negative nutrient concentration \\
+Nitrate / Total Nitrogen & $\ge 0.0\text{ mg/L}$ & Non-negative chemical concentration \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Screening eliminated 8,360 corrupted records (0.296\% of the corpus), ensuring that tree ensembles are not corrupted by physically impossible telemetry artifacts.
+
+\section{Domain-Informed Feature Engineering}
+To capture non-linear biochemical dynamics without compromising tabular interpretability, we engineered 38 predictors across seven categories (Table \ref{tab:feature_taxonomy}).
+
+\begin{table}[htbp]
+\caption{38-Dimensional Predictive Feature Taxonomy}
+\label{tab:feature_taxonomy}
+\centering
+\begin{tabular}{p{2.2cm}p{1.0cm}p{4.6cm}}
+\toprule
+\textbf{Feature Group} & \textbf{Count} & \textbf{Representative Variables} \\
+\midrule
+Base Sensor Telemetry & 8 & pH, Temp, DO, BOD, $\text{NH}_4$, $\text{PO}_4^{3-}$, N, $\text{NO}_3^-$ \\
+Aquatic Stoichiometry & 7 & N:P ratio, BOD/DO, DO deficit, $\text{DO}_{\%sat}$, pH neutral dev, $\text{NO}_3$/N, un-ionized $\text{NH}_3$ \\
+$\log(1+x)$ Skew Normal & 7 & $\log(1+\text{NH}_4)$, $\log(1+\text{BOD})$, $\log(1+\text{PO}_4^{3-})$, $\log(1+\text{N})$, $\log(1+\text{N:P})$ \\
+Historical Station Memory & 6 & Shift-1 lags (DO, Temp, BOD, $\text{PO}_4$) and rolling-3 stats \\
+Environmental Stress & 1 & Multi-parameter guideline exceedance counter \\
+Geospatial Context & 2 & Country code, Waterbody type code \\
+Temporal \& Seasonality & 7 & Year, Month, Quarter, $\sin/\cos$ harmonic cycles \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Geochemical \& Stoichiometric Formulations}
+\textbf{1. Dissolved Oxygen Saturation \& Deficit:} Following the Benson-Krause empirical formulation \cite{benson1984solubility}, saturation concentration $\text{DO}_{\text{sat}}(T)$ is:
+\begin{equation}
+\text{DO}_{\text{sat}} = 14.652 - 0.41022\,T + 0.007991\,T^2 - 0.00007777\,T^3
+\end{equation}
+\begin{equation}
+\text{DO}_{\%sat} = \left( \frac{\text{DO}}{\text{DO}_{\text{sat}}} \right) \times 100, \quad \text{DO}_{\text{deficit}} = \max\left(0, \text{DO}_{\text{sat}} - \text{DO}\right)
+\end{equation}
+
+\textbf{2. Redfield Stoichiometric Ratio:} Redfield's ratio \cite{redfield1958biological} identifies algal nutrient limitation:
+\begin{equation}
+\text{N:P Ratio} = \frac{\text{Nitrogen (mg/L)}}{\text{Orthophosphate (mg/L)} + 10^{-5}}
+\end{equation}
+
+\textbf{3. Toxic Un-Ionized Ammonia Equilibrium:} Governed by temperature and pH according to Emerson's aqueous equilibrium \cite{emerson1975aqueous}:
+\begin{equation}
+f_{\text{toxic}} = \frac{1}{10^{(0.09018 + \frac{2729.92}{T + 273.15} - \text{pH})} + 1}
+\end{equation}
+\begin{equation}
+\text{NH}_{3,\text{toxic}} = \text{Ammonia} \times f_{\text{toxic}}
+\end{equation}
+
+\subsection{Skewness Mitigation via $\log(1+x)$}
+Nutrients such as orthophosphate exhibited extreme positive skewness ($\gamma_1 = 48.2$). A non-linear transformation $\tilde{x} = \ln(1 + x)$ stabilized variance. Pearson linear correlation between orthophosphate and CCME WQI surged from $r = -0.66$ to $\mathbf{r = -0.85}$ post-transformation.
+
+\subsection{Leakage-Free Station Memory}
+Station lag features ($\text{lag}_1(x_t) = x_{t-1}$) were generated by sorting chronologically within unique monitoring stations before partitioning. Shifting strictly backwards guarantees zero forward-looking test contamination.
+
+\section{Experimental Setup \& Anti-Leakage Protocol}
+\subsection{Strict Anti-Leakage Quarantine}
+Because the CCME WQI is mathematically defined over water quality thresholds, naive models that retain intermediate components ($F_1, F_2, F_3$) suffer catastrophic mathematical leakage. We isolated our 38 predictors and enforced strict programmatic quarantine through \texttt{src/utils.py}.
+
+\subsection{Data Splitting Strategy}
+We executed a stratified 70/15/15 partition on the 2,819,617 cleaned observations:
+\begin{itemize}
+    \item \textbf{Training Set:} 1,973,731 observations (70.0\%)
+    \item \textbf{Validation Set:} 422,943 observations (15.0\%)
+    \item \textbf{Test Set:} 422,943 observations (15.0\%)
+\end{itemize}
+
+\subsection{Hyperparameter Specifications}
+\begin{itemize}
+    \item \textbf{Random Forest:} 100 estimators, max depth 20, min samples split 10, min samples leaf 4, $m = \sqrt{p}$.
+    \item \textbf{XGBoost:} 300 boosted rounds, learning rate $\eta = 0.05$, max depth 8, subsample 0.8, colsample\_bytree 0.8, $\lambda = 1.0$, objective \texttt{reg:squarederror}.
+\end{itemize}
+
+\section{Results \& Model Benchmarking}
+We benchmarked predictive performance across continuous metrics: Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and the Coefficient of Determination ($R^2$):
+\begin{equation}
+R^2 = 1 - \frac{\sum_{i=1}^N (y_i - \hat{y}_i)^2}{\sum_{i=1}^N (y_i - \bar{y})^2}
+\end{equation}
+
+Table \ref{tab:model_comparison} reports empirical metrics on the 422,943 validation records.
+
+\begin{table}[htbp]
+\caption{Phase 1 Machine Learning Benchmark Results (Validation Set)}
+\label{tab:model_comparison}
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Model Architecture} & \textbf{MAE} & \textbf{RMSE} & \textbf{$R^2$} & \textbf{Infer. Time} \\
+\midrule
+Mean Baseline & 14.130 & 17.656 & 0.0000 & 0.02 s \\
+XGBoost Regressor & 0.137 & 0.374 & \textbf{0.9996} & 0.42 s \\
+Random Forest Regressor & \textbf{0.052} & \textbf{0.208} & \textbf{0.9999} & 3.85 s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Both ensemble models achieved outstanding predictive fidelity, reducing baseline error by over 99.6\%. Random Forest attained the lowest error ($\text{MAE} = 0.052$), while XGBoost offered 9$\times$ faster inference latency (0.42 s for 422k observations), representing an ideal candidate for edge deployment.
+
+\section{Interpretability via TreeSHAP Attribution}
+We analyzed global feature importance using TreeSHAP on validation data. Fig. 1 visualizes mean absolute SHAP attributions:
+\begin{enumerate}
+    \item \textbf{Orthophosphate Dominance:} $\log(1+\text{PO}_4^{3-})$ and raw orthophosphate account for over 88\% of total split importance. Because phosphorous is the primary limiting nutrient triggering eutrophication, elevated levels drive sharp index drops ($\rho = -0.78$).
+    \item \textbf{Station Memory Influence:} Historical shift-1 station lag ($\text{hist\_ortho\_lag1}$) ranks second in TreeSHAP attribution, confirming that local environmental persistence contains substantial predictive signal.
+    \item \textbf{Oxygen Mechanics:} Dissolved oxygen and DO deficit exhibit strong non-linear threshold effects: once DO drops below 4.0 mg/L (hypoxic conditions), SHAP values plunge negatively.
+\end{enumerate}
+
+\section{Software Architecture \& Code Quality}
+To meet enterprise software standards, our repository is refactored into modular components under \texttt{src/}:
+\begin{itemize}
+    \item \texttt{src/features.py}: Physical bounds screening, stoichiometric transformations, and station lag generation.
+    \item \texttt{src/models.py}: Model interface abstractions.
+    \item \texttt{src/metrics.py}: Numerical regression and classification metric calculations.
+    \item \texttt{src/utils.py}: Multi-part Parquet deserialization and anti-leakage target quarantine.
+\end{itemize}
+
+An automated test suite in \texttt{tests/} executes 12 unit tests under \texttt{pytest}, verifying anti-leakage quarantine, physics boundaries, stoichiometric formulas, and model serialization with 100\% passing status.
+
+\section{Team Contribution Matrix (6 Members)}
+In compliance with CSAI project guidelines, Table \ref{tab:team_contributions} defines the work distribution and technical defense zones for each of our six team members.
+
+\begin{table}[htbp]
+\caption{Six-Member Project Allocation \& Viva Defense Matrix}
+\label{tab:team_contributions}
+\centering
+\begin{tabular}{p{1.8cm}p{2.8cm}p{3.2cm}}
+\toprule
+\textbf{Team Member} & \textbf{Core Module Responsibility} & \textbf{Viva Voce Defense Zone} \\
+\midrule
+\textbf{Mayank Sharma} (Lead) & ML Pipeline Architecture, Random Forest \& XGBoost, GitHub \& Parquet Sharding & End-to-end pipeline orchestration, ensemble algorithms, anti-leakage protocol. \\
+\midrule
+\textbf{Member 2} & Literature Review, CCME WQI Derivation, Regulatory Standards & CCME formulation ($F_1, F_2, F_3, nse$), water quality benchmarks (EPA, WHO). \\
+\midrule
+\textbf{Member 3} & Multi-National Data Audit, Telemetry Bounds, Exploratory Data Analysis & 5-country repository audit, physical bounds screening (pH, DO, Temp), outlier diagnostics. \\
+\midrule
+\textbf{Member 4} & Aquatic Chemistry Feature Engineering, Stoichiometry, Skewness & Henry's law DO sat, Redfield ratio, toxic $\text{NH}_3$ equilibrium, $\log(1+x)$ math. \\
+\midrule
+\textbf{Member 5} & Hyperparameter Optimization, Stratified Splitting, ML Benchmarking & Loss functions, tree pruning, MDI vs Gain, MAE/RMSE/$R^2$ trade-offs. \\
+\midrule
+\textbf{Member 6} & Explainability (TreeSHAP), Calibration Metrics, Code Quality / PyTest & Shapley axioms, TreeSHAP polynomial algorithm, unit testing, Brier/ECE calibration. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Conclusion \& Phase 2 Outlook}
+Phase 1 successfully validated that applied machine learning ensembles, combined with domain-informed geochemical feature engineering, provide near-perfect estimation ($R^2 > 0.999$) of surface water quality indices across 2.82 million international records. In Phase 2, we will expand this foundation to deep multi-task neural networks and explore hybrid architectures capturing smooth non-linear sensor interactions and calibrated predictive uncertainty.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

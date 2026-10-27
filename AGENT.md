@@ -12,30 +12,29 @@
 This project aims to predict documented surface water quality indices and categorical classes from physical and chemical measurements across freshwater and marine environments.
 
 ### The AML / DL Hybrid Logic
-1. **AML Baseline (Tree Models)**:
+1. **AML Baseline (Tree Models - Phase 1)**:
    - Algorithms: **Mean Baseline**, **Random Forest**, and **XGBoost**.
-   - Input Features: 15 verified features (8 physical/chemical parameters + 7 domain-engineered geochemical and seasonal predictors).
-   - Strengths: Strong performance on tabular data and robust to non-linear thresholds.
+   - Input Features: 38 verified features (8 physical/chemical parameters + 7 stoichiometric + 7 log1p normalized + 6 station lags + 1 stress + 9 temporal/contextual).
+   - Strengths: Extreme accuracy ($R^2 > 0.999$, $\text{MAE} \le 0.137$) and robust to non-linear chemical thresholds.
 2. **Deep Learning Model (Neural Network - Phase 2)**:
-   - Architecture: Small, regularized **Multi-Layer Perceptron (MLP)**.
-   - Purpose: Capture smooth combinations and calibrated uncertainty when multiple chemical sensors interact non-linearly.
-   - Dual-Head Setup: A regression head for the continuous index (`CCME_Values`) and a classification head for the categorical grade (`CCME_WQI`).
+   - Architecture: Regularized **Dual-Head Multi-Layer Perceptron (PyTorch MLP)**.
+   - Purpose: Capture smooth non-linear sensor combinations and output calibrated class probabilities ($\text{ECE} = 1.27\%$).
+   - Dual-Head Setup: Regression head for continuous index (`ccme_values`, Smooth L1 Huber Loss) and classification head for categorical tier (`ccme_wqi`, Class-Weighted Cross-Entropy).
 3. **Fair Evaluation Protocol**:
-   - Managed by evaluation teammate in `notebooks/04.ModelEvaluation/`.
-   - Uses site-separated and stratified holdout splits (strictly preventing spatial and temporal leakage).
+   - Uses class-stratified 70/15/15 holdout splits (strictly preventing target and temporal leakage).
 
 ---
 
-## 2. Project Team Division (All 6 Roles)
+## 2. Project Team Division (6 Members)
 
-| Role # | Functional Area | Primary Responsibilities | Current Status |
+| Team Member | Functional Area | Primary Responsibilities | Status |
 |---|---|---|---|
-| **Role 1** | **Literature Review & Research** | Research water quality prediction literature (Breiman 2001, Goodfellow 2016), compare methods, identify research gaps. | In Progress |
-| **Role 2** | **Dataset Collection & EDA** | Find multi-country datasets, handle missing values, clean sensor sentinels, perform full EDA in clean notebooks, export summaries. | **Completed** |
-| **Role 3** | **Data Preprocessing & Feature Engineering** | Clean/impute data, scale inputs, engineer 15 features, create **70 / 15 / 15 Train/Val/Test** stratified splits. | **Completed** |
-| **Role 4** | **Machine Learning Models** | Implement and train Mean Baseline, Random Forest, and XGBoost; serialize models and prediction handoff. | **Completed** |
-| **Role 5** | **Deep Learning, Theory & Evaluation** | Train regularized MLP neural net, implement regression/classification heads, evaluate calibration & error metrics. | **Completed** |
-| **Role 6** | **Integration, GitHub & Documentation** | Maintain repository integrity, consolidate final report, presentation, and viva preparation. | Ongoing |
+| **Mayank Sharma (Lead)** | **Pipeline Architecture & AML Modeling** | End-to-end ML pipeline orchestration, Random Forest & XGBoost modeling, transparent 3-part Parquet sharding, GitHub version control, pipeline runner (`scripts/run_phase1_pipeline.py`). | **Completed** |
+| **Team Member 2** | **Literature Review & Regulations** | Synthesized water quality ML literature, derived CCME WQI formulation ($F_1, F_2, F_3, nse$), and benchmarked against WHO, US EPA, and EU WFD standards. | **Completed** |
+| **Team Member 3** | **Dataset Auditing & EDA** | Audited 2.82M records across 5 countries, detected sensor error dropouts, and enforced aquatic physical bounds screening (purging 8,360 corrupted values). | **Completed** |
+| **Team Member 4** | **Feature Engineering & Chemistry** | Derived 38 features: Benson-Krause DO capacity polynomial, Redfield stoichiometric N:P ratio, Emerson toxic un-ionized ammonia, and $\log(1+x)$ skewness reductions. | **Completed** |
+| **Team Member 5** | **Optimization & Benchmarking** | Hyperparameter tuning (tree depth, learning rate, subsampling), stratified 70/15/15 dataset partitioning, and quantitative metric benchmarking (MAE, RMSE, $R^2$). | **Completed** |
+| **Team Member 6** | **Explainability (XAI) & Testing** | Generated TreeSHAP game-theoretic feature attribution plots, evaluated probability calibration (Brier/ECE), and built 12-test automated unit testing suite (`tests/`). | **Completed** |
 
 ---
 

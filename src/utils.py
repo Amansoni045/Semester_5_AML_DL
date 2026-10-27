@@ -49,3 +49,8 @@ def separate_features_and_targets(
         X = df.drop(columns=drop_cols)
 
     return X, y_reg, y_cls
+
+
+# Convenient alias
+quarantine_target = separate_features_and_targets
+
