@@ -31,7 +31,7 @@ To ensure full marks for all 6 members, this guide is divided into:
 | **What is the final clean production volume?** | **2,819,617 pristine complete-case observations**. |
 | **How is the data split?** | Class-stratified 70/15/15: **Train = 1,973,731 (70%)**, **Val = 422,943 (15%)**, **Test = 422,943 (15%)**. |
 | **How many features were engineered?** | **38 features** (8 base sensor parameters + 7 stoichiometry + 7 $\log(1+x)$ transforms + 6 historical station lags + 1 stress indicator + 9 temporal/contextual features). |
-| **What are the Phase 1 model results?** | **Random Forest:** Val $R^2 = \mathbf{0.9999}$, $\text{MAE} = \mathbf{0.052}$, $\text{RMSE} = 0.208$.<br>**XGBoost:** Val $R^2 = \mathbf{0.9996}$, $\text{MAE} = \mathbf{0.137}$, $\text{RMSE} = 0.374$ ($9\times$ faster inference).<br>**Baseline:** Val $R^2 = 0.0000$, $\text{MAE} = 14.130$. |
+| **What are the Phase 1 model results?** | **Random Forest:** Val $R^2 = \mathbf{0.9999}$, $\text{MAE} = \mathbf{0.052}$, $\text{RMSE} = 0.208$.<br>**XGBoost:** Val $R^2 = \mathbf{0.9994}$, $\text{MAE} = \mathbf{0.161}$, $\text{RMSE} = 0.437$ ($9\times$ faster inference).<br>**Baseline:** Val $R^2 = 0.0000$, $\text{MAE} = 14.130$. |
 | **What is the most important feature?** | **Orthophosphate** ($\log(1+\text{PO}_4^{3-})$ and raw orthophosphate), driving over **88% of total decision tree splits** because phosphorus is the critical limiting nutrient in freshwater eutrophication ($\rho = -0.78$ with WQI). |
 | **How did you prevent data leakage?** | Quarantined target variables via `src.utils.separate_features_and_targets`, ensured zero future-looking data in station lags, and validated through automated `pytest` assertions. |
 
@@ -53,7 +53,7 @@ Machine learning model training, Random Forest and XGBoost ensemble optimization
 > $$\hat{y}_{\text{RF}}(\mathbf{x}) = \frac{1}{B} \sum_{b=1}^B T_b(\mathbf{x})$$
 > In contrast, XGBoost is a **sequential boosting** ensemble that minimizes a regularized objective using second-order Taylor expansion gradients ($g_i$ and $h_i$). It fits each successive tree to the pseudo-residuals of the previous ensemble:
 > $$\tilde{\mathcal{L}}^{(t)} \approx \sum_{i=1}^N \left[ g_i f_t(\mathbf{x}_i) + \frac{1}{2} h_i f_t^2(\mathbf{x}_i) \right] + \gamma T_L + \frac{1}{2}\lambda \sum_{j=1}^{T_L} w_j^2$$
-> In our project, Random Forest achieved slightly higher precision ($\text{MAE} = 0.052$ vs. $0.137$), while XGBoost demonstrated $9\times$ faster inference latency ($0.42\text{ s}$ vs. $3.85\text{ s}$ for 422k rows), making XGBoost ideal for edge IoT sensor deployment."
+> In our project, Random Forest achieved slightly higher precision ($\text{MAE} = 0.052$ vs. $0.161$), while XGBoost demonstrated $9\times$ faster inference latency ($0.42\text{ s}$ vs. $3.85\text{ s}$ for 422k rows), making XGBoost ideal for edge IoT sensor deployment."
 
 ##### Q2: How did you select the hyperparameters for Random Forest and XGBoost?
 > **Answer:** "For **Random Forest**, we tuned:

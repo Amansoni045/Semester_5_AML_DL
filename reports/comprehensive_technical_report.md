@@ -15,7 +15,7 @@ Surface water quality monitoring is fundamental to environmental preservation, a
 Beginning with a curated repository of **2,827,977 raw monitoring records spanning 83 years (1940–2023) across 5 nations** (England, USA, Ireland, China, and Canada), we executed a comprehensive data quality audit. We verified that the authentic multi-country dataset possesses **0 null values (100% complete ground truth across all 14 parameters)**. Domain-informed physical screening (aquatic chemistry boundaries on pH, temperature, dissolved oxygen, and non-negative nutrient limits) removed 8,360 physically impossible sensor telemetry errors (0.296%), yielding **2,819,617 pristine complete-case observations**.
 
 We engineered **38 input features**, including $\log(1+x)$ skewness-normalized transformations that dramatically amplified linear predictive correlation (e.g., orthophosphate correlation jumped from $-0.66$ to $\mathbf{-0.85}$), multi-parameter guideline exceedance counters, and chronological station-level historical dynamics (shift-1 lags and rolling-3 statistics capturing local environmental memory without lookahead leakage). Using a leakage-free, class-stratified 70/15/15 partition (Train: 1,973,731; Val: 422,943; Test: 422,943), we trained and benchmarked a hybrid suite of models:
-1. **Machine Learning Ensembles:** Random Forest Regressor ($R^2 = \mathbf{0.9999}$, $\text{MAE} = 0.052$) and XGBoost Regressor ($R^2 = \mathbf{0.9996}$, $\text{MAE} = 0.137$).
+1. **Machine Learning Ensembles:** Random Forest Regressor ($R^2 = \mathbf{0.9999}$, $\text{MAE} = 0.052$) and XGBoost Regressor ($R^2 = \mathbf{0.9994}$, $\text{MAE} = 0.161$).
 2. **Phase 2 Deep Learning Roadmap:** In accordance with course guidelines (which reserve deep learning for Phase 2 evaluation), we formulate the transition architecture: a proposed Dual-Head Multi-Task Multi-Layer Perceptron (PyTorch) with shared representation learning for joint index estimation and regulatory classification.
 
 Finally, we resolved GitHub's strict 100 MB file size limit by engineering a transparent 3-part Parquet sharding architecture for the ~190 MB training partitions, allowing 100% of the dataset, models, figures, and code to be pushed to remote version control without discarding any data.
@@ -243,7 +243,7 @@ Validation Performance: $\text{MAE} = 14.1297$, $\text{RMSE} = 17.6561$, $R^2 = 
 
 ### 7.3 XGBoost Regressor
 - **Architecture:** 150 boosted estimators, maximum depth 6, learning rate $\eta = 0.08$, subsample ratio 0.8, column sample ratio 0.8, histogram-based splitting (`tree_method="hist"`), early stopping patience 20 rounds.
-- **Validation Performance:** $\text{MAE} = \mathbf{0.1375}$, $\text{RMSE} = \mathbf{0.3740}$, $R^2 = \mathbf{0.9996}$ (Best iteration: round 149).
+- **Validation Performance:** $\text{MAE} = \mathbf{0.1611}$, $\text{RMSE} = \mathbf{0.4372}$, $R^2 = \mathbf{0.9994}$ (Best iteration: round 149).
 
 ---
 
@@ -347,7 +347,7 @@ As highlighted in the project specification (*Project 18: Water Quality Predicti
 +----------------------+--------------------+-----------+------------+----------+-----------+-------------+
 | Mean Baseline        | Scikit-Learn Dummy | 14.1297   | 17.6561    | -0.0000  | N/A       | N/A         |
 | Random Forest        | Scikit-Learn (CPU) | 0.0521    | 0.2081     | 0.9999   | N/A       | N/A         |
-| XGBoost              | DMLC XGBoost (CPU) | 0.1375    | 0.3740     | 0.9996   | N/A       | N/A         |
+| XGBoost              | DMLC XGBoost (CPU) | 0.1611    | 0.4372     | 0.9994   | N/A       | N/A         |
 | Dual-Head MLP        | PyTorch (MPS GPU)  | 0.7056    | 1.1557     | 0.9957   | 96.09%    | 0.9485      |
 +----------------------+--------------------+-----------+------------+----------+-----------+-------------+
 ```
@@ -470,10 +470,10 @@ This project strictly adheres to and fulfills every criterion established for **
 | Project 18 Specification Requirement | Implementation in this Repository | Verification Status |
 |---|---|:---:|
 | **Target Definition:** "Predict a documented water quality class or index from physical and chemical measurements. Avoid mixing incompatible standards." | Adopted the CCME Water Quality Index (continuous 0–100 index and 5 discrete regulatory tiers: Poor to Excellent). Zero mixing with conflicting index standards. | **100% Compliant** |
-| **AML Baseline:** "Use XGBoost or Random Forest on pH, dissolved oxygen, turbidity, temperature, conductivity and dissolved solids." | Evaluated Random Forest ($R^2 = 0.9999$, $\text{MAE} = 0.052$) and XGBoost ($R^2 = 0.9996$, $\text{MAE} = 0.137$) against a baseline. | **100% Compliant** |
+| **AML Baseline:** "Use XGBoost or Random Forest on pH, dissolved oxygen, turbidity, temperature, conductivity and dissolved solids." | Evaluated Random Forest ($R^2 = 0.9999$, $\text{MAE} = 0.052$) and XGBoost ($R^2 = 0.9994$, $\text{MAE} = 0.161$) against a baseline. | **100% Compliant** |
 | **Identify the Gap:** "Tree models are strong on tables but may not capture smooth combinations or calibrated uncertainty as efficiently." | Fully analyzed in Section 8 & 9. Tree models split orthogonally on piecewise boundaries but cannot output joint continuous and calibrated multi-class probability vectors. | **100% Compliant** |
 | **DL Model:** "Train a small regularized MLP after a strong AML baseline; use a regression head for an index and a classification head for a defined class scheme." | Architecture blueprint designed and formulated in Section 8; scheduled for Phase 2 Deep Learning evaluation per CSAI Course Guidelines. | **Phase 2 Ready** |
-| **Fair Comparison & Metrics:** "Report MAE, RMSE and R squared for a continuous target or macro F1 and calibration for class labels." | Continuous metrics reported for Phase 1: Random Forest ($\text{MAE} = 0.052, R^2 = 0.9999$) and XGBoost ($\text{MAE} = 0.137, R^2 = 0.9996$) vs Baseline ($\text{MAE} = 14.130$). | **100% Compliant** |
+| **Fair Comparison & Metrics:** "Report MAE, RMSE and R squared for a continuous target or macro F1 and calibration for class labels." | Continuous metrics reported for Phase 1: Random Forest ($\text{MAE} = 0.052, R^2 = 0.9999$) and XGBoost ($\text{MAE} = 0.161, R^2 = 0.9994$) vs Baseline ($\text{MAE} = 14.130$). | **100% Compliant** |
 | **Suggested Stack:** "Python, pandas, scikit learn, XGBoost, PyTorch or TensorFlow and SHAP." | Utilized Python, Pandas, Scikit-Learn, XGBoost, and SHAP (`shap.TreeExplainer`). | **100% Compliant** |
 | **Feature Engineering & Tips:** "Check unit consistency, impute within split, flag impossible values, scale inputs for MLP, no leakage." | Enforced aquatic chemistry physical constraints, verified 0 nulls, scaled inputs via StandardScaler fit on train only, quarantined target columns. | **100% Compliant** |
 | **Expected Deliverable:** "A water quality prediction report comparing XGBoost and MLP with target definition, missing data treatment and feature importance." | Phase 1 deliverable compares Random Forest and XGBoost with target definition, 100% complete ground truth verification, and TreeSHAP feature importance; Phase 2 will deliver the full MLP benchmark. | **100% Compliant** |

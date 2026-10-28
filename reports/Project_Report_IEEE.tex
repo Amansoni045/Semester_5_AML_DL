@@ -103,7 +103,7 @@ N:P ratio, Benson--Krause dissolved oxygen saturation, Emerson
 un-ionized ammonia equilibrium), and chronological station-level
 autoregressive lags. Benchmarked against a stratified 70/15/15
 partition, Random Forest ($R^2{=}0.9999$, $\text{MAE}{=}0.052$) and
-XGBoost ($R^2{=}0.9996$, $\text{MAE}{=}0.137$, $9{\times}$ faster
+XGBoost ($R^2{=}0.9994$, $\text{MAE}{=}0.161$, $9{\times}$ faster
 inference) dramatically outperformed mean-baseline heuristics
 ($\text{MAE}{=}14.130$). Game-theoretic TreeSHAP attribution identified
 orthophosphate ($\rho{=}{-0.78}$ with WQI) and station memory as
@@ -129,7 +129,8 @@ orthophosphate~\cite{tyree2019surface}.
 
 To synthesise multi-dimensional telemetry into actionable policy
 directives, regulatory agencies rely on composite indicators,
-prominently the \textbf{CCME~WQI}~\cite{ccme2001wqi}. Despite its
+prominently the Canadian Council of Ministers of the Environment Water
+Quality Index (\textbf{CCME~WQI}). Despite its
 diagnostic utility, computing the CCME~WQI requires synchronous
 multi-variable laboratory testing; assays such as $\text{BOD}_5$
 mandate five days of microbiological incubation, precluding real-time
@@ -167,13 +168,13 @@ Project~18. Our contributions include:
 \label{sec:related}
 
 Early computational water quality modelling relied on process-based
-differential systems, such as the Streeter--Phelps oxygen sag
-equations~\cite{streeter1925study}. While physically consistent, these
+differential systems, such as the classical Streeter--Phelps oxygen sag
+equations. While physically consistent, these
 numerical models require expensive bathymetric calibrations and fail to
 generalise across diverse hydrological basins.
 
 With the proliferation of automated telemetry, data-driven approaches
-emerged. Breiman introduced Random Forests (RF)~\cite{breiman2001random},
+emerged. Breiman introduced Random Forests (RF),
 demonstrating that aggregating randomised decision trees drastically
 reduces variance while resisting tabular noise. Chen and Guestrin
 developed XGBoost~\cite{chen2016xgboost}, utilising second-order
@@ -182,7 +183,7 @@ functions to achieve state-of-the-art accuracy on structured
 environmental datasets.
 
 Lundberg and Lee unified cooperative game theory and tree ensembles
-through SHAP and TreeSHAP~\cite{lundberg2017unified,lundberg2020local},
+through SHAP and TreeSHAP,
 enabling exact polynomial-time computation of Shapley values. Published
 water quality literature often derives index targets directly from raw
 features without preventing circular mathematical leakage, or overlooks
@@ -279,7 +280,7 @@ The split Gain evaluates variance reduction at split candidates:
 
 Shapley values distribute prediction deviations
 $\hat{f}(\mathbf{x}) - \mathbb{E}[\hat{f}(\mathbf{x})]$ across
-features $i\in\mathcal{F}$~\cite{lundberg2017unified}:
+features $i\in\mathcal{F}$:
 \begin{equation}
   \phi_i(x) =
     \sum_{S\subseteq\mathcal{F}\setminus\{i\}}
@@ -289,7 +290,7 @@ features $i\in\mathcal{F}$~\cite{lundberg2017unified}:
 \end{equation}
 TreeSHAP evaluates~\eqref{eq:shap} in $\mathcal{O}(TLD^2)$ polynomial time by
 recursively tracking conditional expectations along tree decision
-paths~\cite{lundberg2020local}.
+paths.
 
 % ============================================================
 \section{Dataset Quality, Auditing \& EDA}
@@ -448,7 +449,7 @@ interpretability, we engineered 38~predictors across seven categories
 \subsection{Geochemical \& Stoichiometric Formulations}
 
 \noindent\textbf{1.\ Dissolved Oxygen Saturation \& Deficit.}
-Following the Benson--Krause formulation~\cite{benson1984solubility}:
+Following the Benson--Krause formulation:
 \begin{equation}
   \text{DO}_{\text{sat}} =
     14.652 - 0.41022\,T + 0.007991\,T^2 - 0.00007777\,T^3
@@ -460,7 +461,7 @@ Following the Benson--Krause formulation~\cite{benson1984solubility}:
 \end{equation}
 
 \noindent\textbf{2.\ Redfield Stoichiometric Ratio.}
-Redfield's ratio~\cite{redfield1958biological} identifies nutrient
+Redfield's stoichiometric ratio identifies nutrient
 limitation:
 \begin{equation}
   \text{N:P Ratio} =
@@ -468,7 +469,7 @@ limitation:
 \end{equation}
 
 \noindent\textbf{3.\ Toxic Un-Ionized Ammonia.}
-Governed by temperature and pH~\cite{emerson1975aqueous}:
+Governed by temperature and pH:
 \begin{equation}
   f_{\text{toxic}} =
     \frac{1}{10^{\left(0.09018 + \frac{2729.92}{T+273.15} - \text{pH}\right)} + 1}
@@ -588,16 +589,17 @@ Table~\ref{tab:model_comparison} reports empirical metrics on the
     \midrule
     Mean Baseline   & 14.130 & 17.656 & 0.0000 & 0.02\,s \\
     Random Forest   & \textbf{0.052} & \textbf{0.208} & \textbf{0.9999} & 3.85\,s \\
-    XGBoost         &  0.137 &  0.374 & 0.9996 & \textbf{0.42\,s} \\
+    XGBoost         &  0.161 &  0.437 & 0.9994 & \textbf{0.42\,s} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 Both tree ensembles dramatically outperform the empirical baseline
-($\text{MAE} = 14.130$), eliminating over 99.6\% of prediction error
-variance. Random Forest achieves sub-0.06 index precision, while
-XGBoost demonstrates $9{\times}$ faster inference latency, making it
-optimal for resource-constrained edge deployments.
+($\text{MAE} = 14.130$), eliminating over 99.9\% of prediction error
+variance. Random Forest achieves sub-0.06 index precision
+($\text{MAE} = 0.052$), while XGBoost reaches an MAE of $0.161$ with
+$9{\times}$ faster inference latency ($0.42\,\text{s}$ vs $3.85\,\text{s}$
+for 422k rows), making it optimal for resource-constrained edge deployments.
 
 \smallskip
 \noindent\textit{Scientific Validity Qualification:} These scores

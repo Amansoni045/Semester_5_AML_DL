@@ -29,7 +29,7 @@ In accordance with CSAI Course Guidelines for Phase 1 & Phase 2 project evaluati
 - **38 Engineered Domain Features:** Enforces aquatic chemistry laws (Henry's law DO sat %, Streeter-Phelps deficit, Redfield N:P stoichiometry, Emerson toxic $\text{NH}_3$), $\log(1+x)$ skewness normalization (boosting orthophosphate correlation from $-0.66$ to $\mathbf{-0.85}$), and chronological station lags ($\rho = -0.78$).
 - **Near-Perfect Machine Learning Precision:**
   - **Random Forest:** Val $R^2 = \mathbf{0.9999}$, $\text{MAE} = \mathbf{0.052}$, $\text{RMSE} = 0.208$.
-  - **XGBoost:** Val $R^2 = \mathbf{0.9996}$, $\text{MAE} = \mathbf{0.137}$, $\text{RMSE} = 0.374$ ($9\times$ faster inference latency).
+  - **XGBoost:** Val $R^2 = \mathbf{0.9994}$, $\text{MAE} = \mathbf{0.161}$, $\text{RMSE} = 0.437$ ($9\times$ faster inference latency).
   - **Mean Baseline:** Val $R^2 = 0.0000$, $\text{MAE} = 14.130$.
 - **Explainable AI (TreeSHAP):** Game-theoretic feature attribution proves that **orthophosphate accounts for over 88% of total split decisions**, identifying freshwater phosphorus as the primary driver of water quality index degradation.
 - **Enterprise Software Quality:** Modular package architecture (`src/`) with an automated 12-test unit testing suite (`tests/`) running in **1.65 seconds under `pytest` with 100% pass rate**.
