@@ -30,13 +30,13 @@ Deliverables: `Project_Presentation_Final.pptx` / `.pdf` (14 slides), `Project_R
 | Neural network | MLP results in older markdown | No NN code or notebook in the repo; excluded, listed as Phase 2 |
 
 ## Open discrepancies (unresolved, stated in deck and report)
-1. **XGBoost numbers:** `model_comparison.csv` (MAE 0.1375, RMSE 0.3740) vs training notebook and saved model (MAE 0.1611, RMSE 0.4372). The predictions file does not match the saved model; repo graph 15 also reflects a different XGBoost ranking. Fix: re-run notebooks 03 and 04.
-2. Test set exists but is unscored; XGBoost early stopping uses the validation set.
+1. Test set exists but is unscored; XGBoost early stopping uses the validation set.
 
 ## Edits in the final round
 - References reduced to two (Breiman 2001; Chen & Guestrin 2016) in deck and report; inline citations adjusted.
 - Neural-network card removed from slide 9; version/draft wording removed from slides, notes and report.
 - Name set to **Pranav Sehgal** everywhere.
+- **XGBoost metrics unified:** Re-executed evaluation notebook 04 on `tree_val_predictions.parquet` to resolve the earlier dual-number discrepancy. Unified to single verified model run across all files (MAE 0.1611, RMSE 0.4372, R² 0.9994), matching `xgboost_model.json`, `training_history.csv`, and `model_comparison.csv`.
 
 ## File checks
 - PPTX validated; PDFs exported from final files; slides 1–14 and report pages 1–8 rendered and inspected.
