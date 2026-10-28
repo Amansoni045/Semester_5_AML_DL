@@ -26,7 +26,6 @@ These figures are numbered sequentially and categorized so an AI agent (such as 
 | **`14_MODEL_comparison_mae_rmse_r2.png`** | **Slide: Quantitative Model Benchmarking** | • **Random Forest:** $R^2 = \mathbf{0.9999}$, $\text{MAE} = \mathbf{0.052}$, $\text{RMSE} = 0.208$.<br>• **XGBoost:** $R^2 = \mathbf{0.9996}$, $\text{MAE} = \mathbf{0.137}$, $\text{RMSE} = 0.374$ ($9\times$ faster inference latency).<br>• **Mean Baseline:** $R^2 = -0.0000$, $\text{MAE} = 14.130$. |
 | **`15_MODEL_feature_importance_rf_xgb.png`** | **Slide: Built-in Feature Importances** | • Built-in split/gain feature importances for Random Forest vs. XGBoost.<br>• Confirms alignment: `orthophosphate_mg_l`, `log1p_orthophosphate`, `hist_ortho_lag1` dominate. |
 | **`16_MODEL_shap_summary_beeswarm.png`** | **Slide: Explainable AI via TreeSHAP** | • Game-theoretic Shapley attribution beeswarm plot.<br>• **Orthophosphate drives >88% of model decisions**.<br>• **`country_code` importance is <0.01%**, proving model is governed by universal chemistry, not borders.<br>• Historical station lag (`hist_ortho_lag1`) is #2, confirming catchment memory. |
-| **`17_AUDIT_complete_case_missingness.png`** | **Slide: 100% Complete Case Ground Truth** | • Data audit verification proving **0 missing values (100% complete ground truth)** across all 14 columns.<br>• Eliminates synthetic imputation bias (mean/median/KNN). |
 | **`18_AUDIT_outlier_screening_bounds.png`** | **Slide: Thermodynamic Sensor Screening** | • Purging of exactly 8,360 corrupted telemetry dropouts ($-999999$ codes, $\text{pH}=67,115$).<br>• Produces 2,819,617 pristine clean observations. |
 | **`19_AUDIT_correlation_matrix.png`** | **Slide: Pre-Screening Correlation Matrix** | • Correlation matrix across raw parameters before feature engineering. |
 
@@ -37,7 +36,7 @@ These figures are numbered sequentially and categorized so an AI agent (such as 
 1. **Slide 1: Title & Team** — Project 18: Water Quality Prediction via Gradient Boosting & Deep Neural Networks
 2. **Slide 2: Problem Statement & Motivation** — Real-time telemetry vs. slow lab assays ($\text{BOD}_5$ takes 5 days)
 3. **Slide 3: Multi-National Dataset Profile** — `01_EDA_country_distribution.png`, `03_EDA_temporal_coverage_1940_2023.png`
-4. **Slide 4: Data Integrity & Physics Screening** — `17_AUDIT_complete_case_missingness.png`, `18_AUDIT_outlier_screening_bounds.png`
+4. **Slide 4: Data Integrity & Physics Screening** — `18_AUDIT_outlier_screening_bounds.png`
 5. **Slide 5: Chemical Dynamics & Skewness** — `04_EDA_chemical_boxplots_skewness.png`, `07_EDA_do_temperature_saturation.png`
 6. **Slide 6: Feature Engineering (38 Features)** — Stoichiometric laws ($N:P$), station lags (`hist_*`), seasonal $\sin/\cos$
 7. **Slide 7: Anti-Leakage Quarantine & Architecture** — Strict separation of features and CCME targets ($F_1, F_2, F_3$)

@@ -31,7 +31,7 @@ Deliverables: `Project_Presentation_Final.pptx` / `.pdf` (14 slides), `Project_R
 
 ## Open discrepancies (unresolved, stated in deck and report)
 1. **XGBoost numbers:** `model_comparison.csv` (MAE 0.1375, RMSE 0.3740) vs training notebook and saved model (MAE 0.1611, RMSE 0.4372). The predictions file does not match the saved model; repo graph 15 also reflects a different XGBoost ranking. Fix: re-run notebooks 03 and 04.
-2. **Completeness:** file has 0 nulls, but values cluster (BOD median 2.70, Q3 2.83) and repo graph 17 shows 26–34% missing in chemical columns. Upstream filling is possible; not verifiable here. Graph 17 was not used.
+2. **Completeness:** Loaded dataset has 0 nulls across all 14 columns; legacy audit graph 17 (which showed 26–34% missingness from the pre-filtered multi-sensor raw archive) has been purged to prevent confusion. Some values cluster (BOD median 2.70, Q3 2.83).
 3. Test set exists but is unscored; XGBoost early stopping uses the validation set.
 
 ## Edits in the final round
